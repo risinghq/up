@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "up",
+  "account_id": "87dbfa4b79d775c28dda68b15f58a0cb",
+  "main": "src/worker/index.tsx",
+  "compatibility_date": "2026-11-20",
+  "assets": { "not_found_handling": "none" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "up",
+      "database_id": "0e8dd49a-2e8a-4f55-951b-9c006d25ff88",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "routes": [{ "pattern": "up.rising.sh", "custom_domain": true }],
+  "vars": {
+    "SITE_URL": "https://up.rising.sh",
+    "WHATSAPP_COMMUNITY_URL": "",
+    "INSTAGRAM_URL": "",
+    "SHOW_DRAFTS": "",
+  },
+  "observability": { "enabled": true },
+}

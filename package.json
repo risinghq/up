@@ -1,0 +1,36 @@
+{
+  "name": "up",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "oxlint && oxfmt --check .",
+    "fix": "oxfmt .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "check": "bun run lint && bun run typecheck && bun run test && bun run build",
+    "db:migrate:local": "wrangler d1 migrations apply up --local",
+    "db:migrate:remote": "wrangler d1 migrations apply up --remote",
+    "deploy": "bun run build && wrangler deploy"
+  },
+  "dependencies": {
+    "@fontsource-variable/geist": "^5.3.0",
+    "hono": "^4.13.21",
+    "preact": "^11.2.0",
+    "preact-render-to-string": "^6.8.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.70.1",
+    "@cloudflare/workers-types": "^5.20261124.2",
+    "@preact/preset-vite": "^2.10.6",
+    "@types/bun": "^1.4.5",
+    "miniflare": "^4.20260730.0",
+    "oxfmt": "^0.80.0",
+    "oxlint": "^1.95.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "wrangler": "^4.168.0"
+  }
+}
