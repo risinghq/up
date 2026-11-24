@@ -9,6 +9,16 @@ the production values. [`.dev.vars`](../.dev.vars) overrides them locally.
 | `WHATSAPP_COMMUNITY_URL` | The WhatsApp Community invite. When set, the header, the home page and the ticket link to it.                                   |
 | `INSTAGRAM_URL`          | The Instagram profile. When set, the header and the home page link to it.                                                       |
 
+## Secrets
+
+`wrangler secret put` sets these. `.dev.vars` is tracked, so it never holds
+them.
+
+| Secret                 | Meaning                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `GOOGLE_CLIENT_ID`     | The OAuth client for [Google Calendar and Meet](google-calendar.md). Without both secrets, the admin hides it. |
+| `GOOGLE_CLIENT_SECRET` | That client's secret.                                                                                          |
+
 ## Bindings
 
 | Binding  | Resource                                                                                                          |

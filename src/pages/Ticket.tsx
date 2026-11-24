@@ -10,6 +10,8 @@ export type TicketView = {
   fresh: boolean;
   ticketUrl: string;
   calendarUrl: string;
+  /** The event's Google Meet call; only a ticket with a seat gets it. */
+  meetUrl?: string;
   whatsapp: string;
 };
 
@@ -71,6 +73,15 @@ export function TicketPage(view: TicketView) {
             Qué hacer ahora
           </h2>
           <div class="ticket-actions">
+            {view.meetUrl && (
+              <a
+                class="button button-primary button-full"
+                href={view.meetUrl}
+                rel="noopener"
+              >
+                Entrar a la llamada en Google Meet
+              </a>
+            )}
             <div class="copy-row">
               <input
                 class="copy-input"
@@ -102,7 +113,10 @@ export function TicketPage(view: TicketView) {
               </a>
             </div>
             {view.whatsapp && (
-              <a class="button button-primary button-full" href={view.whatsapp}>
+              <a
+                class={`button button-full ${view.meetUrl ? "button-light" : "button-primary"}`}
+                href={view.whatsapp}
+              >
                 Únete a la comunidad
               </a>
             )}

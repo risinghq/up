@@ -57,21 +57,29 @@ challenge in D1 and takes it once.
 [`src/client/admin.ts`](../src/client/admin.ts) runs the ceremony in the
 browser, and it loads only on the sign-in and invite pages.
 
+The Google Calendar link runs through
+[`src/worker/google.ts`](../src/worker/google.ts): the OAuth exchange, the
+Calendar API calls and the `google_account` row. Every call goes through the
+`fetch` that `createApp` receives, so the tests stand in for Google. The admin
+routes store the entry's id, its link and the Meet link on the event row;
+`saveEvent` never writes those columns.
+
 ## Data
 
 D1 holds everything but the covers; [`migrations/`](../migrations/) holds the
 schema.
 
-| Table           | Row                                                                                                |
-| --------------- | -------------------------------------------------------------------------------------------------- |
-| `events`        | One event: its text, dates, place, capacity, questions as JSON, status and theme.                  |
-| `people`        | One email, with the latest name and phone, and the consent dates.                                  |
-| `registrations` | One person at one event: the ticket token as `id`, the number, the status and the answers as JSON. |
-| `admins`        | One admin's name.                                                                                  |
-| `credentials`   | One passkey of one admin.                                                                          |
-| `invites`       | One admin invite, by token hash, until it is used or expires.                                      |
-| `sessions`      | One signed-in browser, by token hash.                                                              |
-| `challenges`    | One WebAuthn challenge between its options request and its verification.                           |
+| Table            | Row                                                                                                |
+| ---------------- | -------------------------------------------------------------------------------------------------- |
+| `events`         | One event: its text, dates, place, capacity, questions as JSON, status and theme.                  |
+| `people`         | One email, with the latest name and phone, and the consent dates.                                  |
+| `registrations`  | One person at one event: the ticket token as `id`, the number, the status and the answers as JSON. |
+| `admins`         | One admin's name.                                                                                  |
+| `credentials`    | One passkey of one admin.                                                                          |
+| `invites`        | One admin invite, by token hash, until it is used or expires.                                      |
+| `sessions`       | One signed-in browser, by token hash.                                                              |
+| `challenges`     | One WebAuthn challenge between its options request and its verification.                           |
+| `google_account` | The one connected Google account: its email and refresh token.                                     |
 
 The ticket token is the registrant's only key. Anyone with the link can see and
 cancel the ticket, and registrants have no accounts. Invite and session tokens
@@ -85,6 +93,7 @@ are stored as their SHA-256 only.
 | [`src/worker/admin.tsx`](../src/worker/admin.tsx)               | The `/admin` routes.                                                        |
 | [`src/worker/web.tsx`](../src/worker/web.tsx)                   | The `Env` type and page rendering.                                          |
 | [`src/worker/events.ts`](../src/worker/events.ts)               | The event type and its D1 queries.                                          |
+| [`src/worker/google.ts`](../src/worker/google.ts)               | Google OAuth, the Calendar API and the connected account.                   |
 | [`src/worker/eventForm.ts`](../src/worker/eventForm.ts)         | The editor's form parsing.                                                  |
 | [`src/worker/questions.ts`](../src/worker/questions.ts)         | The one-per-line question syntax.                                           |
 | [`src/worker/form.ts`](../src/worker/form.ts)                   | Registration parsing and phone normalization.                               |

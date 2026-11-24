@@ -11,10 +11,68 @@ export type DashboardEvent = {
 
 export type NewInvite = { name: string; url: string };
 
+/** The Google Calendar connection. Absent when the site has no OAuth client. */
+export type GooglePanel = {
+  /** The connected account's email. */
+  account?: string;
+  notice?: "conectado" | "desconectado" | "error";
+};
+
+const googleNotice = {
+  conectado: "Google Calendar quedó conectado.",
+  desconectado: "Google Calendar quedó desconectado.",
+  error: "Google no aceptó la conexión. Inténtalo otra vez.",
+} as const;
+
+function GoogleSection({ google }: { google: GooglePanel }) {
+  return (
+    <section aria-labelledby="google-title">
+      <h2 id="google-title">Google Calendar y Meet</h2>
+      {google.notice && (
+        <p
+          class={`notice${google.notice === "error" ? " notice-error" : ""}`}
+          role={google.notice === "error" ? "alert" : "status"}
+        >
+          {googleNotice[google.notice]}
+        </p>
+      )}
+      {google.account ? (
+        <div class="google-account">
+          <p>
+            Los eventos se crean en el calendario de{" "}
+            <strong>{google.account}</strong>, cada uno con su llamada de Meet.
+          </p>
+          <form
+            method="post"
+            action="/admin/google/desconectar"
+            data-confirm="¿Desconectar Google Calendar? Los eventos ya creados quedan en el calendario."
+          >
+            <button class="button button-small button-quiet" type="submit">
+              Desconectar
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div class="google-account">
+          <p>
+            Conecta una cuenta de Google para crear cada evento en su calendario
+            con una llamada de Meet. Quien tenga cupo ve el enlace en su
+            entrada.
+          </p>
+          <a class="button button-small" href="/admin/google/conectar">
+            Conectar Google
+          </a>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function Dashboard(props: {
   admin: Admin;
   events: DashboardEvent[];
   admins: Admin[];
+  google?: GooglePanel;
   invite?: NewInvite;
   inviteError?: string;
 }) {
@@ -60,6 +118,8 @@ export function Dashboard(props: {
           <p class="empty">Todavía no hay eventos. Crea el primero.</p>
         )}
       </section>
+
+      {props.google && <GoogleSection google={props.google} />}
 
       <section aria-labelledby="admins-title">
         <h2 id="admins-title">Admins</h2>

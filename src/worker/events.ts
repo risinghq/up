@@ -29,6 +29,15 @@ export type Theme = {
 
 export type EventStatus = "draft" | "published";
 
+/** The event's copy in the connected Google Calendar. */
+export type CalendarLink = {
+  eventId: string;
+  /** The event in Google Calendar, for the admin. */
+  htmlUrl: string;
+  /** Absent while Google is still creating the call. */
+  meetUrl?: string;
+};
+
 export type EventMeta = {
   slug: string;
   title: string;
@@ -51,6 +60,7 @@ export type EventMeta = {
   theme: Theme;
   /** A featured upcoming event leads the home page. */
   featured: boolean;
+  calendar?: CalendarLink;
 };
 
 export const kindLabel: Record<Kind, string> = {
@@ -85,6 +95,9 @@ type Row = {
   backdrop: Backdrop;
   font: Font;
   featured: number;
+  google_event_id: string | null;
+  google_event_url: string | null;
+  meet_url: string | null;
 };
 
 function fromRow(r: Row): EventMeta {
@@ -117,6 +130,15 @@ function fromRow(r: Row): EventMeta {
       font: r.font,
     },
     featured: r.featured === 1,
+    ...(r.google_event_id
+      ? {
+          calendar: {
+            eventId: r.google_event_id,
+            htmlUrl: r.google_event_url ?? "",
+            ...(r.meet_url ? { meetUrl: r.meet_url } : {}),
+          },
+        }
+      : {}),
   };
 }
 
@@ -200,6 +222,26 @@ export async function saveEvent(
     .prepare("UPDATE events SET featured = 0 WHERE slug != ? AND featured = 1")
     .bind(event.slug);
   await db.batch(event.featured ? [write, unfeature] : [write]);
+}
+
+/** Records the event's Google Calendar copy, or forgets it with null. */
+export async function linkCalendar(
+  db: D1Database,
+  slug: string,
+  link: CalendarLink | null,
+) {
+  await db
+    .prepare(
+      `UPDATE events SET google_event_id = ?, google_event_url = ?, meet_url = ?
+       WHERE slug = ?`,
+    )
+    .bind(
+      link?.eventId ?? null,
+      link?.htmlUrl ?? null,
+      link?.meetUrl ?? null,
+      slug,
+    )
+    .run();
 }
 
 export async function deleteEvent(db: D1Database, slug: string) {

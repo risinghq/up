@@ -9,6 +9,7 @@ import { sessionAdmin } from "./auth";
 import { googleCalendarUrl, ics } from "./calendar";
 import { coverUrl, findEvent, listEvents, type EventMeta } from "./events";
 import { parseRegistration, type FormState } from "./form";
+import type { Fetch } from "./google";
 import { cancel, findTicket, goingCount, register } from "./registrations";
 import {
   description,
@@ -21,7 +22,11 @@ import {
 
 export type { Env } from "./web";
 
-export type AppOptions = { now?: () => Date };
+export type AppOptions = {
+  now?: () => Date;
+  /** Carries the calls to Google. */
+  fetch?: Fetch;
+};
 
 const emptyForm: FormState = { values: {}, errors: {} };
 
@@ -87,7 +92,10 @@ export function createApp(options: AppOptions = {}) {
     c.header("Referrer-Policy", "strict-origin");
   });
 
-  app.route("/admin", adminRoutes(now));
+  app.route(
+    "/admin",
+    adminRoutes(now, options.fetch ?? ((input, init) => fetch(input, init))),
+  );
 
   app.get("/", async (c) => {
     const tab: Tab = c.req.query("ver") === "pasados" ? "pasados" : "proximos";
@@ -160,6 +168,9 @@ export function createApp(options: AppOptions = {}) {
         fresh={c.req.query("nueva") !== undefined}
         ticketUrl={`${site(c)}/entrada/${ticket.token}`}
         calendarUrl={googleCalendarUrl(event, eventUrl)}
+        meetUrl={
+          ticket.status === "going" ? event.calendar?.meetUrl : undefined
+        }
         whatsapp={c.env.WHATSAPP_COMMUNITY_URL}
       />,
     );

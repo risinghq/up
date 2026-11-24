@@ -30,6 +30,8 @@ Open the printed invite link, create a passkey, and add an event from
 - A capacity per event. Registrations past it join a waitlist, and a
   cancellation gives the seat to the oldest waitlisted person.
 - Google Calendar links and an `.ics` file per event, in Lima time.
+- An optional Google Calendar connection that creates each event with a Google
+  Meet call, shown on the tickets that hold a seat.
 - Recorded consent: the privacy policy is required and WhatsApp news is opt-in.
 - An admin area with passkey sign-in: an event editor with a kind, an accent
   color, a backdrop, a cover and a featured spot on the home page; a registrant

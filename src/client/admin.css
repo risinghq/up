@@ -257,6 +257,68 @@
   object-fit: cover;
 }
 
+.google-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.google-account p {
+  flex: 1 1 320px;
+}
+
+.notice + .google-account {
+  margin-top: 12px;
+}
+
+.calendar-panel {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 14px;
+}
+
+.calendar-panel h2 {
+  margin-bottom: 0;
+}
+
+.calendar-links {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.calendar-links div {
+  display: flex;
+  gap: 12px;
+}
+
+.calendar-links dt {
+  flex: 0 0 88px;
+  color: var(--ink-3);
+}
+
+.calendar-links dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.calendar-panel .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calendar-panel .hint {
+  margin: 0;
+}
+
 .danger {
   padding: 20px;
   border: 1px solid #f3c4bf;
