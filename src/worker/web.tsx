@@ -1,7 +1,12 @@
 import type { Context } from "hono";
 import type { ComponentChildren } from "preact";
 import { renderToString } from "preact-render-to-string";
-import { Layout, type Community, type Head } from "../pages/Layout";
+import {
+  Layout,
+  type AdminShell,
+  type Community,
+  type Head,
+} from "../pages/Layout";
 import { NotFound } from "../pages/NotFound";
 import type { Admin } from "./auth";
 
@@ -37,20 +42,28 @@ const community = (c: Ctx): Community => ({
   instagram: c.env.INSTAGRAM_URL,
 });
 
-/** Renders a page inside the layout. `passkeys` loads the admin script. */
+export type PageOptions = {
+  /** Loads the admin passkey script. */
+  passkeys?: boolean;
+  /** Renders the admin header in place of the public one. */
+  shell?: AdminShell;
+};
+
+/** Renders a page inside the layout. */
 export function page(
   c: Ctx,
   head: Head,
   body: ComponentChildren,
   status = 200,
-  passkeys = false,
+  options: PageOptions = {},
 ) {
   const html = renderToString(
     <Layout
       head={head}
       community={community(c)}
       admin={Boolean(c.get("admin"))}
-      passkeys={passkeys}
+      passkeys={options.passkeys ?? false}
+      shell={options.shell}
     >
       {body}
     </Layout>,

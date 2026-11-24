@@ -181,6 +181,22 @@ export async function registrationCount(
   return row?.n ?? 0;
 }
 
+/** Registrations of the event by status. */
+export async function statusCounts(
+  db: D1Database,
+  slug: string,
+): Promise<Record<Status, number>> {
+  const { results } = await db
+    .prepare(
+      "SELECT status, COUNT(*) AS n FROM registrations WHERE event_slug = ? GROUP BY status",
+    )
+    .bind(slug)
+    .all<{ status: Status; n: number }>();
+  const counts = { going: 0, waitlist: 0, cancelled: 0 };
+  for (const row of results) counts[row.status] = row.n;
+  return counts;
+}
+
 export type Registrant = {
   number: number;
   status: Status;

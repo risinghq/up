@@ -130,7 +130,10 @@ describe("access", () => {
     const res = await get("/admin");
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.text()).toContain("Hola, David");
+    const html = await res.text();
+    expect(html).toContain("<span>David</span>");
+    // The admin has its own header, without the public community links.
+    expect(html).not.toContain("Instagram");
   });
 });
 
@@ -142,7 +145,7 @@ describe("events", () => {
     );
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe(
-      "/admin/eventos/taller-qiskit?guardado",
+      "/admin/eventos/taller-qiskit?creado",
     );
     const saved = await findEvent(DB, "taller-qiskit");
     expect(saved).toMatchObject({
@@ -206,7 +209,7 @@ describe("events", () => {
   test("renames an event without registrations and replaces its cover", async () => {
     const before = await findEvent(DB, "taller-qiskit");
     const res = await post(
-      "/admin/eventos/taller-qiskit",
+      "/admin/eventos/taller-qiskit/editar",
       eventForm({ slug: "qiskit", cover: png("nueva.png") }),
     );
     expect(res.status).toBe(303);
@@ -216,7 +219,7 @@ describe("events", () => {
     expect(await MEDIA.head(before?.coverKey ?? "")).toBeNull();
 
     await post(
-      "/admin/eventos/qiskit",
+      "/admin/eventos/qiskit/editar",
       eventForm({ slug: "qiskit", remove_cover: "on" }),
     );
     expect((await findEvent(DB, "qiskit"))?.coverKey).toBeUndefined();
@@ -237,11 +240,13 @@ describe("events", () => {
     );
 
     const res = await post(
-      "/admin/eventos/lleno",
+      "/admin/eventos/lleno/editar",
       eventForm({ slug: "otro", title: "Con inscritos", capacity: "2" }),
     );
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("/admin/eventos/lleno?guardado");
+    expect(res.headers.get("location")).toBe(
+      "/admin/eventos/lleno/editar?guardado",
+    );
 
     // The raised capacity seats the waitlisted registrant at once.
     const seated = await DB.prepare(
@@ -251,7 +256,25 @@ describe("events", () => {
 
     const removal = await post("/admin/eventos/lleno/eliminar", new FormData());
     expect(removal.status).toBe(409);
+    expect(await removal.text()).toContain("Tiene inscripciones");
     expect(await findEvent(DB, "lleno")).not.toBeNull();
+  });
+
+  test("the overview counts seats, the waitlist and cancellations", async () => {
+    const html = await (await get("/admin/eventos/lleno")).text();
+    expect(html).toContain("Cuándo y dónde");
+    expect(html).toContain("<strong>2</strong> / 2 con cupo");
+    const more = await get("/admin/eventos/lleno/mas");
+    expect(more.status).toBe(200);
+    expect(await more.text()).toContain("Eliminar");
+  });
+
+  test("past events sit behind their own tab", async () => {
+    const upcoming = await (await get("/admin")).text();
+    const past = await (await get("/admin?periodo=pasados")).text();
+    const pastTab = 'href="/admin?periodo=pasados" aria-current="page"';
+    expect(upcoming).not.toContain(pastTab);
+    expect(past).toContain(pastTab);
   });
 
   test("deletes an event without registrations", async () => {
@@ -334,7 +357,7 @@ describe("passkeys", () => {
     const session = (signedIn.headers.get("set-cookie") ?? "").split(";")[0];
     expect(
       await (await get("/admin", { cookie: session ?? "" })).text(),
-    ).toContain("Hola, Pedro");
+    ).toContain("<span>Pedro</span>");
 
     // A challenge answers once.
     const replay = await postJson("/admin/passkey/entrar", {

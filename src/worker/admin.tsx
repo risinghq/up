@@ -6,18 +6,17 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
-import {
-  Dashboard,
-  type GooglePanel,
-  type NewInvite,
-} from "../pages/admin/Dashboard";
-import {
-  EventEditor,
-  type CalendarPanel,
-  type EditorView,
-} from "../pages/admin/EventEditor";
+import type { AdminShell } from "../pages/Layout";
+import { EventEditor, type EditorView } from "../pages/admin/EventEditor";
+import { Events, type Period } from "../pages/admin/Events";
+import { More, Overview, type CalendarPanel } from "../pages/admin/Manage";
 import { Invite, InviteGone, SignIn } from "../pages/admin/Passkey";
 import { Registrants } from "../pages/admin/Registrants";
+import {
+  Settings,
+  type GooglePanel,
+  type NewInvite,
+} from "../pages/admin/Settings";
 import {
   acceptInvite,
   createInvite,
@@ -69,6 +68,7 @@ import {
   goingCount,
   listRegistrants,
   registrationCount,
+  statusCounts,
 } from "./registrations";
 import { newToken } from "./tokens";
 import { notFound, page, site, type AppEnv, type Ctx } from "./web";
@@ -154,12 +154,16 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     }
   };
 
+  /** An admin page. The header names the signed-in admin and marks `section`. */
   const adminPage = (
     c: Ctx,
     title: string,
     body: ComponentChildren,
-    status = 200,
-    passkeys = false,
+    options: {
+      status?: number;
+      passkeys?: boolean;
+      section?: AdminShell["section"];
+    } = {},
   ) => {
     c.header("Cache-Control", "no-store");
     return page(
@@ -171,8 +175,14 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
         noindex: true,
       },
       body,
-      status,
-      passkeys,
+      options.status,
+      {
+        passkeys: options.passkeys,
+        shell: {
+          name: c.get("admin")?.name,
+          section: options.section ?? "eventos",
+        },
+      },
     );
   };
 
@@ -216,21 +226,17 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
   admin.get("/entrar", (c) =>
     c.get("admin")
       ? c.redirect("/admin", 303)
-      : adminPage(c, "Entrar", <SignIn />, 200, true),
+      : adminPage(c, "Entrar", <SignIn />, { passkeys: true }),
   );
 
   admin.get("/invitacion/:token", async (c) => {
     const token = c.req.param("token");
     const name = await findInvite(c.env.DB, token, iso());
     return name
-      ? adminPage(
-          c,
-          "Invitación",
-          <Invite name={name} token={token} />,
-          200,
-          true,
-        )
-      : adminPage(c, "Invitación", <InviteGone />, 404);
+      ? adminPage(c, "Invitación", <Invite name={name} token={token} />, {
+          passkeys: true,
+        })
+      : adminPage(c, "Invitación", <InviteGone />, { status: 404 });
   });
 
   admin.post("/passkey/registro/opciones", async (c) => {
@@ -310,19 +316,36 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
 
   const signedIn = (c: Ctx) => c.get("admin") as Admin;
 
-  const dashboard = async (
+  // Upcoming runs soonest first; past runs newest first.
+  admin.get("/", async (c) => {
+    const period: Period =
+      c.req.query("periodo") === "pasados" ? "pasados" : "proximos";
+    const events = await listEvents(c.env.DB);
+    const upcoming = events.filter((e) => new Date(e.end) > now());
+    const past = events.filter((e) => new Date(e.end) <= now()).reverse();
+    const shown = period === "proximos" ? upcoming : past;
+    const rows = await Promise.all(
+      shown.map(async (event) => ({
+        event,
+        going: await goingCount(c.env.DB, event.slug),
+      })),
+    );
+    return adminPage(
+      c,
+      "Eventos",
+      <Events
+        period={period}
+        events={rows}
+        counts={{ proximos: upcoming.length, pasados: past.length }}
+      />,
+    );
+  });
+
+  const settings = async (
     c: Ctx,
     extra: { invite?: NewInvite; inviteError?: string } = {},
     status = 200,
   ) => {
-    const events = await listEvents(c.env.DB);
-    const rows = await Promise.all(
-      events.reverse().map(async (event) => ({
-        event,
-        going: await goingCount(c.env.DB, event.slug),
-        ended: new Date(event.end) <= now(),
-      })),
-    );
     const google: GooglePanel | undefined = googleCreds(c)
       ? {
           account: (await findAccount(c.env.DB))?.email,
@@ -331,19 +354,17 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
       : undefined;
     return adminPage(
       c,
-      "Admin",
-      <Dashboard
-        admin={signedIn(c)}
-        events={rows}
+      "Ajustes",
+      <Settings
         admins={await listAdmins(c.env.DB)}
         google={google}
         {...extra}
       />,
-      status,
+      { status, section: "ajustes" },
     );
   };
 
-  admin.get("/", (c) => dashboard(c));
+  admin.get("/ajustes", (c) => settings(c));
 
   admin.get("/google/conectar", (c) => {
     const creds = googleCreds(c);
@@ -366,7 +387,7 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     deleteCookie(c, GOOGLE_STATE_COOKIE, { path: "/admin/google" });
     const code = c.req.query("code");
     if (!code || !expected || c.req.query("state") !== expected)
-      return c.redirect("/admin?google=error", 303);
+      return c.redirect("/admin/ajustes?google=error", 303);
     try {
       const granted = await exchangeCode(fetcher, creds, code, googleReturn(c));
       await saveAccount(c.env.DB, {
@@ -374,10 +395,10 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
         connectedBy: signedIn(c).id,
         connectedAt: iso(),
       });
-      return c.redirect("/admin?google=conectado", 303);
+      return c.redirect("/admin/ajustes?google=conectado", 303);
     } catch (error) {
       console.error(error);
-      return c.redirect("/admin?google=error", 303);
+      return c.redirect("/admin/ajustes?google=error", 303);
     }
   });
 
@@ -387,15 +408,15 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
       await revoke(fetcher, account.refreshToken).catch(console.error);
       await deleteAccount(c.env.DB);
     }
-    return c.redirect("/admin?google=desconectado", 303);
+    return c.redirect("/admin/ajustes?google=desconectado", 303);
   });
 
   admin.post("/invitaciones", async (c) => {
     const name = String((await c.req.formData()).get("name") ?? "").trim();
     if (!name || name.length > 60)
-      return dashboard(c, { inviteError: "Escribe un nombre." }, 422);
+      return settings(c, { inviteError: "Escribe un nombre." }, 422);
     const token = await createInvite(c.env.DB, name, iso());
-    return dashboard(c, {
+    return settings(c, {
       invite: { name, url: `${site(c)}/admin/invitacion/${token}` },
     });
   });
@@ -407,16 +428,22 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     return c.redirect("/", 303);
   });
 
+  /** The editor of `event`, or of a new event when it is absent. */
   const editor = (
     c: Ctx,
-    view: Omit<EditorView, "saved"> & { saved?: boolean },
+    view: Pick<EditorView, "form" | "registrations" | "coverUrl"> &
+      Partial<EditorView>,
+    event?: EventMeta,
     status = 200,
   ) =>
     adminPage(
       c,
-      view.slug ? `Editar ${view.form.values.title}` : "Nuevo evento",
-      <EventEditor saved={false} {...view} />,
-      status,
+      event ? `Editar: ${event.title}` : "Crear evento",
+      <EventEditor
+        view={{ saved: false, calendarError: false, ...view }}
+        event={event}
+      />,
+      { status },
     );
 
   /**
@@ -452,7 +479,8 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
 
   admin.post("/eventos/nuevo", async (c) => {
     const parsed = parseEventForm(await c.req.formData());
-    if (!parsed.ok) return editor(c, { form: parsed, registrations: 0 }, 422);
+    if (!parsed.ok)
+      return editor(c, { form: parsed, registrations: 0 }, undefined, 422);
     const event = parsed.event;
     if (await findEvent(c.env.DB, event.slug))
       return editor(
@@ -461,11 +489,12 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
           form: taken({ values: eventValues(event), errors: {} }),
           registrations: 0,
         },
+        undefined,
         409,
       );
     const cover = await placeCover(c, parsed, event.slug);
     await saveEvent(c.env.DB, { ...event, coverKey: cover.key }, iso());
-    return c.redirect(`/admin/eventos/${event.slug}?guardado`, 303);
+    return c.redirect(`/admin/eventos/${event.slug}?creado`, 303);
   });
 
   /** Loads the event in the path or answers 404. */
@@ -479,31 +508,47 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
   admin.get(
     "/eventos/:slug",
     withEvent(async (c, event) =>
-      editor(c, {
-        form: { values: eventValues(event), errors: {} },
-        slug: event.slug,
-        registrations: await registrationCount(c.env.DB, event.slug),
-        coverUrl: coverUrl(event),
-        saved: c.req.query("guardado") !== undefined,
-        calendar: await calendarPanel(c, event),
-      }),
+      adminPage(
+        c,
+        event.title,
+        <Overview
+          event={event}
+          url={`${site(c)}/${event.slug}`}
+          counts={await statusCounts(c.env.DB, event.slug)}
+          created={c.req.query("creado") !== undefined}
+          calendar={await calendarPanel(c, event)}
+        />,
+      ),
+    ),
+  );
+
+  admin.get(
+    "/eventos/:slug/editar",
+    withEvent(async (c, event) =>
+      editor(
+        c,
+        {
+          form: { values: eventValues(event), errors: {} },
+          registrations: await registrationCount(c.env.DB, event.slug),
+          coverUrl: coverUrl(event),
+          saved: c.req.query("guardado") !== undefined,
+          calendarError: c.req.query("calendario") === "error",
+        },
+        event,
+      ),
     ),
   );
 
   admin.post(
-    "/eventos/:slug",
+    "/eventos/:slug/editar",
     withEvent(async (c, current) => {
       const registrations = await registrationCount(c.env.DB, current.slug);
       const parsed = parseEventForm(
         await c.req.formData(),
         registrations ? current.slug : undefined,
       );
-      const base = {
-        slug: current.slug,
-        registrations,
-        coverUrl: coverUrl(current),
-      };
-      if (!parsed.ok) return editor(c, { ...base, form: parsed }, 422);
+      const base = { registrations, coverUrl: coverUrl(current) };
+      if (!parsed.ok) return editor(c, { ...base, form: parsed }, current, 422);
       const event = parsed.event;
       if (
         event.slug !== current.slug &&
@@ -512,6 +557,7 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
         return editor(
           c,
           { ...base, form: taken({ values: eventValues(event), errors: {} }) },
+          current,
           409,
         );
       const cover = await placeCover(c, parsed, event.slug, current.coverKey);
@@ -526,7 +572,7 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
       await fillSeats(c.env.DB, saved);
       const synced = !saved.calendar || (await syncCalendar(c, saved));
       return c.redirect(
-        `/admin/eventos/${event.slug}?guardado${synced ? "" : "&calendario=error"}`,
+        `/admin/eventos/${event.slug}/editar?guardado${synced ? "" : "&calendario=error"}`,
         303,
       );
     }),
@@ -552,22 +598,28 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     }),
   );
 
+  const more = async (c: Ctx, event: EventMeta, deleteError?: string) =>
+    adminPage(
+      c,
+      `Más: ${event.title}`,
+      <More
+        event={event}
+        registrations={await registrationCount(c.env.DB, event.slug)}
+        deleteError={deleteError}
+      />,
+      { status: deleteError ? 409 : 200 },
+    );
+
+  admin.get(
+    "/eventos/:slug/mas",
+    withEvent((c, event) => more(c, event)),
+  );
+
   admin.post(
     "/eventos/:slug/eliminar",
     withEvent(async (c, event) => {
-      const registrations = await registrationCount(c.env.DB, event.slug);
-      if (registrations)
-        return editor(
-          c,
-          {
-            form: { values: eventValues(event), errors: {} },
-            slug: event.slug,
-            registrations,
-            coverUrl: coverUrl(event),
-            deleteError: "Tiene inscripciones; déjalo en borrador.",
-          },
-          409,
-        );
+      if (await registrationCount(c.env.DB, event.slug))
+        return more(c, event, "Tiene inscripciones; déjalo en borrador.");
       await dropCalendar(c, event);
       await deleteEvent(c.env.DB, event.slug);
       if (event.coverKey) await c.env.MEDIA.delete(event.coverKey);

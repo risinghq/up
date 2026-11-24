@@ -39,7 +39,7 @@ frees.
 2. `adminRoutes` in [`src/worker/admin.tsx`](../src/worker/admin.tsx) serves
    `/admin`. Without a session, a GET redirects to `/admin/entrar` and a POST
    answers 403. A form post whose `Origin` is not `SITE_URL` is refused.
-3. `POST /admin/eventos/<slug>` reads the editor with `parseEventForm` in
+3. `POST /admin/eventos/<slug>/editar` reads the editor with `parseEventForm` in
    [`src/worker/eventForm.ts`](../src/worker/eventForm.ts). It turns Lima
    datetimes into ISO, the questions text into `Question[]` with
    [`src/worker/questions.ts`](../src/worker/questions.ts) and the theme fields
