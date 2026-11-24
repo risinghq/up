@@ -11,7 +11,10 @@ export default defineConfig({
     client: {
       build: {
         rolldownOptions: {
-          input: { client: "src/client/main.ts" },
+          input: {
+            client: "src/client/main.ts",
+            admin: "src/client/admin.ts",
+          },
           output: {
             entryFileNames: "assets/[name].js",
             assetFileNames: (asset) =>

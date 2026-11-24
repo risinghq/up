@@ -7,5 +7,6 @@ Read [docs/architecture.md](docs/architecture.md) for the code map and
 - User-facing text is Spanish (Peru). Code, comments and docs are English.
 - A schema change is a new file in `migrations/`. Never edit an applied one.
 - Keep every page working without JavaScript: forms post and the Worker answers
-  with a redirect or a rendered page.
-- A new route or form rule gets a test in `tests/app.test.ts`.
+  with a redirect or a rendered page. The passkey pages are the one exception.
+- A new route or form rule gets a test in `tests/app.test.ts`, or in
+  `tests/admin.test.ts` for `/admin`.

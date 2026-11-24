@@ -1,61 +1,54 @@
 # Add an event
 
-An event is a file in `src/events/` and one line in
-[`src/events/index.ts`](../src/events/index.ts).
+Sign in at `/admin` ([admins](admins.md)) and choose **Nuevo evento**. The
+editor at `/admin/eventos/nuevo` saves the event to D1, and the site serves it
+at `/<slug>` right away. No deploy is needed.
 
-```sh
-cp src/events/ejemplo.tsx src/events/rust-intro.tsx
-```
-
-```tsx
-import type { EventEntry } from "./types";
-
-export const rustIntro: EventEntry = {
-  meta: {
-    slug: "rust-intro",
-    title: "Taller: tu primer programa en Rust",
-    summary: "Dos horas para escribir y compilar tu primer programa en Rust.",
-    start: "2027-01-16T10:00:00-05:00",
-    end: "2027-01-16T12:00:00-05:00",
-    place: {
-      kind: "venue",
-      name: "Facultad de Ciencias Físicas, UNMSM",
-      address: "Av. Venezuela s/n, Cercado de Lima",
-    },
-    hosts: ["David"],
-    capacity: 30,
-    questions: [{ id: "carrera", label: "Carrera", required: true }],
-    draft: true,
-  },
-  Body: () => <p>Trae tu laptop con Rust instalado.</p>,
-};
-```
-
-```ts
-export const events: EventEntry[] = [ejemplo, rustIntro];
-```
-
-The event is served at `/<slug>`. Every registration stores the slug, so keep it
-once people register.
+A new event starts as a draft. Admins see a draft on the site and visitors
+get 404. Set **Estado** to **Publicado** to list it.
 
 ## Fields
 
-[`src/events/types.ts`](../src/events/types.ts) defines `EventMeta`.
+[`parseEventForm`](../src/worker/eventForm.ts) checks every field and returns
+the form with a message per field when one is wrong.
 
-| Field              | Meaning                                                                                                          |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| `slug`             | The URL path: lowercase words joined by `-`.                                                                     |
-| `title`, `summary` | The page title, and the line shown in the list, link previews and calendar entries.                              |
-| `start`, `end`     | ISO 8601 with the Lima offset, `-05:00`. Once `end` passes, the event moves to the past tab and its form closes. |
-| `place`            | `{ kind: "venue", name, address, mapUrl? }` or `{ kind: "online", platform }`.                                   |
-| `hosts`            | The names shown under "Organizan".                                                                               |
-| `capacity`         | Seats. Without it, the event takes any number of registrations.                                                  |
-| `cover`            | A path under `public/`, 1200×630. It is also the link preview image.                                             |
-| `questions`        | Extra form fields. `options` makes a field a choice. Answers are stored as JSON keyed by `id`.                   |
-| `draft`            | Serve the event only where `SHOW_DRAFTS` is set.                                                                 |
-| `recordingUrl`     | Shown on the event page after the event ends.                                                                    |
+| Field               | Meaning                                                                                                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Título              | The page title. Up to 120 characters.                                                                                                                                                     |
+| Dirección           | The slug: lowercase words joined by `-`, up to 60 characters. `admin`, `entrada`, `privacidad`, `media` and `assets` are taken. Once the event has registrations, the slug cannot change. |
+| Resumen             | The line in the list, link previews and calendar entries. Up to 300 characters.                                                                                                           |
+| Descripción         | Markdown, shown under "Sobre el evento". Raw HTML is escaped.                                                                                                                             |
+| Inicio, Fin         | Lima time. Once the end passes, the event moves to the past tab and its form closes.                                                                                                      |
+| Lugar               | A venue with a name, an address and an optional map link, or online with a platform name.                                                                                                 |
+| Organizan           | Names separated by commas.                                                                                                                                                                |
+| Cupos               | Seats. Empty takes any number. Past the limit, people join the waitlist. Raising it seats the waitlist on save.                                                                           |
+| Preguntas extra     | One question per line, up to 20. See [Questions](#questions).                                                                                                                             |
+| Tipo                | Hackathon, taller, charla or meetup. It sets the chip on the card and the page.                                                                                                           |
+| Color               | The accent of the event's buttons, chip and cover. The text on it turns black or white for contrast.                                                                                      |
+| Fondo de la portada | Plain, grid, dots or glow, drawn behind the title when the event has no cover image.                                                                                                      |
+| Portada             | A JPG, PNG or WebP of up to 5 MB, 1200×630. It is also the link preview image. It is stored in R2 and served at `/media/covers/...`.                                                      |
+| Destacar            | Leads the home page with a large card. One event at a time: featuring one unfeatures the others.                                                                                          |
+| Estado              | Borrador or Publicado.                                                                                                                                                                    |
+| Grabación           | A link shown on the event page after the event ends.                                                                                                                                      |
 
-## Publish
+## Questions
 
-`bun run dev` serves drafts. Keep `draft: true` until the details are final,
-then remove it and [deploy](deploy.md).
+```text
+Carrera*
+¿Cuánto Python sabes?: Nada | Algo | Bastante
+```
+
+A trailing `*` makes a question required. `Label: A | B | C` makes it a choice.
+The answer is stored under the slugified label, so renaming a question starts a
+new column in the registrants export.
+
+## Registrants
+
+The inscritos link on the dashboard or the editor opens
+`/admin/eventos/<slug>/inscritos`. **Descargar CSV** exports the registrations
+with one column per question.
+
+## Delete
+
+**Eliminar evento** at the bottom of the editor deletes an event that has no
+registrations. An event with registrations stays; set it back to draft instead.

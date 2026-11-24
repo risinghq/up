@@ -13,12 +13,12 @@
       "migrations_dir": "migrations",
     },
   ],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "up-media" }],
   "routes": [{ "pattern": "up.rising.sh", "custom_domain": true }],
   "vars": {
     "SITE_URL": "https://up.rising.sh",
     "WHATSAPP_COMMUNITY_URL": "",
-    "INSTAGRAM_URL": "",
-    "SHOW_DRAFTS": "",
+    "INSTAGRAM_URL": "https://instagram.com/risinghq",
   },
   "observability": { "enabled": true },
 }

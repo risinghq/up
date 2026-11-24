@@ -1,4 +1,4 @@
-import type { EventMeta } from "../events/types";
+import type { EventMeta } from "../worker/events";
 import type { Ticket } from "../worker/registrations";
 import { clock, longDate } from "../worker/time";
 import { DateTile } from "./EventCard";

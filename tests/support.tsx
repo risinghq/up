@@ -1,12 +1,16 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
-import type { EventEntry, EventMeta } from "../src/events/types";
+import { createSession } from "../src/worker/auth";
+import { saveEvent, type EventMeta } from "../src/worker/events";
 import type { Env } from "../src/worker/app";
 
 // Every D1 call crosses into Miniflare's worker process, so a test of a few
 // dozen requests outgrows bun's 5 s default on a loaded host. Bun resets the
 // default per file; each file calls `setDefaultTimeout(HOST_TIMEOUT)`.
 export const HOST_TIMEOUT = 30_000;
+
+/** The site origin in tests; a form post must name it to pass CSRF. */
+export const ORIGIN = "https://up.test";
 
 const migrationsDir = new URL("../migrations/", import.meta.url);
 
@@ -16,55 +20,103 @@ const statements = (sql: string) =>
     .map((s) => s.replace(/^--.*$/gm, "").trim())
     .filter(Boolean);
 
-/** A Miniflare D1 database with every migration applied. */
+/** A Miniflare D1 database with every migration applied, and an R2 bucket. */
 export async function migratedDb(name: string) {
   const mf = new Miniflare({
     modules: true,
     script: "export default { fetch() { return new Response('') } }",
     d1Databases: { DB: name },
+    r2Buckets: { MEDIA: `${name}-media` },
   });
   const DB = await mf.getD1Database("DB");
+  const MEDIA = await mf.getR2Bucket("MEDIA");
   const sql = readdirSync(migrationsDir)
     .sort()
     .flatMap((file) =>
       statements(readFileSync(new URL(file, migrationsDir), "utf8")),
     );
   await DB.batch(sql.map((s) => DB.prepare(s)));
-  return { mf, DB };
+  return { mf, DB, MEDIA: bunReadable(MEDIA as unknown as R2Bucket) };
 }
 
-export function testEnv(DB: D1Database, vars: Partial<Env> = {}): Env {
+/**
+ * Bun cannot read a stream that Miniflare proxies from its worker process
+ * (DataCloneError), so objects come back with their bytes in a local stream.
+ */
+function bunReadable(bucket: R2Bucket): R2Bucket {
+  return new Proxy(bucket, {
+    get(target, prop) {
+      if (prop !== "get") return Reflect.get(target, prop).bind(target);
+      return async (key: string) => {
+        const object = await target.get(key);
+        if (!object) return null;
+        const bytes = await object.arrayBuffer();
+        return {
+          key: object.key,
+          httpEtag: object.httpEtag,
+          httpMetadata: object.httpMetadata,
+          body: new Response(bytes).body,
+        };
+      };
+    },
+  });
+}
+
+export function testEnv(
+  DB: D1Database,
+  MEDIA: R2Bucket,
+  vars: Partial<Env> = {},
+): Env {
   return {
     DB,
+    MEDIA,
     ASSETS: { fetch: async () => new Response("asset") } as unknown as Fetcher,
-    SITE_URL: "https://up.test",
+    SITE_URL: ORIGIN,
     WHATSAPP_COMMUNITY_URL: "https://chat.whatsapp.com/test",
     INSTAGRAM_URL: "",
-    SHOW_DRAFTS: "",
     ...vars,
   };
 }
 
 export function event(
   meta: Partial<EventMeta> & Pick<EventMeta, "slug">,
-): EventEntry {
+): EventMeta {
   return {
-    meta: {
-      title: `Evento ${meta.slug}`,
-      summary: "Un evento de prueba.",
-      start: "2026-12-12T15:00:00-05:00",
-      end: "2026-12-12T19:00:00-05:00",
-      place: {
-        kind: "venue",
-        name: "FCF, UNMSM",
-        address: "Av. Venezuela s/n",
-      },
-      hosts: ["David"],
-      questions: [],
-      ...meta,
+    title: `Evento ${meta.slug}`,
+    summary: "Un evento de prueba.",
+    body: "Cuerpo del evento.",
+    start: "2026-12-12T15:00:00-05:00",
+    end: "2026-12-12T19:00:00-05:00",
+    place: {
+      kind: "venue",
+      name: "FCF, UNMSM",
+      address: "Av. Venezuela s/n",
     },
-    Body: () => <p>Cuerpo del evento.</p>,
+    hosts: ["David"],
+    questions: [],
+    status: "published",
+    theme: { kind: "taller", accent: "#2563eb", backdrop: "grid" },
+    featured: false,
+    ...meta,
   };
+}
+
+/** Stores events as an admin would. */
+export async function seed(DB: D1Database, events: EventMeta[]) {
+  for (const e of events) await saveEvent(DB, e, "2026-11-01T00:00:00.000Z");
+}
+
+/**
+ * Creates an admin and returns the Cookie header of a session opened at
+ * `now`, which must fall within 30 days before the test's clock.
+ */
+export async function adminCookie(DB: D1Database, now: Date, name = "David") {
+  const id = crypto.randomUUID();
+  await DB.prepare("INSERT INTO admins (id, name, created_at) VALUES (?, ?, ?)")
+    .bind(id, name, now.toISOString())
+    .run();
+  const token = await createSession(DB, id, now.toISOString());
+  return `up_admin=${token}`;
 }
 
 /** A form body that registers; `overrides` replaces or adds fields. */

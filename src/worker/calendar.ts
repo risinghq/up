@@ -1,4 +1,4 @@
-import type { EventMeta } from "../events/types";
+import type { EventMeta } from "./events";
 
 /** 2026-12-12T20:00:00Z -> 20261212T200000Z */
 const stamp = (iso: string) =>

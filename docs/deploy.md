@@ -5,7 +5,7 @@ A push to `master` deploys. [`deploy.yml`](../.github/workflows/deploy.yml) runs
 Worker to `up.rising.sh`. [`pr.yml`](../.github/workflows/pr.yml) runs
 `bun run check` on every pull request.
 
-Both read the repository secrets `CLOUDFLARE_API_TOKEN` and
+The deploy reads the repository secrets `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID`.
 
 ## By hand
@@ -17,11 +17,15 @@ bun run db:migrate:remote
 bun run deploy
 ```
 
-## Read the registrations
+## A new account
+
+The D1 database `up` and the R2 bucket `up-media` must exist before the first
+deploy. [`wrangler.jsonc`](../wrangler.jsonc) names both.
 
 ```sh
-bunx wrangler d1 execute up --remote --command \
-  "SELECT r.number, r.status, p.name, p.email, p.phone, r.answers
-   FROM registrations r JOIN people p ON p.id = r.person_id
-   WHERE r.event_slug = 'ejemplo' ORDER BY r.number"
+bunx wrangler d1 create up
+bunx wrangler r2 bucket create up-media
 ```
+
+Put the new database id in `wrangler.jsonc`, deploy, then create the
+[first admin](admins.md#the-first-admin).

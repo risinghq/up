@@ -8,7 +8,15 @@ import {
 } from "bun:test";
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
-import { event, form, HOST_TIMEOUT, migratedDb, testEnv } from "./support";
+import {
+  adminCookie,
+  event,
+  form,
+  HOST_TIMEOUT,
+  migratedDb,
+  seed,
+  testEnv,
+} from "./support";
 
 setDefaultTimeout(HOST_TIMEOUT);
 
@@ -33,24 +41,26 @@ const events = [
     end: "2026-11-01T19:00:00-05:00",
     recordingUrl: "https://youtu.be/test",
   }),
-  event({ slug: "borrador", title: "Evento en borrador", draft: true }),
+  event({ slug: "borrador", title: "Evento en borrador", status: "draft" }),
 ];
 
-const app = createApp(events, { now: () => now });
+const app = createApp({ now: () => now });
 
 let mf: Miniflare;
 let DB: D1Database;
 let env: Env;
 
 beforeAll(async () => {
-  ({ mf, DB } = await migratedDb("app"));
-  env = testEnv(DB);
+  let MEDIA: R2Bucket;
+  ({ mf, DB, MEDIA } = await migratedDb("app"));
+  env = testEnv(DB, MEDIA);
+  await seed(DB, events);
 });
 
 afterAll(() => mf.dispose());
 
-const get = (path: string, vars: Partial<Env> = {}) =>
-  app.request(path, {}, { ...env, ...vars });
+const get = (path: string, headers: Record<string, string> = {}) =>
+  app.request(path, { headers }, env);
 
 const post = (path: string, body: FormData) =>
   app.request(path, { method: "POST", body }, env);
@@ -79,11 +89,15 @@ describe("home", () => {
     expect(html).not.toContain("Taller de Rust");
   });
 
-  test("SHOW_DRAFTS serves drafts", async () => {
+  test("a draft is served only to a signed-in admin", async () => {
     expect((await get("/borrador")).status).toBe(404);
-    const res = await get("/borrador", { SHOW_DRAFTS: "1" });
+    const cookie = await adminCookie(DB, now);
+    const res = await get("/borrador", { cookie });
     expect(res.status).toBe(200);
+    expect(res.headers.get("cache-control")).toBe("no-store");
     expect(await res.text()).toContain('name="robots" content="noindex"');
+    const home = await (await get("/", { cookie })).text();
+    expect(home).toContain("Evento en borrador");
   });
 });
 
