@@ -6,8 +6,16 @@ import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
-import { Dashboard, type NewInvite } from "../pages/admin/Dashboard";
-import { EventEditor, type EditorView } from "../pages/admin/EventEditor";
+import {
+  Dashboard,
+  type GooglePanel,
+  type NewInvite,
+} from "../pages/admin/Dashboard";
+import {
+  EventEditor,
+  type CalendarPanel,
+  type EditorView,
+} from "../pages/admin/EventEditor";
 import { Invite, InviteGone, SignIn } from "../pages/admin/Passkey";
 import { Registrants } from "../pages/admin/Registrants";
 import {
@@ -30,11 +38,25 @@ import {
   coverUrl,
   deleteEvent,
   findEvent,
+  linkCalendar,
   listEvents,
   saveEvent,
   type EventMeta,
 } from "./events";
 import type { FormState } from "./form";
+import {
+  accessToken,
+  authUrl,
+  deleteAccount,
+  deleteCalendarEvent,
+  exchangeCode,
+  findAccount,
+  revoke,
+  saveAccount,
+  syncEvent,
+  type Fetch,
+  type GoogleCredentials,
+} from "./google";
 import {
   authenticationOptions,
   registrationOptions,
@@ -52,6 +74,16 @@ import { newToken } from "./tokens";
 import { notFound, page, site, type AppEnv, type Ctx } from "./web";
 
 export const SESSION_COOKIE = "up_admin";
+const GOOGLE_STATE_COOKIE = "up_google_state";
+
+const calendarNotices = ["listo", "error", "quitado"] as const;
+const googleNotices = ["conectado", "desconectado", "error"] as const;
+
+/** The query value when it is one of `allowed`. */
+const pick = <T extends string>(
+  allowed: readonly T[],
+  value: string | undefined,
+) => allowed.find((a) => a === value);
 
 /** The fields a new event starts with. */
 const blankEvent: Record<string, string> = {
@@ -66,10 +98,61 @@ const blankEvent: Record<string, string> = {
   status: "draft",
 };
 
-export function adminRoutes(now: () => Date) {
+export function adminRoutes(now: () => Date, fetcher: Fetch) {
   const admin = new Hono<AppEnv>();
   const iso = () => now().toISOString();
   const rp = (c: Ctx) => relyingParty(c.env.SITE_URL);
+  const secure = (c: Ctx) => c.env.SITE_URL.startsWith("https:");
+
+  const googleCreds = (c: Ctx): GoogleCredentials | null =>
+    c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET
+      ? {
+          clientId: c.env.GOOGLE_CLIENT_ID,
+          clientSecret: c.env.GOOGLE_CLIENT_SECRET,
+        }
+      : null;
+  const googleReturn = (c: Ctx) => `${site(c)}/admin/google/vuelta`;
+
+  /** An access token for the connected account, or null when none is. */
+  const calendarToken = async (c: Ctx) => {
+    const creds = googleCreds(c);
+    const account = creds && (await findAccount(c.env.DB));
+    return creds && account
+      ? accessToken(fetcher, creds, account.refreshToken)
+      : null;
+  };
+
+  /** Creates or updates the event's calendar copy and Meet call. False when that failed. */
+  const syncCalendar = async (c: Ctx, event: EventMeta) => {
+    try {
+      const token = await calendarToken(c);
+      if (!token) return false;
+      const link = await syncEvent(
+        fetcher,
+        token,
+        event,
+        `${site(c)}/${event.slug}`,
+        event.calendar,
+      );
+      await linkCalendar(c.env.DB, event.slug, link);
+      return true;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  };
+
+  /** Deletes the event's calendar copy. A failure leaves an orphan in Google, never a broken admin. */
+  const dropCalendar = async (c: Ctx, event: EventMeta) => {
+    if (!event.calendar) return;
+    try {
+      const token = await calendarToken(c);
+      if (token)
+        await deleteCalendarEvent(fetcher, token, event.calendar.eventId);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   const adminPage = (
     c: Ctx,
@@ -102,10 +185,23 @@ export function adminRoutes(now: () => Date) {
         path: "/",
         httpOnly: true,
         sameSite: "Lax",
-        secure: c.env.SITE_URL.startsWith("https:"),
+        secure: secure(c),
         maxAge: SESSION_DAYS * 24 * 60 * 60,
       },
     );
+  };
+
+  const calendarPanel = async (
+    c: Ctx,
+    event: EventMeta,
+  ): Promise<CalendarPanel | undefined> => {
+    if (!googleCreds(c)) return undefined;
+    const account = await findAccount(c.env.DB);
+    return {
+      account: account?.email,
+      link: event.calendar,
+      notice: pick(calendarNotices, c.req.query("calendario")),
+    };
   };
 
   const json = async <T,>(c: Ctx): Promise<Partial<T>> =>
@@ -227,6 +323,12 @@ export function adminRoutes(now: () => Date) {
         ended: new Date(event.end) <= now(),
       })),
     );
+    const google: GooglePanel | undefined = googleCreds(c)
+      ? {
+          account: (await findAccount(c.env.DB))?.email,
+          notice: pick(googleNotices, c.req.query("google")),
+        }
+      : undefined;
     return adminPage(
       c,
       "Admin",
@@ -234,6 +336,7 @@ export function adminRoutes(now: () => Date) {
         admin={signedIn(c)}
         events={rows}
         admins={await listAdmins(c.env.DB)}
+        google={google}
         {...extra}
       />,
       status,
@@ -241,6 +344,51 @@ export function adminRoutes(now: () => Date) {
   };
 
   admin.get("/", (c) => dashboard(c));
+
+  admin.get("/google/conectar", (c) => {
+    const creds = googleCreds(c);
+    if (!creds) return notFound(c);
+    const state = newToken();
+    setCookie(c, GOOGLE_STATE_COOKIE, state, {
+      path: "/admin/google",
+      httpOnly: true,
+      sameSite: "Lax",
+      secure: secure(c),
+      maxAge: 10 * 60,
+    });
+    return c.redirect(authUrl(creds, googleReturn(c), state), 302);
+  });
+
+  admin.get("/google/vuelta", async (c) => {
+    const creds = googleCreds(c);
+    if (!creds) return notFound(c);
+    const expected = getCookie(c, GOOGLE_STATE_COOKIE);
+    deleteCookie(c, GOOGLE_STATE_COOKIE, { path: "/admin/google" });
+    const code = c.req.query("code");
+    if (!code || !expected || c.req.query("state") !== expected)
+      return c.redirect("/admin?google=error", 303);
+    try {
+      const granted = await exchangeCode(fetcher, creds, code, googleReturn(c));
+      await saveAccount(c.env.DB, {
+        ...granted,
+        connectedBy: signedIn(c).id,
+        connectedAt: iso(),
+      });
+      return c.redirect("/admin?google=conectado", 303);
+    } catch (error) {
+      console.error(error);
+      return c.redirect("/admin?google=error", 303);
+    }
+  });
+
+  admin.post("/google/desconectar", async (c) => {
+    const account = await findAccount(c.env.DB);
+    if (account) {
+      await revoke(fetcher, account.refreshToken).catch(console.error);
+      await deleteAccount(c.env.DB);
+    }
+    return c.redirect("/admin?google=desconectado", 303);
+  });
 
   admin.post("/invitaciones", async (c) => {
     const name = String((await c.req.formData()).get("name") ?? "").trim();
@@ -337,6 +485,7 @@ export function adminRoutes(now: () => Date) {
         registrations: await registrationCount(c.env.DB, event.slug),
         coverUrl: coverUrl(event),
         saved: c.req.query("guardado") !== undefined,
+        calendar: await calendarPanel(c, event),
       }),
     ),
   );
@@ -366,12 +515,40 @@ export function adminRoutes(now: () => Date) {
           409,
         );
       const cover = await placeCover(c, parsed, event.slug, current.coverKey);
-      const saved = { ...event, coverKey: cover.key };
+      const saved = {
+        ...event,
+        coverKey: cover.key,
+        calendar: current.calendar,
+      };
       await saveEvent(c.env.DB, saved, iso(), current.slug);
       if (cover.stale) await c.env.MEDIA.delete(cover.stale);
       // A raised capacity seats the waitlist now, not at the next cancellation.
       await fillSeats(c.env.DB, saved);
-      return c.redirect(`/admin/eventos/${event.slug}?guardado`, 303);
+      const synced = !saved.calendar || (await syncCalendar(c, saved));
+      return c.redirect(
+        `/admin/eventos/${event.slug}?guardado${synced ? "" : "&calendario=error"}`,
+        303,
+      );
+    }),
+  );
+
+  admin.post(
+    "/eventos/:slug/calendario",
+    withEvent(async (c, event) => {
+      const synced = await syncCalendar(c, event);
+      return c.redirect(
+        `/admin/eventos/${event.slug}?calendario=${synced ? "listo" : "error"}`,
+        303,
+      );
+    }),
+  );
+
+  admin.post(
+    "/eventos/:slug/calendario/quitar",
+    withEvent(async (c, event) => {
+      await dropCalendar(c, event);
+      await linkCalendar(c.env.DB, event.slug, null);
+      return c.redirect(`/admin/eventos/${event.slug}?calendario=quitado`, 303);
     }),
   );
 
@@ -391,6 +568,7 @@ export function adminRoutes(now: () => Date) {
           },
           409,
         );
+      await dropCalendar(c, event);
       await deleteEvent(c.env.DB, event.slug);
       if (event.coverKey) await c.env.MEDIA.delete(event.coverKey);
       return c.redirect("/admin", 303);

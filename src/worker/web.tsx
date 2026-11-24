@@ -14,6 +14,9 @@ export type Env = {
   SITE_URL: string;
   WHATSAPP_COMMUNITY_URL: string;
   INSTAGRAM_URL: string;
+  /** The OAuth client that links Google Calendar. Without both, the admin hides it. */
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
 };
 
 export type AppEnv = {

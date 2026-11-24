@@ -4,6 +4,7 @@ import {
   kindLabel,
   kinds,
   type Backdrop,
+  type CalendarLink,
   type Font,
 } from "../../worker/events";
 import type { FormState } from "../../worker/form";
@@ -42,7 +43,111 @@ export type EditorView = {
   coverUrl?: string;
   saved: boolean;
   deleteError?: string;
+  /** Absent when the site has no Google OAuth client. */
+  calendar?: CalendarPanel;
 };
+
+export type CalendarPanel = {
+  /** The connected Google account's email; absent when none is connected. */
+  account?: string;
+  link?: CalendarLink;
+  notice?: "listo" | "error" | "quitado";
+};
+
+const calendarNotice = {
+  listo: "El evento está en Google Calendar.",
+  error:
+    "Google no respondió bien; el evento en el calendario no cambió. Sincroniza otra vez.",
+  quitado: "El evento salió de Google Calendar.",
+} as const;
+
+function CalendarSection({
+  slug,
+  calendar,
+}: {
+  slug: string;
+  calendar: CalendarPanel;
+}) {
+  const { link, notice } = calendar;
+  const action = `/admin/eventos/${slug}/calendario`;
+  return (
+    <section class="calendar-panel" aria-labelledby="calendar-title">
+      <h2 id="calendar-title">Google Calendar y Meet</h2>
+      {notice && (
+        <p
+          class={`notice${notice === "error" ? " notice-error" : ""}`}
+          role={notice === "error" ? "alert" : "status"}
+        >
+          {calendarNotice[notice]}
+        </p>
+      )}
+      {!calendar.account ? (
+        <p>
+          <a href="/admin">Conecta Google</a> en el panel para crear este evento
+          en tu calendario con una llamada de Meet.
+        </p>
+      ) : link ? (
+        <>
+          <dl class="calendar-links">
+            <div>
+              <dt>Meet</dt>
+              <dd>
+                {link.meetUrl ? (
+                  <a href={link.meetUrl} rel="noopener">
+                    {link.meetUrl.replace(/^https:\/\//, "")}
+                  </a>
+                ) : (
+                  "Google aún prepara la llamada. Sincroniza en un momento."
+                )}
+              </dd>
+            </div>
+            <div>
+              <dt>Calendario</dt>
+              <dd>
+                <a href={link.htmlUrl} rel="noopener">
+                  Abrir en Google Calendar
+                </a>
+              </dd>
+            </div>
+          </dl>
+          <p class="hint">
+            Guardar el evento actualiza el calendario. Quien tenga cupo ve el
+            enlace de Meet en su entrada.
+          </p>
+          <div class="row">
+            <form method="post" action={action}>
+              <button class="button button-small button-quiet" type="submit">
+                Sincronizar
+              </button>
+            </form>
+            <form
+              method="post"
+              action={`${action}/quitar`}
+              data-confirm="¿Quitar el evento de Google Calendar? La llamada de Meet deja de existir."
+            >
+              <button class="button button-small button-quiet" type="submit">
+                Quitar del calendario
+              </button>
+            </form>
+          </div>
+        </>
+      ) : (
+        <>
+          <p>
+            Crea el evento en el calendario de{" "}
+            <strong>{calendar.account}</strong> con una llamada de Meet. No se
+            invita a nadie: quien tenga cupo ve el enlace en su entrada.
+          </p>
+          <form method="post" action={action}>
+            <button class="button button-small" type="submit">
+              Crear en Google Calendar con Meet
+            </button>
+          </form>
+        </>
+      )}
+    </section>
+  );
+}
 
 export function EventEditor(view: EditorView) {
   const { form, slug } = view;
@@ -299,6 +404,10 @@ export function EventEditor(view: EditorView) {
           Guardar
         </button>
       </form>
+
+      {slug && view.calendar && (
+        <CalendarSection slug={slug} calendar={view.calendar} />
+      )}
 
       {slug && (
         <section class="danger" aria-labelledby="delete-title">
