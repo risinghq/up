@@ -62,6 +62,7 @@ const blankEvent: Record<string, string> = {
   kind: "taller",
   accent: "#2563eb",
   backdrop: "grid",
+  font: "sans",
   status: "draft",
 };
 

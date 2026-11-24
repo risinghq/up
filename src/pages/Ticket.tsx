@@ -1,7 +1,6 @@
 import type { EventMeta } from "../worker/events";
 import type { Ticket } from "../worker/registrations";
-import { clock, longDate } from "../worker/time";
-import { DateTile } from "./EventCard";
+import { DateRow, PlaceRow } from "./EventCard";
 
 export type TicketView = {
   ticket: Ticket;
@@ -32,102 +31,92 @@ export function TicketPage(view: TicketView) {
         </p>
       )}
       <section
-        class={`card ticket ticket-${ticket.status}`}
+        class={`register ticket ticket-${ticket.status}`}
         aria-labelledby="ticket-title"
       >
-        <p class="ticket-status">{statusText[ticket.status]}</p>
-        <h1 id="ticket-title">
-          <a href={`/${event.slug}`}>{event.title}</a>
-        </h1>
-        <div class="ticket-when">
-          <DateTile iso={event.start} />
-          <div>
-            <p class="fact-title">{longDate(event.start)}</p>
-            <p>
-              {clock(event.start)} a {clock(event.end)}
+        <p class="register-header ticket-status">
+          <span class="status-dot" aria-hidden="true" />
+          {statusText[ticket.status]}
+        </p>
+        <div class="register-content">
+          <h1 class="ticket-title" id="ticket-title">
+            <a href={`/${event.slug}`}>{event.title}</a>
+          </h1>
+          <div class="meta">
+            <DateRow event={event} />
+            <PlaceRow event={event} />
+          </div>
+          <dl class="ticket-facts">
+            <div>
+              <dt>Nombre</dt>
+              <dd>{ticket.name}</dd>
+            </div>
+            <div>
+              <dt>Entrada</dt>
+              <dd>#{ticket.number}</dd>
+            </div>
+          </dl>
+          {ticket.status === "waitlist" && (
+            <p class="ticket-note">
+              Si se libera un cupo, pasa a la primera persona en espera. Vuelve
+              a este enlace para ver si ya tienes el tuyo.
             </p>
-          </div>
+          )}
         </div>
-        <dl class="ticket-facts">
-          <div>
-            <dt>Nombre</dt>
-            <dd>{ticket.name}</dd>
-          </div>
-          <div>
-            <dt>Entrada</dt>
-            <dd>#{ticket.number}</dd>
-          </div>
-          <div>
-            <dt>Lugar</dt>
-            <dd>
-              {event.place.kind === "venue" ? (
-                <>
-                  {event.place.mapUrl ? (
-                    <a href={event.place.mapUrl}>{event.place.name}</a>
-                  ) : (
-                    event.place.name
-                  )}
-                  <br />
-                  {event.place.address}
-                </>
-              ) : (
-                `En línea, por ${event.place.platform}`
-              )}
-            </dd>
-          </div>
-        </dl>
-        {ticket.status === "waitlist" && (
-          <p class="ticket-note">
-            Si se libera un cupo, pasa a la primera persona en espera. Vuelve a
-            este enlace para ver si ya tienes el tuyo.
-          </p>
-        )}
       </section>
 
       {live && (
-        <section class="ticket-actions" aria-label="Qué hacer ahora">
-          <div class="copy-row">
-            <input
-              class="copy-input"
-              readOnly
-              value={view.ticketUrl}
-              aria-label="Enlace de tu entrada"
-            />
-            <button
-              class="button button-quiet"
-              type="button"
-              data-copy={view.ticketUrl}
-              hidden
-            >
-              Copiar
-            </button>
-          </div>
-          <div class="row">
-            <a class="button button-quiet" href={view.calendarUrl}>
-              Agregar a Google Calendar
-            </a>
-            <a
-              class="button button-quiet"
-              href={`/${event.slug}/calendario.ics`}
-            >
-              Descargar .ics
-            </a>
+        <section class="content-card" aria-labelledby="next-title">
+          <h2 class="card-title" id="next-title">
+            Qué hacer ahora
+          </h2>
+          <div class="ticket-actions">
+            <div class="copy-row">
+              <input
+                class="copy-input"
+                readOnly
+                value={view.ticketUrl}
+                aria-label="Enlace de tu entrada"
+              />
+              <button
+                class="button button-light"
+                type="button"
+                data-copy={view.ticketUrl}
+                hidden
+              >
+                Copiar
+              </button>
+            </div>
+            <div class="row">
+              <a
+                class="button button-light button-small button-round"
+                href={view.calendarUrl}
+              >
+                Agregar a Google Calendar
+              </a>
+              <a
+                class="button button-light button-small button-round"
+                href={`/${event.slug}/calendario.ics`}
+              >
+                Descargar .ics
+              </a>
+            </div>
             {view.whatsapp && (
-              <a class="button" href={view.whatsapp}>
+              <a class="button button-primary button-full" href={view.whatsapp}>
                 Únete a la comunidad
               </a>
             )}
+            <form
+              method="post"
+              action={`/entrada/${ticket.token}/cancelar`}
+              class="cancel"
+              data-confirm="¿Seguro que quieres cancelar tu inscripción?"
+            >
+              <button class="link-button" type="submit">
+                Ya no puedo ir: cancelar mi inscripción
+              </button>
+            </form>
           </div>
-          <form
-            method="post"
-            action={`/entrada/${ticket.token}/cancelar`}
-            class="cancel"
-            data-confirm="¿Seguro que quieres cancelar tu inscripción?"
-          >
-            <button class="link-button" type="submit">
-              Ya no puedo ir: cancelar mi inscripción
-            </button>
-          </form>
         </section>
       )}
 

@@ -1,5 +1,9 @@
 import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
+import "@fontsource/geist-pixel/latin-400.css";
+import "@fontsource/instrument-serif/latin-400.css";
 import "./styles.css";
+import "./admin.css";
 
 // Every page works without this script. It only stops a double submit,
 // confirms a cancellation and copies the ticket link.

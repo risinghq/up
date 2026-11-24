@@ -13,14 +13,18 @@ export type Place =
 
 export const kinds = ["hackathon", "taller", "charla", "meetup"] as const;
 export const backdrops = ["plain", "grid", "dots", "glow"] as const;
+export const fonts = ["sans", "pixel", "mono", "serif"] as const;
 export type Kind = (typeof kinds)[number];
 export type Backdrop = (typeof backdrops)[number];
+export type Font = (typeof fonts)[number];
 
 export type Theme = {
   kind: Kind;
-  /** A #rrggbb color for buttons, the cover and the kind chip. */
+  /** A #rrggbb color; the page's tint palette is derived from it. */
   accent: string;
   backdrop: Backdrop;
+  /** The typeface of the title and the section labels. */
+  font: Font;
 };
 
 export type EventStatus = "draft" | "published";
@@ -79,6 +83,7 @@ type Row = {
   kind: Kind;
   accent: string;
   backdrop: Backdrop;
+  font: Font;
   featured: number;
 };
 
@@ -105,7 +110,12 @@ function fromRow(r: Row): EventMeta {
     questions: JSON.parse(r.questions),
     status: r.status,
     ...(r.recording_url ? { recordingUrl: r.recording_url } : {}),
-    theme: { kind: r.kind, accent: r.accent, backdrop: r.backdrop },
+    theme: {
+      kind: r.kind,
+      accent: r.accent,
+      backdrop: r.backdrop,
+      font: r.font,
+    },
     featured: r.featured === 1,
   };
 }
@@ -162,12 +172,13 @@ export async function saveEvent(
     event.theme.kind,
     event.theme.accent,
     event.theme.backdrop,
+    event.theme.font,
     event.featured ? 1 : 0,
-    now,
   ];
   const columns = `slug, title, summary, body, start_at, end_at, place_kind,
     place_name, place_address, map_url, hosts, capacity, cover_key, questions,
-    status, recording_url, kind, accent, backdrop, featured`;
+    status, recording_url, kind, accent, backdrop, font, featured`;
+  const at = values.length + 1;
   const sets = columns
     .split(",")
     .map((c, i) => `${c.trim()} = ?${i + 1}`)
@@ -177,14 +188,14 @@ export async function saveEvent(
       ? db
           .prepare(
             `INSERT INTO events (${columns}, created_at, updated_at)
-             VALUES (${values.map((_, i) => `?${i + 1}`).join(", ")}, ?21)`,
+             VALUES (${values.map((_, i) => `?${i + 1}`).join(", ")}, ?${at}, ?${at})`,
           )
-          .bind(...values)
+          .bind(...values, now)
       : db
           .prepare(
-            `UPDATE events SET ${sets}, updated_at = ?21 WHERE slug = ?22`,
+            `UPDATE events SET ${sets}, updated_at = ?${at} WHERE slug = ?${at + 1}`,
           )
-          .bind(...values, previousSlug);
+          .bind(...values, now, previousSlug);
   const unfeature = db
     .prepare("UPDATE events SET featured = 0 WHERE slug != ? AND featured = 1")
     .bind(event.slug);
