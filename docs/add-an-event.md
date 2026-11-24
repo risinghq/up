@@ -1,8 +1,18 @@
 # Add an event
 
-Sign in at `/admin` ([admins](admins.md)) and choose **Nuevo evento**. The
-editor at `/admin/eventos/nuevo` saves the event to D1, and the site serves it
-at `/<slug>` right away. No deploy is needed.
+Sign in at `/admin` ([admins](admins.md)) and choose **Crear evento** in the
+header. The editor at `/admin/eventos/nuevo` saves the event to D1, and the site
+serves it at `/<slug>` right away. No deploy is needed.
+
+`/admin` lists the events under **Próximos** and **Pasados**. **Gestionar
+evento** opens `/admin/eventos/<slug>`, which has four tabs:
+
+| Tab       | Path         | Holds                                                        |
+| --------- | ------------ | ------------------------------------------------------------ |
+| Resumen   | (none)       | Date and place, the link to share, the seat count, the call. |
+| Inscritos | `/inscritos` | The registrant list and its CSV.                             |
+| Editar    | `/editar`    | The editor below.                                            |
+| Más       | `/mas`       | **Eliminar evento**.                                         |
 
 A new event starts as a draft. Admins see a draft on the site and visitors
 get 404. Set **Estado** to **Publicado** to list it.
@@ -44,11 +54,10 @@ new column in the registrants export.
 
 ## Registrants
 
-The inscritos link on the dashboard or the editor opens
-`/admin/eventos/<slug>/inscritos`. **Descargar CSV** exports the registrations
-with one column per question.
+The **Inscritos** tab opens `/admin/eventos/<slug>/inscritos`. **Descargar CSV**
+exports the registrations with one column per question.
 
 ## Delete
 
-**Eliminar evento** at the bottom of the editor deletes an event that has no
+**Eliminar evento** on the **Más** tab deletes an event that has no
 registrations. An event with registrations stays; set it back to draft instead.

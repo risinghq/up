@@ -21,16 +21,16 @@ an OAuth client of type **Web application** whose authorized redirect URI is
 
 ## Connect the account
 
-On the dashboard, **Google Calendar y Meet** → **Conectar Google** opens
-Google's consent page. After consent, the dashboard names the connected account.
-One account serves the whole site; connecting another replaces it.
-**Desconectar** revokes the access and forgets the account; events already in
-its calendar stay there.
+In **Ajustes** (`/admin/ajustes`), **Conectar Google** opens Google's consent
+page. After consent, Ajustes names the connected account. One account serves the
+whole site; connecting another replaces it. **Desconectar** revokes the access
+and forgets the account; events already in its calendar stay there.
 
 ## Create an event's call
 
-In the event editor, **Crear en Google Calendar con Meet** creates the entry in
-the account's primary calendar and shows the Meet link and the calendar link.
+On the event's **Resumen** tab, **Crear en Google Calendar con Meet** creates
+the entry in the account's primary calendar and shows the Meet link and the
+calendar link.
 
 | Action                    | Effect in Google                                             |
 | ------------------------- | ------------------------------------------------------------ |

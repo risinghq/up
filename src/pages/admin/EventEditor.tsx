@@ -4,11 +4,11 @@ import {
   kindLabel,
   kinds,
   type Backdrop,
-  type CalendarLink,
   type Font,
 } from "../../worker/events";
 import type { FormState } from "../../worker/form";
 import { Choice, Input, TextArea, Toggle } from "./fields";
+import { calendarNotice, ManageFrame } from "./Manage";
 
 const backdropLabel: Record<Backdrop, string> = {
   plain: "Liso",
@@ -36,145 +36,53 @@ const palette = [
 
 export type EditorView = {
   form: FormState;
-  /** The slug of the event being edited; absent for a new event. */
-  slug?: string;
   /** An event with registrations keeps its slug. */
   registrations: number;
   coverUrl?: string;
   saved: boolean;
-  deleteError?: string;
-  /** Absent when the site has no Google OAuth client. */
-  calendar?: CalendarPanel;
+  /** Saving reached the event but Google Calendar refused the update. */
+  calendarError: boolean;
 };
 
-export type CalendarPanel = {
-  /** The connected Google account's email; absent when none is connected. */
-  account?: string;
-  link?: CalendarLink;
-  notice?: "listo" | "error" | "quitado";
-};
+/** An existing event: the title its manage frame shows, as stored. */
+export type EditedEvent = { slug: string; title: string };
 
-const calendarNotice = {
-  listo: "El evento está en Google Calendar.",
-  error:
-    "Google no respondió bien; el evento en el calendario no cambió. Sincroniza otra vez.",
-  quitado: "El evento salió de Google Calendar.",
-} as const;
-
-function CalendarSection({
-  slug,
-  calendar,
-}: {
-  slug: string;
-  calendar: CalendarPanel;
-}) {
-  const { link, notice } = calendar;
-  const action = `/admin/eventos/${slug}/calendario`;
+export function EventEditor(props: { view: EditorView; event?: EditedEvent }) {
+  const { view, event } = props;
+  if (!event)
+    return (
+      <div class="admin">
+        <p class="crumbs">
+          <a href="/admin">Eventos</a> ›
+        </p>
+        <div class="admin-head">
+          <h1>Crear evento</h1>
+        </div>
+        <EditorForm view={view} action="/admin/eventos/nuevo" />
+      </div>
+    );
   return (
-    <section class="calendar-panel" aria-labelledby="calendar-title">
-      <h2 id="calendar-title">Google Calendar y Meet</h2>
-      {notice && (
-        <p
-          class={`notice${notice === "error" ? " notice-error" : ""}`}
-          role={notice === "error" ? "alert" : "status"}
-        >
-          {calendarNotice[notice]}
-        </p>
-      )}
-      {!calendar.account ? (
-        <p>
-          <a href="/admin">Conecta Google</a> en el panel para crear este evento
-          en tu calendario con una llamada de Meet.
-        </p>
-      ) : link ? (
-        <>
-          <dl class="calendar-links">
-            <div>
-              <dt>Meet</dt>
-              <dd>
-                {link.meetUrl ? (
-                  <a href={link.meetUrl} rel="noopener">
-                    {link.meetUrl.replace(/^https:\/\//, "")}
-                  </a>
-                ) : (
-                  "Google aún prepara la llamada. Sincroniza en un momento."
-                )}
-              </dd>
-            </div>
-            <div>
-              <dt>Calendario</dt>
-              <dd>
-                <a href={link.htmlUrl} rel="noopener">
-                  Abrir en Google Calendar
-                </a>
-              </dd>
-            </div>
-          </dl>
-          <p class="hint">
-            Guardar el evento actualiza el calendario. Quien tenga cupo ve el
-            enlace de Meet en su entrada.
-          </p>
-          <div class="row">
-            <form method="post" action={action}>
-              <button class="button button-small button-quiet" type="submit">
-                Sincronizar
-              </button>
-            </form>
-            <form
-              method="post"
-              action={`${action}/quitar`}
-              data-confirm="¿Quitar el evento de Google Calendar? La llamada de Meet deja de existir."
-            >
-              <button class="button button-small button-quiet" type="submit">
-                Quitar del calendario
-              </button>
-            </form>
-          </div>
-        </>
-      ) : (
-        <>
-          <p>
-            Crea el evento en el calendario de{" "}
-            <strong>{calendar.account}</strong> con una llamada de Meet. No se
-            invita a nadie: quien tenga cupo ve el enlace en su entrada.
-          </p>
-          <form method="post" action={action}>
-            <button class="button button-small" type="submit">
-              Crear en Google Calendar con Meet
-            </button>
-          </form>
-        </>
-      )}
-    </section>
+    <ManageFrame slug={event.slug} title={event.title} tab="editar">
+      <EditorForm view={view} action={`/admin/eventos/${event.slug}/editar`} />
+    </ManageFrame>
   );
 }
 
-export function EventEditor(view: EditorView) {
-  const { form, slug } = view;
-  const action = slug ? `/admin/eventos/${slug}` : "/admin/eventos/nuevo";
+function EditorForm({ view, action }: { view: EditorView; action: string }) {
+  const { form } = view;
   const locked = view.registrations > 0;
   const online = form.values.place_kind === "online";
   const hasErrors = Object.keys(form.errors).length > 0;
   return (
-    <div class="admin">
-      <p class="crumbs">
-        <a href="/admin">Admin</a> /{" "}
-        {slug ? form.values.title || slug : "Nuevo evento"}
-      </p>
-      <div class="admin-head">
-        <h1>{slug ? "Editar evento" : "Nuevo evento"}</h1>
-        {slug && (
-          <p>
-            <a href={`/${slug}`}>Ver página</a> ·{" "}
-            <a href={`/admin/eventos/${slug}/inscritos`}>
-              {view.registrations} inscripciones
-            </a>
-          </p>
-        )}
-      </div>
+    <>
       {view.saved && (
         <p class="notice" role="status">
           Guardado.
+        </p>
+      )}
+      {view.calendarError && (
+        <p class="notice notice-error" role="alert">
+          {calendarNotice.error}
         </p>
       )}
       {hasErrors && (
@@ -404,37 +312,6 @@ export function EventEditor(view: EditorView) {
           Guardar
         </button>
       </form>
-
-      {slug && view.calendar && (
-        <CalendarSection slug={slug} calendar={view.calendar} />
-      )}
-
-      {slug && (
-        <section class="danger" aria-labelledby="delete-title">
-          <h2 id="delete-title">Eliminar</h2>
-          {locked ? (
-            <p>
-              Este evento tiene inscripciones, así que no se puede eliminar.
-              Déjalo en borrador para ocultarlo.
-            </p>
-          ) : (
-            <form
-              method="post"
-              action={`/admin/eventos/${slug}/eliminar`}
-              data-confirm="¿Eliminar este evento? No se puede deshacer."
-            >
-              <button class="button button-quiet" type="submit">
-                Eliminar evento
-              </button>
-            </form>
-          )}
-          {view.deleteError && (
-            <p class="error" role="alert">
-              {view.deleteError}
-            </p>
-          )}
-        </section>
-      )}
-    </div>
+    </>
   );
 }

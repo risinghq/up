@@ -294,7 +294,8 @@ export function EventPage(view: EventView) {
             )}
             {view.admin && (
               <p class="admin-bar">
-                <a href={`/admin/eventos/${meta.slug}`}>Editar</a> ·{" "}
+                <a href={`/admin/eventos/${meta.slug}`}>Gestionar</a> ·{" "}
+                <a href={`/admin/eventos/${meta.slug}/editar`}>Editar</a> ·{" "}
                 <a href={`/admin/eventos/${meta.slug}/inscritos`}>Inscritos</a>
               </p>
             )}

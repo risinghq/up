@@ -170,7 +170,11 @@ function editForm(title: string) {
 describe("without an OAuth client", () => {
   test("the admin shows no Google section and the connect route is gone", async () => {
     const bare = { ...env, GOOGLE_CLIENT_ID: undefined };
-    const page = await app.request("/admin", { headers: { cookie } }, bare);
+    const page = await app.request(
+      "/admin/ajustes",
+      { headers: { cookie } },
+      bare,
+    );
     expect(await page.text()).not.toContain("Google Calendar");
     const res = await app.request(
       "/admin/google/conectar",
@@ -182,8 +186,8 @@ describe("without an OAuth client", () => {
 });
 
 describe("connecting", () => {
-  test("the dashboard offers to connect", async () => {
-    const html = await (await get("/admin")).text();
+  test("the settings offer to connect", async () => {
+    const html = await (await get("/admin/ajustes")).text();
     expect(html).toContain('href="/admin/google/conectar"');
   });
 
@@ -198,7 +202,7 @@ describe("connecting", () => {
 
   test("a return without the state cookie is refused", async () => {
     const res = await get("/admin/google/vuelta?code=good&state=forged");
-    expect(location(res)).toBe("/admin?google=error");
+    expect(location(res)).toBe("/admin/ajustes?google=error");
     expect(await findAccount(DB)).toBeNull();
   });
 
@@ -220,12 +224,12 @@ describe("connecting", () => {
     const back = await get(`/admin/google/vuelta?code=good&state=${state}`, {
       cookie: `${cookie}; up_google_state=${state}`,
     });
-    expect(location(back)).toBe("/admin?google=conectado");
+    expect(location(back)).toBe("/admin/ajustes?google=conectado");
     expect(await findAccount(DB)).toMatchObject({
       email: "rising@example.com",
       refreshToken: "r1",
     });
-    const html = await (await get("/admin?google=conectado")).text();
+    const html = await (await get("/admin/ajustes?google=conectado")).text();
     expect(html).toContain("rising@example.com");
     expect(html).toContain("Google Calendar quedó conectado.");
   });
@@ -267,20 +271,26 @@ describe("the event's calendar copy", () => {
   });
 
   test("saving the event updates its calendar copy", async () => {
-    const res = await post("/admin/eventos/online", editForm("Charla nueva"));
-    expect(location(res)).toBe("/admin/eventos/online?guardado");
+    const res = await post(
+      "/admin/eventos/online/editar",
+      editForm("Charla nueva"),
+    );
+    expect(location(res)).toBe("/admin/eventos/online/editar?guardado");
     expect(google.calendar.get("g1")?.summary).toBe("Charla nueva");
   });
 
   test("a Google failure keeps the save and says so", async () => {
     google.state.failNext = true;
-    const res = await post("/admin/eventos/online", editForm("Charla otra"));
+    const res = await post(
+      "/admin/eventos/online/editar",
+      editForm("Charla otra"),
+    );
     expect(location(res)).toBe(
-      "/admin/eventos/online?guardado&calendario=error",
+      "/admin/eventos/online/editar?guardado&calendario=error",
     );
     expect((await findEvent(DB, "online"))?.title).toBe("Charla otra");
     const html = await (
-      await get("/admin/eventos/online?guardado&calendario=error")
+      await get("/admin/eventos/online/editar?guardado&calendario=error")
     ).text();
     expect(html).toContain("Google no respondió bien");
   });
@@ -302,7 +312,7 @@ describe("the event's calendar copy", () => {
 describe("disconnecting", () => {
   test("revokes the token and forgets the account", async () => {
     const res = await post("/admin/google/desconectar");
-    expect(location(res)).toBe("/admin?google=desconectado");
+    expect(location(res)).toBe("/admin/ajustes?google=desconectado");
     const revoke = google.calls.find((c) => c.url.pathname === "/revoke");
     expect(revoke?.body).toBe("token=r1");
     expect(await findAccount(DB)).toBeNull();

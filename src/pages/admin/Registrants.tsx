@@ -1,5 +1,6 @@
 import type { EventMeta } from "../../worker/events";
 import type { Registrant, Status } from "../../worker/registrations";
+import { ManageFrame } from "./Manage";
 
 const statusLabel: Record<Status, string> = {
   going: "Con cupo",
@@ -14,25 +15,20 @@ export function Registrants(props: {
   const { event, registrants } = props;
   const count = (s: Status) => registrants.filter((r) => r.status === s).length;
   return (
-    <div class="admin">
-      <p class="crumbs">
-        <a href="/admin">Admin</a> /{" "}
-        <a href={`/admin/eventos/${event.slug}`}>{event.title}</a> / Inscritos
-      </p>
-      <div class="admin-head">
-        <h1>Inscritos</h1>
+    <ManageFrame slug={event.slug} title={event.title} tab="inscritos">
+      <div class="section-head">
+        <p>
+          {count("going")} con cupo
+          {event.capacity !== undefined && ` de ${event.capacity}`} ·{" "}
+          {count("waitlist")} en espera · {count("cancelled")} cancelaron
+        </p>
         <a
-          class="button button-quiet"
+          class="button button-light button-small"
           href={`/admin/eventos/${event.slug}/inscritos.csv`}
         >
           Descargar CSV
         </a>
       </div>
-      <p>
-        {count("going")} con cupo
-        {event.capacity !== undefined && ` de ${event.capacity}`} ·{" "}
-        {count("waitlist")} en espera · {count("cancelled")} cancelaron
-      </p>
       {registrants.length ? (
         <div class="table-wrap">
           <table class="registrants">
@@ -73,6 +69,6 @@ export function Registrants(props: {
       ) : (
         <p class="empty">Todavía nadie se inscribió.</p>
       )}
-    </div>
+    </ManageFrame>
   );
 }

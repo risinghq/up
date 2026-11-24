@@ -17,6 +17,13 @@ export type Head = {
 
 export type Community = { whatsapp: string; instagram: string };
 
+/** The admin header. Without `name` (signed out), it holds the logo only. */
+export type AdminShell = {
+  name?: string;
+  /** The current admin section, marked in the nav. */
+  section?: "eventos" | "ajustes";
+};
+
 // Vite serves the client entry in dev; the build writes it under fixed names.
 const dev = Boolean(import.meta.env?.DEV);
 
@@ -42,13 +49,87 @@ export const Lockup = () => (
   </span>
 );
 
+function SiteHeader(props: { community: Community; admin: boolean }) {
+  const { community } = props;
+  return (
+    <header class="site-nav">
+      <a class="site-logo" href="/" aria-label="up.rising.sh, inicio">
+        <Lockup />
+      </a>
+      <nav class="site-links" aria-label="Comunidad">
+        <a href="/">Eventos</a>
+        {props.admin && <a href="/admin">Admin</a>}
+        {community.instagram && <a href={community.instagram}>Instagram</a>}
+        {community.whatsapp && (
+          <a
+            class="button button-light button-small button-round"
+            href={community.whatsapp}
+          >
+            Únete por WhatsApp
+          </a>
+        )}
+      </nav>
+    </header>
+  );
+}
+
+function AdminHeader({ shell }: { shell: AdminShell }) {
+  const current = (section: AdminShell["section"]) =>
+    shell.section === section ? ("page" as const) : undefined;
+  return (
+    <header class="site-nav admin-nav">
+      <a
+        class="site-logo"
+        href={shell.name ? "/admin" : "/"}
+        aria-label="Admin de up.rising.sh"
+      >
+        <Lockup />
+        <span class="admin-badge">admin</span>
+      </a>
+      {shell.name ? (
+        <>
+          <nav class="admin-sections" aria-label="Admin">
+            <a href="/admin" aria-current={current("eventos")}>
+              Eventos
+            </a>
+            <a href="/admin/ajustes" aria-current={current("ajustes")}>
+              Ajustes
+            </a>
+          </nav>
+          <div class="site-links">
+            <a href="/">Ver sitio</a>
+            <a
+              class="button button-light button-small button-round"
+              href="/admin/eventos/nuevo"
+            >
+              Crear evento
+            </a>
+            <form method="post" action="/admin/salir" class="admin-who">
+              <span>{shell.name}</span>
+              <button class="link-button" type="submit">
+                Salir
+              </button>
+            </form>
+          </div>
+        </>
+      ) : (
+        <nav class="site-links" aria-label="Sitio">
+          <a href="/">Volver al sitio</a>
+        </nav>
+      )}
+    </header>
+  );
+}
+
 export function Layout(props: {
   head: Head;
   community: Community;
-  /** A signed-in admin gets a link to the dashboard. */
+  /** A signed-in admin gets a link to the admin on public pages. */
   admin: boolean;
   /** Loads the passkey script for the admin sign-in and invite pages. */
   passkeys: boolean;
+  /** An admin page: the admin header and no public footer. */
+  shell?: AdminShell;
   children: ComponentChildren;
 }) {
   const { head, community } = props;
@@ -102,36 +183,25 @@ export function Layout(props: {
         <a class="skip" href="#main">
           Saltar al contenido
         </a>
-        <header class="site-nav">
-          <a class="site-logo" href="/" aria-label="up.rising.sh, inicio">
-            <Lockup />
-          </a>
-          <nav class="site-links" aria-label="Comunidad">
-            <a href="/">Eventos</a>
-            {props.admin && <a href="/admin">Admin</a>}
-            {community.instagram && <a href={community.instagram}>Instagram</a>}
-            {community.whatsapp && (
-              <a
-                class="button button-light button-small button-round"
-                href={community.whatsapp}
-              >
-                Únete por WhatsApp
-              </a>
-            )}
-          </nav>
-        </header>
+        {props.shell ? (
+          <AdminHeader shell={props.shell} />
+        ) : (
+          <SiteHeader community={community} admin={props.admin} />
+        )}
         <main id="main">{props.children}</main>
-        <footer class="site-footer">
-          <div class="site-footer-content">
-            <p>
-              <a href="/">up.rising.sh</a> es la agenda de eventos de{" "}
-              <a href="https://rising.sh">rising.sh</a>.
-            </p>
-            <nav aria-label="Legal">
-              <a href="/privacidad">Privacidad</a>
-            </nav>
-          </div>
-        </footer>
+        {!props.shell && (
+          <footer class="site-footer">
+            <div class="site-footer-content">
+              <p>
+                <a href="/">up.rising.sh</a> es la agenda de eventos de{" "}
+                <a href="https://rising.sh">rising.sh</a>.
+              </p>
+              <nav aria-label="Legal">
+                <a href="/privacidad">Privacidad</a>
+              </nav>
+            </div>
+          </footer>
+        )}
       </body>
     </html>
   );
