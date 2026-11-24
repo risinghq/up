@@ -1,8 +1,10 @@
 import {
   backdrops,
+  fonts,
   kinds,
   type Backdrop,
   type EventMeta,
+  type Font,
   type Kind,
 } from "./events";
 import type { FormState } from "./form";
@@ -60,6 +62,7 @@ export function eventValues(event: EventMeta): Record<string, string> {
     kind: event.theme.kind,
     accent: event.theme.accent,
     backdrop: event.theme.backdrop,
+    font: event.theme.font,
     featured: event.featured ? "on" : "",
   };
 }
@@ -103,6 +106,7 @@ export function parseEventForm(
     kind: text("kind"),
     accent: text("accent").toLowerCase(),
     backdrop: text("backdrop"),
+    font: text("font") || "sans",
     featured: form.get("featured") ? "on" : "",
   };
   const errors: Record<string, string> = {};
@@ -159,6 +163,7 @@ export function parseEventForm(
     errors.accent = "Un color como #2563eb.";
   if (!backdrops.includes(values.backdrop as Backdrop))
     errors.backdrop = "Elige un fondo.";
+  if (!fonts.includes(values.font as Font)) errors.font = "Elige una letra.";
   const status = values.status === "published" ? "published" : "draft";
 
   const file = form.get("cover");
@@ -198,6 +203,7 @@ export function parseEventForm(
         kind: values.kind as Kind,
         accent: values.accent,
         backdrop: values.backdrop as Backdrop,
+        font: values.font as Font,
       },
       featured: values.featured === "on",
     },

@@ -95,7 +95,12 @@ export function event(
     hosts: ["David"],
     questions: [],
     status: "published",
-    theme: { kind: "taller", accent: "#2563eb", backdrop: "grid" },
+    theme: {
+      kind: "taller",
+      accent: "#2563eb",
+      backdrop: "grid",
+      font: "sans",
+    },
     featured: false,
     ...meta,
   };

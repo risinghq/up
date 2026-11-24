@@ -18,6 +18,9 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.3.0",
+    "@fontsource-variable/geist-mono": "^5.3.0",
+    "@fontsource/geist-pixel": "^5.3.0",
+    "@fontsource/instrument-serif": "^5.3.0",
     "@simplewebauthn/browser": "^14.0.0",
     "@simplewebauthn/server": "^14.1.0",
     "hono": "^4.13.21",

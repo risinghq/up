@@ -68,6 +68,7 @@ export function createApp(options: AppOptions = {}) {
         url,
         image: cover && `${site(c)}${cover}`,
         noindex: event.status === "draft",
+        theme: event.theme,
       },
       <EventPage {...view} />,
       status,
@@ -150,6 +151,7 @@ export function createApp(options: AppOptions = {}) {
         description: event.summary,
         url: eventUrl,
         noindex: true,
+        theme: event.theme,
       },
       <TicketPage
         ticket={ticket}

@@ -93,6 +93,7 @@ function eventForm(overrides: Record<string, string | File> = {}) {
     kind: "taller",
     accent: "#7C3AED",
     backdrop: "dots",
+    font: "pixel",
     ...overrides,
   };
   for (const [key, value] of Object.entries(fields)) data.set(key, value);
@@ -152,7 +153,12 @@ describe("events", () => {
         { id: "carrera", label: "Carrera", required: true },
         { id: "nivel", label: "Nivel", options: ["Básico", "Avanzado"] },
       ],
-      theme: { kind: "taller", accent: "#7c3aed", backdrop: "dots" },
+      theme: {
+        kind: "taller",
+        accent: "#7c3aed",
+        backdrop: "dots",
+        font: "pixel",
+      },
       featured: true,
     });
     expect(saved?.coverKey).toMatch(/^covers\/taller-qiskit-[\w-]{8}\.png$/);
@@ -172,13 +178,19 @@ describe("events", () => {
   test("a refused form keeps its values and names the fields", async () => {
     const res = await post(
       "/admin/eventos/nuevo",
-      eventForm({ slug: "admin", end: "2027-01-16T09:00", accent: "azul" }),
+      eventForm({
+        slug: "admin",
+        end: "2027-01-16T09:00",
+        accent: "azul",
+        font: "comic",
+      }),
     );
     expect(res.status).toBe(422);
     const html = await res.text();
     expect(html).toContain("Esa dirección la usa el sitio");
     expect(html).toContain("El fin va después del inicio.");
     expect(html).toContain("Un color como #2563eb.");
+    expect(html).toContain("Elige una letra.");
     expect(html).toContain('value="Taller de Qiskit"');
   });
 

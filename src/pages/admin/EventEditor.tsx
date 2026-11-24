@@ -1,8 +1,10 @@
 import {
   backdrops,
+  fonts,
   kindLabel,
   kinds,
   type Backdrop,
+  type Font,
 } from "../../worker/events";
 import type { FormState } from "../../worker/form";
 import { Choice, Input, TextArea, Toggle } from "./fields";
@@ -12,6 +14,13 @@ const backdropLabel: Record<Backdrop, string> = {
   grid: "Cuadrícula",
   dots: "Puntos",
   glow: "Resplandor",
+};
+
+const fontLabel: Record<Font, string> = {
+  sans: "Geist",
+  pixel: "Píxel",
+  mono: "Mono",
+  serif: "Serif",
 };
 
 /** Accents that read well on white; any #rrggbb also works. */
@@ -202,8 +211,8 @@ export function EventEditor(view: EditorView) {
                 ))}
               </datalist>
               <span class="hint">
-                Botones, portada y etiqueta usan este color. El texto encima
-                elige negro o blanco solo.
+                La página entera toma su paleta de este color: fondo, botones y
+                textos secundarios.
               </span>
             </div>
             {form.errors.accent && <p class="error">{form.errors.accent}</p>}
@@ -215,6 +224,12 @@ export function EventEditor(view: EditorView) {
             swatches
             options={backdrops.map((b) => [b, backdropLabel[b]])}
           />
+          <Choice
+            name="font"
+            label="Letra del título"
+            form={form}
+            options={fonts.map((f) => [f, fontLabel[f]])}
+          />
           <div class="field">
             <label for="a-cover">Portada</label>
             {view.coverUrl && (
@@ -222,8 +237,8 @@ export function EventEditor(view: EditorView) {
                 class="cover-preview"
                 src={view.coverUrl}
                 alt="Portada actual"
-                width={1200}
-                height={630}
+                width={1080}
+                height={1080}
               />
             )}
             <input
@@ -237,8 +252,8 @@ export function EventEditor(view: EditorView) {
               <p class="error">{form.errors.cover}</p>
             ) : (
               <p class="hint">
-                1200 × 630, JPG, PNG o WebP, hasta 5 MB. Sin portada se usa el
-                color y el fondo.
+                Cuadrada, 1080 × 1080, JPG, PNG o WebP, hasta 5 MB. Sin portada
+                se usa el color y el fondo.
               </p>
             )}
             {view.coverUrl && (

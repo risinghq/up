@@ -17,20 +17,29 @@ export function Home(props: {
   const list = props.tab === "proximos" ? props.upcoming : props.past;
   const { whatsapp, instagram } = props.community;
   return (
-    <>
-      <section class="hero">
-        <h1>Donde construimos juntos.</h1>
-        <p>
-          Mini hackathons, talleres y charlas sobre los proyectos de rising.sh.
-          Inscríbete, ven y construye con nosotros.
+    <div class="discover">
+      <header class="discover-header">
+        <p class="discover-kicker">
+          up<span>rising</span>
         </p>
-      </section>
+        <h1>Levántate y construye.</h1>
+        <p class="discover-desc">
+          Mini hackathons, talleres y charlas sobre los proyectos de rising.sh,
+          en Lima. Inscríbete, ven y construye con nosotros.
+        </p>
+      </header>
 
-      {featured && <Spotlight event={featured} />}
+      {featured && (
+        <section class="section" aria-label="Destacado">
+          <Spotlight event={featured} />
+        </section>
+      )}
 
-      <section class="listing" aria-labelledby="listing-title">
-        <div class="listing-head">
-          <h2 id="listing-title">Eventos</h2>
+      <section class="section" aria-labelledby="listing-title">
+        <div class="section-title-row">
+          <h2 class="section-title" id="listing-title">
+            Eventos
+          </h2>
           <nav class="tabs" aria-label="Filtrar eventos">
             <a
               href="/"
@@ -69,27 +78,29 @@ export function Home(props: {
       </section>
 
       {(whatsapp || instagram) && (
-        <section class="community">
-          <h2>Únete a la comunidad</h2>
-          <p>
+        <section class="section community" aria-labelledby="community-title">
+          <h2 class="section-title" id="community-title">
+            Únete a la comunidad
+          </h2>
+          <p class="community-desc">
             {whatsapp
               ? "Anunciamos cada evento primero en la comunidad de WhatsApp."
               : "Anunciamos cada evento en Instagram."}
           </p>
-          <div class="community-links">
+          <div class="row">
             {whatsapp && (
-              <a class="button" href={whatsapp}>
+              <a class="button button-primary" href={whatsapp}>
                 Comunidad de WhatsApp
               </a>
             )}
             {instagram && (
-              <a class="button button-quiet" href={instagram}>
+              <a class="button button-light" href={instagram}>
                 Instagram
               </a>
             )}
           </div>
         </section>
       )}
-    </>
+    </div>
   );
 }
