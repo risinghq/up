@@ -1,18 +1,27 @@
-import type { EventEntry, Question } from "../events/types";
+import { micromark } from "micromark";
+import {
+  coverUrl,
+  kindLabel,
+  type EventMeta,
+  type Question,
+} from "../worker/events";
 import type { FormState } from "../worker/form";
 import { clock, longDate } from "../worker/time";
 import { DateTile } from "./EventCard";
+import { themeClass, themeStyle } from "./theme";
 
 /** Why the register card shows what it shows. */
 export type Notice = "exists" | null;
 
 export type EventView = {
-  entry: EventEntry;
+  event: EventMeta;
   going: number;
   ended: boolean;
   form: FormState;
   notice: Notice;
   calendarUrl: string;
+  /** A signed-in admin sees links to edit the event. */
+  admin: boolean;
 };
 
 function Field(props: {
@@ -123,7 +132,7 @@ function Check(props: {
 }
 
 function RegisterCard(view: EventView) {
-  const { meta } = view.entry;
+  const meta = view.event;
   if (view.ended) {
     return (
       <section class="card register" aria-labelledby="register-title">
@@ -219,27 +228,32 @@ function RegisterCard(view: EventView) {
 }
 
 export function EventPage(view: EventView) {
-  const { meta, Body } = view.entry;
+  const meta = view.event;
   const place = meta.place;
+  const cover = coverUrl(meta);
   return (
-    <article class="event">
-      {meta.cover ? (
-        <img
-          class="event-cover"
-          src={meta.cover}
-          alt=""
-          width={1200}
-          height={630}
-        />
+    <article
+      class={`event ${themeClass(meta.theme)}`}
+      style={themeStyle(meta.theme)}
+    >
+      {cover ? (
+        <img class="event-cover" src={cover} alt="" width={1200} height={630} />
       ) : (
         <div class="event-cover event-cover-blank" aria-hidden="true">
           <span>{meta.title}</span>
         </div>
       )}
       <div class="event-main">
-        {meta.draft && (
-          <p class="draft">Borrador: no aparece en el sitio publicado.</p>
+        {meta.status === "draft" && (
+          <p class="draft">Borrador: solo los admins lo ven.</p>
         )}
+        {view.admin && (
+          <p class="admin-bar">
+            <a href={`/admin/eventos/${meta.slug}`}>Editar</a> ·{" "}
+            <a href={`/admin/eventos/${meta.slug}/inscritos`}>Inscritos</a>
+          </p>
+        )}
+        <p class="kind-chip">{kindLabel[meta.theme.kind]}</p>
         <h1>{meta.title}</h1>
         <ul class="facts">
           <li>
@@ -296,12 +310,16 @@ export function EventPage(view: EventView) {
 
         <RegisterCard {...view} />
 
-        <section class="about" aria-labelledby="about-title">
-          <h2 id="about-title">Sobre el evento</h2>
-          <div class="prose">
-            <Body />
-          </div>
-        </section>
+        {meta.body.trim() && (
+          <section class="about" aria-labelledby="about-title">
+            <h2 id="about-title">Sobre el evento</h2>
+            {/* micromark escapes raw HTML and drops javascript: links. */}
+            <div
+              class="prose"
+              dangerouslySetInnerHTML={{ __html: micromark(meta.body) }}
+            />
+          </section>
+        )}
       </div>
       <section class="hosts" aria-labelledby="hosts-title">
         <h2 id="hosts-title">Organizan</h2>

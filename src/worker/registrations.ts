@@ -1,5 +1,6 @@
-import type { EventMeta } from "../events/types";
+import type { EventMeta } from "./events";
 import type { Registration } from "./form";
+import { newToken } from "./tokens";
 
 export type Status = "going" | "waitlist" | "cancelled";
 
@@ -15,15 +16,6 @@ export type Ticket = {
 export type RegisterResult =
   | { kind: "created"; token: string; status: Status }
   | { kind: "exists" };
-
-/** A ticket token: 128 random bits, base64url. It is the registrant's only key. */
-function newToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, "-")
-    .replace(/\//g, "_")
-    .replace(/=+$/, "");
-}
 
 export async function goingCount(
   db: D1Database,
@@ -153,18 +145,75 @@ export async function cancel(
     )
     .bind(now, token)
     .run();
-  if (ticket.status !== "going") return;
-  if (
-    event.capacity !== undefined &&
-    (await goingCount(db, event.slug)) >= event.capacity
-  )
-    return;
+  if (ticket.status === "going") await fillSeats(db, event);
+}
+
+/** Gives every free seat to the waitlist, oldest first. */
+export async function fillSeats(
+  db: D1Database,
+  event: EventMeta,
+): Promise<void> {
+  // SQLite reads LIMIT -1 as no limit: an event without capacity seats all.
+  let free = -1;
+  if (event.capacity !== undefined) {
+    free = event.capacity - (await goingCount(db, event.slug));
+    if (free <= 0) return;
+  }
   await db
     .prepare(
       `UPDATE registrations SET status = 'going'
-       WHERE id = (SELECT id FROM registrations WHERE event_slug = ? AND status = 'waitlist'
-                   ORDER BY created_at, number LIMIT 1)`,
+       WHERE id IN (SELECT id FROM registrations WHERE event_slug = ? AND status = 'waitlist'
+                    ORDER BY created_at, number LIMIT ?)`,
     )
-    .bind(event.slug)
+    .bind(event.slug, free)
     .run();
+}
+
+/** Registrations of every status. An event with any keeps its slug. */
+export async function registrationCount(
+  db: D1Database,
+  slug: string,
+): Promise<number> {
+  const row = await db
+    .prepare("SELECT COUNT(*) AS n FROM registrations WHERE event_slug = ?")
+    .bind(slug)
+    .first<{ n: number }>();
+  return row?.n ?? 0;
+}
+
+export type Registrant = {
+  number: number;
+  status: Status;
+  name: string;
+  email: string;
+  phone: string;
+  newsOptIn: boolean;
+  answers: Record<string, string>;
+  createdAt: string;
+};
+
+type RegistrantRow = Omit<Registrant, "answers" | "newsOptIn"> & {
+  answers: string;
+  newsOptIn: number;
+};
+
+export async function listRegistrants(
+  db: D1Database,
+  slug: string,
+): Promise<Registrant[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT r.number, r.status, p.name, p.email, p.phone,
+              p.news_opt_in_at IS NOT NULL AS newsOptIn, r.answers,
+              r.created_at AS createdAt
+       FROM registrations r JOIN people p ON p.id = r.person_id
+       WHERE r.event_slug = ? ORDER BY r.number`,
+    )
+    .bind(slug)
+    .all<RegistrantRow>();
+  return results.map((r) => ({
+    ...r,
+    newsOptIn: r.newsOptIn === 1,
+    answers: JSON.parse(r.answers),
+  }));
 }

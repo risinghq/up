@@ -1,119 +1,102 @@
-import { Hono, type Context } from "hono";
-import type { ComponentChildren } from "preact";
-import { renderToString } from "preact-render-to-string";
-import type { EventEntry } from "../events/types";
+import { Hono } from "hono";
+import { getCookie } from "hono/cookie";
 import { EventPage, type EventView } from "../pages/Event";
 import { Home, type Tab } from "../pages/Home";
-import { Layout, type Community, type Head } from "../pages/Layout";
-import { NotFound } from "../pages/NotFound";
 import { Privacy } from "../pages/Privacy";
 import { TicketPage } from "../pages/Ticket";
+import { adminRoutes, SESSION_COOKIE } from "./admin";
+import { sessionAdmin } from "./auth";
 import { googleCalendarUrl, ics } from "./calendar";
+import { coverUrl, findEvent, listEvents, type EventMeta } from "./events";
 import { parseRegistration, type FormState } from "./form";
 import { cancel, findTicket, goingCount, register } from "./registrations";
+import {
+  description,
+  notFound,
+  page,
+  site,
+  type AppEnv,
+  type Ctx,
+} from "./web";
 
-export type Env = {
-  DB: D1Database;
-  ASSETS: Fetcher;
-  /** Origin used in link previews, calendar entries and ticket links. */
-  SITE_URL: string;
-  WHATSAPP_COMMUNITY_URL: string;
-  INSTAGRAM_URL: string;
-  /** Any non-empty value serves draft events. */
-  SHOW_DRAFTS: string;
-};
-
-type Ctx = Context<{ Bindings: Env }>;
+export type { Env } from "./web";
 
 export type AppOptions = { now?: () => Date };
 
 const emptyForm: FormState = { values: {}, errors: {} };
 
-const description =
-  "Eventos de rising.sh en Lima: mini hackathons, talleres y charlas. Inscríbete y únete a la comunidad.";
-
-export function createApp(events: EventEntry[], options: AppOptions = {}) {
+export function createApp(options: AppOptions = {}) {
   const now = options.now ?? (() => new Date());
-  const app = new Hono<{ Bindings: Env }>();
+  const app = new Hono<AppEnv>();
 
-  const visible = (c: Ctx) =>
-    events.filter((e) => !e.meta.draft || Boolean(c.env.SHOW_DRAFTS));
-  const find = (c: Ctx, slug: string) =>
-    visible(c).find((e) => e.meta.slug === slug);
-  const ended = (entry: EventEntry) => new Date(entry.meta.end) <= now();
-  const site = (c: Ctx) => c.env.SITE_URL.replace(/\/$/, "");
-  const community = (c: Ctx): Community => ({
-    whatsapp: c.env.WHATSAPP_COMMUNITY_URL,
-    instagram: c.env.INSTAGRAM_URL,
-  });
+  const ended = (event: EventMeta) => new Date(event.end) <= now();
 
-  const page = (c: Ctx, head: Head, body: ComponentChildren, status = 200) => {
-    const html = renderToString(
-      <Layout head={head} community={community(c)}>
-        {body}
-      </Layout>,
-    );
-    return c.html(`<!doctype html>${html}`, status as 200);
+  /** An event the visitor may see: published, or any event for an admin. */
+  const visibleEvent = async (c: Ctx, slug: string) => {
+    const event = await findEvent(c.env.DB, slug);
+    return event && (event.status === "published" || c.get("admin"))
+      ? event
+      : null;
   };
 
-  const notFound = (c: Ctx, what: "page" | "ticket" = "page") =>
-    page(
-      c,
-      {
-        title: "No encontrado",
-        description,
-        url: `${site(c)}${c.req.path}`,
-        noindex: true,
-      },
-      <NotFound what={what} />,
-      404,
-    );
-
-  const eventPage = (
+  const eventPage = async (
     c: Ctx,
-    entry: EventEntry,
+    event: EventMeta,
     form: FormState,
     notice: EventView["notice"],
     status = 200,
-  ) =>
-    goingCount(c.env.DB, entry.meta.slug).then((going) => {
-      const url = `${site(c)}/${entry.meta.slug}`;
-      const view: EventView = {
-        entry,
-        going,
-        ended: ended(entry),
-        form,
-        notice,
-        calendarUrl: googleCalendarUrl(entry.meta, url),
-      };
-      const head: Head = {
-        title: entry.meta.title,
-        description: entry.meta.summary,
+  ) => {
+    const going = await goingCount(c.env.DB, event.slug);
+    const url = `${site(c)}/${event.slug}`;
+    const cover = coverUrl(event);
+    const view: EventView = {
+      event,
+      going,
+      ended: ended(event),
+      form,
+      notice,
+      calendarUrl: googleCalendarUrl(event, url),
+      admin: Boolean(c.get("admin")),
+    };
+    if (view.admin || event.status === "draft")
+      c.header("Cache-Control", "no-store");
+    return page(
+      c,
+      {
+        title: event.title,
+        description: event.summary,
         url,
-        image: entry.meta.cover && `${site(c)}${entry.meta.cover}`,
-        noindex: entry.meta.draft,
-      };
-      return page(c, head, <EventPage {...view} />, status);
-    });
+        image: cover && `${site(c)}${cover}`,
+        noindex: event.status === "draft",
+      },
+      <EventPage {...view} />,
+      status,
+    );
+  };
 
   app.use(async (c, next) => {
+    const token = getCookie(c, SESSION_COOKIE);
+    c.set(
+      "admin",
+      token ? await sessionAdmin(c.env.DB, token, now().toISOString()) : null,
+    );
     await next();
     c.header("X-Content-Type-Options", "nosniff");
     // A ticket URL is a secret; no page leaks its own path to another site.
     c.header("Referrer-Policy", "strict-origin");
   });
 
-  app.get("/", (c) => {
+  app.route("/admin", adminRoutes(now));
+
+  app.get("/", async (c) => {
     const tab: Tab = c.req.query("ver") === "pasados" ? "pasados" : "proximos";
-    const all = visible(c);
-    const upcoming = all
-      .filter((e) => !ended(e))
-      .map((e) => e.meta)
-      .sort((a, b) => a.start.localeCompare(b.start));
-    const past = all
-      .filter(ended)
-      .map((e) => e.meta)
-      .sort((a, b) => b.start.localeCompare(a.start));
+    const admin = Boolean(c.get("admin"));
+    const all = (await listEvents(c.env.DB)).filter(
+      (e) => admin || e.status === "published",
+    );
+    if (admin) c.header("Cache-Control", "no-store");
+    const upcoming = all.filter((e) => !ended(e));
+    const past = all.filter(ended).reverse();
     return page(
       c,
       { title: "up", description, url: `${site(c)}/` },
@@ -121,7 +104,10 @@ export function createApp(events: EventEntry[], options: AppOptions = {}) {
         upcoming={upcoming}
         past={past}
         tab={tab}
-        community={community(c)}
+        community={{
+          whatsapp: c.env.WHATSAPP_COMMUNITY_URL,
+          instagram: c.env.INSTAGRAM_URL,
+        }}
       />,
     );
   });
@@ -138,28 +124,40 @@ export function createApp(events: EventEntry[], options: AppOptions = {}) {
     ),
   );
 
+  // Cover keys carry a random part and never change content, so a browser
+  // may keep one for a year.
+  app.get("/media/:key{.+}", async (c) => {
+    const object = await c.env.MEDIA.get(c.req.param("key"));
+    if (!object) return notFound(c);
+    return c.body(object.body, 200, {
+      "Content-Type":
+        object.httpMetadata?.contentType ?? "application/octet-stream",
+      "Cache-Control": "public, max-age=31536000, immutable",
+      ETag: object.httpEtag,
+    });
+  });
+
   app.get("/entrada/:token", async (c) => {
     const ticket = await findTicket(c.env.DB, c.req.param("token"));
-    const entry =
-      ticket && events.find((e) => e.meta.slug === ticket.eventSlug);
-    if (!ticket || !entry) return notFound(c, "ticket");
+    const event = ticket && (await findEvent(c.env.DB, ticket.eventSlug));
+    if (!ticket || !event) return notFound(c, "ticket");
     c.header("Cache-Control", "no-store");
-    const eventUrl = `${site(c)}/${entry.meta.slug}`;
+    const eventUrl = `${site(c)}/${event.slug}`;
     return page(
       c,
       {
-        title: `Tu entrada: ${entry.meta.title}`,
-        description: entry.meta.summary,
+        title: `Tu entrada: ${event.title}`,
+        description: event.summary,
         url: eventUrl,
         noindex: true,
       },
       <TicketPage
         ticket={ticket}
-        event={entry.meta}
-        ended={ended(entry)}
+        event={event}
+        ended={ended(event)}
         fresh={c.req.query("nueva") !== undefined}
         ticketUrl={`${site(c)}/entrada/${ticket.token}`}
-        calendarUrl={googleCalendarUrl(entry.meta, eventUrl)}
+        calendarUrl={googleCalendarUrl(event, eventUrl)}
         whatsapp={c.env.WHATSAPP_COMMUNITY_URL}
       />,
     );
@@ -168,55 +166,50 @@ export function createApp(events: EventEntry[], options: AppOptions = {}) {
   app.post("/entrada/:token/cancelar", async (c) => {
     const token = c.req.param("token");
     const ticket = await findTicket(c.env.DB, token);
-    const entry =
-      ticket && events.find((e) => e.meta.slug === ticket.eventSlug);
-    if (!ticket || !entry) return notFound(c, "ticket");
-    if (!ended(entry))
-      await cancel(c.env.DB, entry.meta, token, now().toISOString());
+    const event = ticket && (await findEvent(c.env.DB, ticket.eventSlug));
+    if (!ticket || !event) return notFound(c, "ticket");
+    if (!ended(event))
+      await cancel(c.env.DB, event, token, now().toISOString());
     return c.redirect(`/entrada/${token}`, 303);
   });
 
-  app.get("/:slug/calendario.ics", (c) => {
-    const entry = find(c, c.req.param("slug"));
-    if (!entry) return notFound(c);
-    const body = ics(
-      entry.meta,
-      `${site(c)}/${entry.meta.slug}`,
-      now().toISOString(),
-    );
+  app.get("/:slug/calendario.ics", async (c) => {
+    const event = await visibleEvent(c, c.req.param("slug"));
+    if (!event) return notFound(c);
+    const body = ics(event, `${site(c)}/${event.slug}`, now().toISOString());
     return c.body(body, 200, {
       "Content-Type": "text/calendar; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${entry.meta.slug}.ics"`,
+      "Content-Disposition": `attachment; filename="${event.slug}.ics"`,
     });
   });
 
-  app.get("/:slug", (c) => {
-    const entry = find(c, c.req.param("slug"));
-    if (!entry) return notFound(c);
-    return eventPage(c, entry, emptyForm, null);
+  app.get("/:slug", async (c) => {
+    const event = await visibleEvent(c, c.req.param("slug"));
+    if (!event) return notFound(c);
+    return eventPage(c, event, emptyForm, null);
   });
 
   app.post("/:slug", async (c) => {
-    const entry = find(c, c.req.param("slug"));
-    if (!entry) return notFound(c);
-    if (ended(entry)) return eventPage(c, entry, emptyForm, null, 410);
+    const event = await visibleEvent(c, c.req.param("slug"));
+    if (!event) return notFound(c);
+    if (ended(event)) return eventPage(c, event, emptyForm, null, 410);
 
     const form = await c.req.formData();
     // A person never sees the trap field; a bot that fills it gets the page back.
     if (String(form.get("website") ?? ""))
-      return c.redirect(`/${entry.meta.slug}`, 303);
+      return c.redirect(`/${event.slug}`, 303);
 
-    const parsed = parseRegistration(form, entry.meta);
-    if (!parsed.ok) return eventPage(c, entry, parsed, null, 422);
+    const parsed = parseRegistration(form, event);
+    if (!parsed.ok) return eventPage(c, event, parsed, null, 422);
 
     const result = await register(
       c.env.DB,
-      entry.meta,
+      event,
       parsed.value,
       now().toISOString(),
     );
     if (result.kind === "exists")
-      return eventPage(c, entry, emptyForm, "exists", 409);
+      return eventPage(c, event, emptyForm, "exists", 409);
     return c.redirect(`/entrada/${result.token}?nueva`, 303);
   });
 

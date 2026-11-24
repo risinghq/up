@@ -1,5 +1,5 @@
-import type { EventMeta } from "../events/types";
-import { EventCard } from "./EventCard";
+import type { EventMeta } from "../worker/events";
+import { EventCard, Spotlight } from "./EventCard";
 import type { Community } from "./Layout";
 
 export type Tab = "proximos" | "pasados";
@@ -10,6 +10,10 @@ export function Home(props: {
   tab: Tab;
   community: Community;
 }) {
+  const featured =
+    props.tab === "proximos"
+      ? props.upcoming.find((e) => e.featured && e.status === "published")
+      : undefined;
   const list = props.tab === "proximos" ? props.upcoming : props.past;
   const { whatsapp, instagram } = props.community;
   return (
@@ -21,6 +25,8 @@ export function Home(props: {
           Inscríbete, ven y construye con nosotros.
         </p>
       </section>
+
+      {featured && <Spotlight event={featured} />}
 
       <section class="listing" aria-labelledby="listing-title">
         <div class="listing-head">
@@ -65,7 +71,11 @@ export function Home(props: {
       {(whatsapp || instagram) && (
         <section class="community">
           <h2>Únete a la comunidad</h2>
-          <p>Anunciamos cada evento primero en la comunidad de WhatsApp.</p>
+          <p>
+            {whatsapp
+              ? "Anunciamos cada evento primero en la comunidad de WhatsApp."
+              : "Anunciamos cada evento en Instagram."}
+          </p>
           <div class="community-links">
             {whatsapp && (
               <a class="button" href={whatsapp}>

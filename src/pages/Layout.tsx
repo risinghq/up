@@ -29,6 +29,10 @@ const Mark = () => (
 export function Layout(props: {
   head: Head;
   community: Community;
+  /** A signed-in admin gets a link to the dashboard. */
+  admin: boolean;
+  /** Loads the passkey script for the admin sign-in and invite pages. */
+  passkeys: boolean;
   children: ComponentChildren;
 }) {
   const { head, community } = props;
@@ -61,11 +65,15 @@ export function Layout(props: {
           <>
             <script type="module" src="/@vite/client" />
             <script type="module" src="/src/client/main.ts" />
+            {props.passkeys && (
+              <script type="module" src="/src/client/admin.ts" />
+            )}
           </>
         ) : (
           <>
             <link rel="stylesheet" href="/assets/client.css" />
             <script type="module" src="/assets/client.js" />
+            {props.passkeys && <script type="module" src="/assets/admin.js" />}
           </>
         )}
       </head>
@@ -79,6 +87,7 @@ export function Layout(props: {
             <span>up</span>
           </a>
           <nav aria-label="Comunidad">
+            {props.admin && <a href="/admin">Admin</a>}
             {community.instagram && <a href={community.instagram}>Instagram</a>}
             {community.whatsapp && (
               <a class="button button-small" href={community.whatsapp}>

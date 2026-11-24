@@ -1,4 +1,4 @@
-import type { EventMeta } from "../events/types";
+import type { EventMeta } from "./events";
 
 export type Registration = {
   name: string;
