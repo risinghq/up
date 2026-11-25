@@ -52,13 +52,27 @@ export function showMap(box: HTMLElement) {
   });
   // The compact attribution opens at start and closes on the first drag,
   // which a map that takes no input never gets; the (i) button still opens it.
-  map.once("load", () =>
+  let loaded = false;
+  map.once("load", () => {
+    loaded = true;
     box
       .querySelector(".maplibregl-ctrl-attrib")
-      ?.classList.remove("maplibregl-compact-show"),
-  );
-  new MutationObserver(() => map.setStyle(styleUrl())).observe(
-    document.documentElement,
-    { attributes: true, attributeFilter: ["class"] },
-  );
+      ?.classList.remove("maplibregl-compact-show");
+  });
+
+  const scheme = new MutationObserver(() => map.setStyle(styleUrl()));
+  scheme.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["class"],
+  });
+
+  // An ad blocker or a dead network stops the style or the tiles. A map that
+  // never drew leaves the page: the place row at its top links to the map
+  // too. A tile that fails after the first draw leaves only a gap.
+  map.on("error", () => {
+    if (loaded) return;
+    scheme.disconnect();
+    map.remove();
+    box.hidden = true;
+  });
 }

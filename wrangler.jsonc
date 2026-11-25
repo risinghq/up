@@ -5,6 +5,7 @@
   "main": "src/worker/index.tsx",
   "compatibility_date": "2026-11-20",
   "assets": { "not_found_handling": "none" },
+  "placement": { "mode": "smart" },
   "d1_databases": [
     {
       "binding": "DB",

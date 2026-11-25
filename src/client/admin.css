@@ -74,23 +74,10 @@
   color: var(--primary-color);
 }
 
-.admin-who {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--tertiary-color-alpha);
-  white-space: nowrap;
-}
-
-.admin-who .link-button {
-  font-size: inherit;
-}
-
-/* A phone keeps the header to one row: the logo, Crear and the menu. The
-   menu holds the rest. */
+/* The header's right side is Crear and the account menu, at every width. A
+   phone drops the sections into the menu. */
 
 .admin-menu {
-  display: none;
   position: relative;
 }
 
@@ -99,9 +86,8 @@
   place-items: center;
   width: 2.75rem;
   height: 2.75rem;
-  margin: -0.375rem -0.625rem -0.375rem 0;
+  margin: -0.375rem -0.5rem -0.375rem 0;
   border-radius: 50%;
-  color: var(--nav-link-color);
   list-style: none;
   cursor: pointer;
 }
@@ -110,14 +96,28 @@
   display: none;
 }
 
-.admin-menu > summary svg {
-  width: 1.25rem;
-  height: 1.25rem;
+.admin-menu .avatar {
+  width: 2rem;
+  height: 2rem;
+  font-size: var(--font-size-sm);
+  transition: box-shadow var(--transition-duration) var(--transition-fn);
 }
 
-.admin-menu[open] > summary {
-  background-color: var(--opacity-light);
+.admin-menu > summary:hover .avatar,
+.admin-menu[open] .avatar {
+  box-shadow: 0 0 0 2px var(--divider-color);
+}
+
+.admin-menu-name {
+  margin: 0 0 0.375rem;
+  padding: 0.5rem 0.75rem 0.625rem;
+  border-bottom: 1px solid var(--divider-color);
   color: var(--primary-color);
+  font-weight: var(--font-weight-medium);
+}
+
+.admin-nav .admin-menu nav > .admin-narrow {
+  display: none;
 }
 
 .admin-menu > nav {
@@ -186,13 +186,12 @@
 
 @media (max-width: 650px) {
   .admin-nav .admin-sections,
-  .admin-nav .admin-wide,
-  .admin-nav .site-links > .theme-toggle {
+  .admin-nav .admin-wide {
     display: none;
   }
 
-  .admin-menu {
-    display: block;
+  .admin-nav .admin-menu nav > .admin-narrow {
+    display: flex;
   }
 }
 
@@ -436,6 +435,10 @@
   color: var(--primary-color);
   font-size: 1.75rem;
   font-variant-numeric: tabular-nums;
+}
+
+.manage-card .stat strong > span {
+  color: var(--tertiary-color-alpha);
 }
 
 .meter {

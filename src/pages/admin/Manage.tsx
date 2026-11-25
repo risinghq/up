@@ -217,8 +217,11 @@ export function Overview(props: {
             <a href={`${base}/inscritos`}>Ver lista</a>
           </div>
           <p class="stat">
-            <strong>{counts.going}</strong>
-            {event.capacity !== undefined && ` / ${event.capacity}`} con cupo
+            <strong>
+              {counts.going}
+              {event.capacity !== undefined && <span> / {event.capacity}</span>}
+            </strong>{" "}
+            con cupo
           </p>
           {filled !== undefined && (
             <div class="meter" aria-hidden="true">

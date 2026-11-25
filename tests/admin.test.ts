@@ -131,7 +131,7 @@ describe("access", () => {
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
     const html = await res.text();
-    expect(html).toContain("<span>David</span>");
+    expect(html).toContain('<p class="admin-menu-name">David</p>');
     // The admin has its own header, without the public community links.
     expect(html).not.toContain("Instagram");
   });
@@ -291,7 +291,7 @@ describe("events", () => {
   test("the overview counts seats, the waitlist and cancellations", async () => {
     const html = await (await get("/admin/eventos/lleno")).text();
     expect(html).toContain("Cuándo y dónde");
-    expect(html).toContain("<strong>2</strong> / 2 con cupo");
+    expect(html).toContain("<strong>2<span> / 2</span></strong> con cupo");
     const more = await get("/admin/eventos/lleno/mas");
     expect(more.status).toBe(200);
     expect(await more.text()).toContain("Eliminar");
@@ -474,7 +474,7 @@ describe("passkeys", () => {
     const session = (signedIn.headers.get("set-cookie") ?? "").split(";")[0];
     expect(
       await (await get("/admin", { cookie: session ?? "" })).text(),
-    ).toContain("<span>Pedro</span>");
+    ).toContain('<p class="admin-menu-name">Pedro</p>');
 
     // A challenge answers once.
     const replay = await postJson("/admin/passkey/entrar", {
