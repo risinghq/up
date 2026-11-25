@@ -32,6 +32,7 @@ Open the printed invite link, create a passkey, and add an event from
 - Google Calendar links and an `.ics` file per event, in Lima time.
 - An optional Google Calendar connection that creates each event with a Google
   Meet call, shown on the tickets that hold a seat.
+- Light and dark schemes: the system's, or the one picked in the header.
 - Recorded consent: the privacy policy is required and WhatsApp news is opt-in.
 - An admin area with passkey sign-in: upcoming and past events, a page per event
   with its seat count and share link, an editor with a kind, an accent color, a

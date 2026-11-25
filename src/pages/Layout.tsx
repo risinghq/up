@@ -27,8 +27,52 @@ export type AdminShell = {
 // Vite serves the client entry in dev; the build writes it under fixed names.
 const dev = Boolean(import.meta.env?.DEV);
 
-/** The page background of the neutral palette, Luma's brand-10. */
-const neutralBg = "#f2f2f2";
+/** The neutral page background in each scheme, as styles.css sets it. */
+const neutralBg = { light: "#f2f2f2", dark: "#141414" };
+
+/**
+ * Sets the stored scheme, else the system's, before the first paint, and
+ * points theme-color at it. src/client/scheme.ts keeps both in step after
+ * load and owns the "theme" storage key.
+ */
+const schemeScript = `(function(){var s;try{s=localStorage.getItem("theme")}catch(e){}var d=s?s==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d);if(s)document.querySelectorAll("meta[name=theme-color]").forEach(function(m){m.media=m.dataset.scheme===s?"all":"not all"})})()`;
+
+/** Switches the scheme; src/client/scheme.ts shows it and wires it. */
+const SchemeToggle = () => (
+  <button
+    class="theme-toggle"
+    type="button"
+    aria-label="Modo oscuro"
+    aria-pressed="false"
+    hidden
+  >
+    <svg
+      class="icon-moon"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+    </svg>
+    <svg
+      class="icon-sun"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" />
+    </svg>
+  </button>
+);
 
 export const Mark = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -66,6 +110,7 @@ function SiteHeader(props: {
         </a>
         {props.admin && <a href="/admin">Admin</a>}
         {community.instagram && <a href={community.instagram}>Instagram</a>}
+        <SchemeToggle />
         {community.whatsapp && (
           <a
             class="button button-light button-small button-round"
@@ -104,6 +149,7 @@ function AdminHeader({ shell }: { shell: AdminShell }) {
           </nav>
           <div class="site-links">
             <a href="/">Ver sitio</a>
+            <SchemeToggle />
             <a
               class="button button-light button-small button-round"
               href="/admin/eventos/nuevo"
@@ -121,6 +167,7 @@ function AdminHeader({ shell }: { shell: AdminShell }) {
       ) : (
         <nav class="site-links" aria-label="Sitio">
           <a href="/">Volver al sitio</a>
+          <SchemeToggle />
         </nav>
       )}
     </header>
@@ -141,7 +188,13 @@ export function Layout(props: {
   const { head, community } = props;
   const theme = head.theme;
   const title = head.title === "up" ? "up.rising.sh" : `${head.title} · up`;
-  const background = (theme && palette(theme.accent)?.brand[10]) ?? neutralBg;
+  const tint = theme && palette(theme.accent);
+  const background = tint
+    ? { light: tint.brand[10], dark: tint.brand[80] }
+    : neutralBg;
+  const bodyClass = theme
+    ? `tint ${themeClass(theme)}${tint ? " tinted" : ""}`
+    : "tint";
   return (
     <html lang="es">
       <head>
@@ -165,7 +218,19 @@ export function Layout(props: {
         <link rel="icon" href="/favicon.ico" sizes="32x32" />
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        <meta name="theme-color" content={background} />
+        <meta
+          name="theme-color"
+          media="(prefers-color-scheme: light)"
+          data-scheme="light"
+          content={background.light}
+        />
+        <meta
+          name="theme-color"
+          media="(prefers-color-scheme: dark)"
+          data-scheme="dark"
+          content={background.dark}
+        />
+        <script dangerouslySetInnerHTML={{ __html: schemeScript }} />
         {dev ? (
           <>
             <script type="module" src="/@vite/client" />
@@ -189,10 +254,7 @@ export function Layout(props: {
           </>
         )}
       </head>
-      <body
-        class={theme ? `tint ${themeClass(theme)}` : "tint"}
-        style={theme ? themeStyle(theme) : undefined}
-      >
+      <body class={bodyClass} style={theme ? themeStyle(theme) : undefined}>
         <a class="skip" href="#main">
           Saltar al contenido
         </a>

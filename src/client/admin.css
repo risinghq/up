@@ -230,13 +230,13 @@
 }
 
 .pill-draft {
-  background-color: #fdf1d8;
-  color: #8a5a00;
+  background-color: var(--wait-bg-color);
+  color: var(--wait);
 }
 
 .pill-live {
-  background-color: #dcf5e4;
-  color: #116b32;
+  background-color: var(--ok-bg-color);
+  color: var(--ok);
 }
 
 .empty-state {
@@ -514,7 +514,7 @@
   gap: 8px;
   margin: 0;
   padding: 8px 14px;
-  border: 1px solid #d4d4d4;
+  border: 1px solid var(--opacity-16);
   border-radius: 999px;
   font-size: 14px;
   cursor: pointer;
@@ -636,7 +636,7 @@
 
 .danger {
   padding: 20px;
-  border: 1px solid #f3c4bf;
+  border: 1px solid color-mix(in srgb, var(--error) 30%, transparent);
   border-radius: var(--radius);
 }
 
