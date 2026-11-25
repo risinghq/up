@@ -4,6 +4,7 @@ import { renderSVG } from "uqr";
 import { EventPage, type EventView } from "../pages/Event";
 import { Home, type Tab } from "../pages/Home";
 import { Privacy } from "../pages/Privacy";
+import { ProfilePage } from "../pages/Profile";
 import { TicketPage } from "../pages/Ticket";
 import { Voy } from "../pages/Voy";
 import { adminRoutes, SESSION_COOKIE } from "./admin";
@@ -17,9 +18,12 @@ import { mailTickets } from "./mail";
 import {
   cancel,
   claimResend,
+  closeProfile,
+  findProfile,
   findShare,
   findTicket,
   goingCount,
+  openProfile,
   register,
   shareTicket,
 } from "./registrations";
@@ -200,7 +204,46 @@ export function createApp(options: AppOptions = {}) {
         shareUrl={
           ticket.shareId ? `${eventUrl}/voy/${ticket.shareId}` : undefined
         }
+        profileUrl={
+          ticket.profileId ? `${site(c)}/p/${ticket.profileId}` : undefined
+        }
       />,
+    );
+  });
+
+  app.post("/entrada/:token/perfil", async (c) => {
+    const token = c.req.param("token");
+    const ticket = await findTicket(c.env.DB, token);
+    if (!ticket) return notFound(c, "ticket");
+    await openProfile(c.env.DB, token);
+    return c.redirect(`/entrada/${token}#perfil`, 303);
+  });
+
+  app.post("/entrada/:token/perfil/ocultar", async (c) => {
+    const token = c.req.param("token");
+    const ticket = await findTicket(c.env.DB, token);
+    if (!ticket) return notFound(c, "ticket");
+    await closeProfile(c.env.DB, token);
+    return c.redirect(`/entrada/${token}#perfil`, 303);
+  });
+
+  app.get("/p/:profileId", async (c) => {
+    const profile = await findProfile(c.env.DB, c.req.param("profileId"));
+    if (!profile) return notFound(c);
+    const attended = new Set(profile.attended);
+    const events = (await listEvents(c.env.DB)).filter((e) =>
+      attended.has(e.slug),
+    );
+    c.header("Cache-Control", "no-store");
+    return page(
+      c,
+      {
+        title: `${profile.firstName} en up.rising.sh`,
+        description: `Los eventos a los que fue ${profile.firstName}.`,
+        url: `${site(c)}/p/${c.req.param("profileId")}`,
+        noindex: true,
+      },
+      <ProfilePage firstName={profile.firstName} events={events} />,
     );
   });
 

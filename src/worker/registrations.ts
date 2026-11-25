@@ -16,6 +16,8 @@ export type Ticket = {
   checkedInAt: string | null;
   /** The public "voy" link's id, once the holder shared the ticket. */
   shareId: string | null;
+  /** The holder's public profile id, once they opened it. */
+  profileId: string | null;
 };
 
 export type RegisterResult =
@@ -126,7 +128,8 @@ export async function findTicket(
   return db
     .prepare(
       `SELECT r.id AS token, r.event_slug AS eventSlug, r.number, r.status, p.name, p.email,
-              r.created_at AS createdAt, r.checked_in_at AS checkedInAt, r.share_id AS shareId
+              r.created_at AS createdAt, r.checked_in_at AS checkedInAt, r.share_id AS shareId,
+              p.profile_id AS profileId
        FROM registrations r JOIN people p ON p.id = r.person_id
        WHERE r.id = ?`,
     )
@@ -190,6 +193,66 @@ export async function findShare(
 }
 
 export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
+
+/** Opens the public profile of the ticket's holder; a second call keeps it. */
+export async function openProfile(
+  db: D1Database,
+  token: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE people SET profile_id = COALESCE(profile_id, ?)
+       WHERE id = (SELECT person_id FROM registrations WHERE id = ?)`,
+    )
+    .bind(newToken(), token)
+    .run();
+}
+
+/** Hides the holder's profile; its link stops working. */
+export async function closeProfile(
+  db: D1Database,
+  token: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE people SET profile_id = NULL
+       WHERE id = (SELECT person_id FROM registrations WHERE id = ?)`,
+    )
+    .bind(token)
+    .run();
+}
+
+export type Profile = {
+  firstName: string;
+  /** The slugs of the published events the person checked in at. */
+  attended: string[];
+};
+
+/** What a profile shows: the first name and the slugs of attended events. */
+export async function findProfile(
+  db: D1Database,
+  profileId: string,
+): Promise<Profile | null> {
+  const person = await db
+    .prepare("SELECT id, name FROM people WHERE profile_id = ?")
+    .bind(profileId)
+    .first<{ id: string; name: string }>();
+  if (!person) return null;
+
+  const { results } = await db
+    .prepare(
+      `SELECT r.event_slug AS slug
+       FROM registrations r JOIN events e ON e.slug = r.event_slug
+       WHERE r.person_id = ? AND r.checked_in_at IS NOT NULL
+         AND e.status = 'published'`,
+    )
+    .bind(person.id)
+    .all<{ slug: string }>();
+  return {
+    firstName: firstName(person.name),
+    attended: results.map((r) => r.slug),
+  };
+}
 
 export async function undoCheckIn(
   db: D1Database,

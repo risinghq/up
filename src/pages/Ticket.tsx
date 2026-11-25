@@ -20,6 +20,8 @@ export type TicketView = {
   door: boolean;
   /** The public "voy" link, once the holder made one. */
   shareUrl?: string;
+  /** The holder's public profile, once they opened it. */
+  profileUrl?: string;
 };
 
 const statusText = {
@@ -108,6 +110,56 @@ function SharePanel(props: { token: string; title: string; url?: string }) {
           </p>
           <button class="button button-light button-full" type="submit">
             Compartir que voy
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+
+/** Opens, shows or hides the holder's public profile of badges. */
+function ProfilePanel(props: { token: string; url?: string }) {
+  const action = `/entrada/${props.token}/perfil`;
+  return (
+    <section class="content-card" id="perfil" aria-labelledby="profile-title">
+      <h2 class="card-title" id="profile-title">
+        Tus insignias
+      </h2>
+      {props.url ? (
+        <div class="ticket-actions">
+          <div class="copy-row">
+            <input
+              class="copy-input"
+              readOnly
+              value={props.url}
+              aria-label="Enlace de tu perfil"
+            />
+            <button
+              class="button button-light"
+              type="button"
+              data-copy={props.url}
+              hidden
+            >
+              Copiar
+            </button>
+          </div>
+          <a class="button button-light button-full" href={props.url}>
+            Ver mi perfil
+          </a>
+          <form method="post" action={`${action}/ocultar`} class="cancel">
+            <button class="link-button" type="submit">
+              Ocultar mi perfil
+            </button>
+          </form>
+        </div>
+      ) : (
+        <form method="post" action={action} class="ticket-actions">
+          <p class="ticket-note">
+            Cada evento al que entras te da una insignia. Crea una página
+            pública con tu nombre y tus insignias.
+          </p>
+          <button class="button button-light button-full" type="submit">
+            Crear mi perfil
           </button>
         </form>
       )}
@@ -250,6 +302,10 @@ export function TicketPage(view: TicketView) {
           title={event.title}
           url={view.shareUrl}
         />
+      )}
+
+      {(ticket.checkedInAt || view.profileUrl) && (
+        <ProfilePanel token={ticket.token} url={view.profileUrl} />
       )}
 
       {ticket.status === "cancelled" && !view.ended && (
