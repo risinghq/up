@@ -3,11 +3,12 @@ import type { CalendarLink, EventMeta } from "../../worker/events";
 import { ArrowIcon, DateRow, PlaceRow } from "../EventCard";
 import { StatusPill } from "./Events";
 
-export type ManageTab = "resumen" | "inscritos" | "editar" | "mas";
+export type ManageTab = "resumen" | "inscritos" | "equipo" | "editar" | "mas";
 
 const tabs: [ManageTab, string, string][] = [
   ["resumen", "Resumen", ""],
   ["inscritos", "Inscritos", "/inscritos"],
+  ["equipo", "Equipo", "/equipo"],
   ["editar", "Editar", "/editar"],
   ["mas", "Más", "/mas"],
 ];

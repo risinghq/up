@@ -1,12 +1,10 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { csrf } from "hono/csrf";
-import type { ComponentChildren } from "preact";
 import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
 } from "@simplewebauthn/server";
-import type { AdminShell } from "../pages/Layout";
 import { EventEditor, type EditorView } from "../pages/admin/EventEditor";
 import { Events, type Period } from "../pages/admin/Events";
 import { More, Overview, type CalendarPanel } from "../pages/admin/Manage";
@@ -78,8 +76,10 @@ import {
   registrationCount,
   statusCounts,
 } from "./registrants";
+import { teamRoutes } from "./team";
 import { newToken } from "./tokens";
-import { after, notFound, page, site, type AppEnv, type Ctx } from "./web";
+import { after, notFound, site, type AppEnv, type Ctx } from "./web";
+import { adminPage, withEvent } from "./adminPage";
 import { whatsappMode } from "./whatsapp";
 
 export const SESSION_COOKIE = "up_admin";
@@ -96,7 +96,6 @@ const pick = <T extends string>(
 
 /** The fields a new event starts with. */
 const blankEvent: Record<string, string> = {
-  hosts: "David, Pedro",
   place_kind: "venue",
   place_name: "Facultad de Ciencias Físicas, UNMSM",
   place_address: "Av. Venezuela s/n, Cercado de Lima",
@@ -161,38 +160,6 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     } catch (error) {
       console.error(error);
     }
-  };
-
-  /** An admin page. The header names the signed-in admin and marks `section`. */
-  const adminPage = (
-    c: Ctx,
-    title: string,
-    body: ComponentChildren,
-    options: {
-      status?: number;
-      passkeys?: boolean;
-      section?: AdminShell["section"];
-    } = {},
-  ) => {
-    c.header("Cache-Control", "no-store");
-    return page(
-      c,
-      {
-        title,
-        description: "Administración de up.",
-        url: `${site(c)}${c.req.path}`,
-        noindex: true,
-      },
-      body,
-      options.status,
-      {
-        passkeys: options.passkeys,
-        shell: {
-          name: c.get("admin")?.name,
-          section: options.section ?? "eventos",
-        },
-      },
-    );
   };
 
   const startSession = async (c: Ctx, adminId: string) => {
@@ -522,14 +489,6 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     return c.redirect(`/admin/eventos/${event.slug}?creado`, 303);
   });
 
-  /** Loads the event in the path or answers 404. */
-  const withEvent =
-    (handler: (c: Ctx, event: EventMeta) => Promise<Response> | Response) =>
-    async (c: Ctx) => {
-      const event = await findEvent(c.env.DB, c.req.param("slug") ?? "");
-      return event ? handler(c, event) : notFound(c);
-    };
-
   admin.get(
     "/eventos/:slug",
     withEvent(async (c, event) =>
@@ -704,6 +663,8 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     doorRoute((db, token) => checkIn(db, token, iso())),
   );
   admin.post("/entrada/:token/ingreso/deshacer", doorRoute(undoCheckIn));
+
+  admin.route("/eventos/:slug/equipo", teamRoutes());
 
   return admin;
 }

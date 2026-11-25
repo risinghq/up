@@ -130,7 +130,6 @@ export function event(
       name: "FCF, UNMSM",
       address: "Av. Venezuela s/n",
     },
-    hosts: [{ name: "David" }],
     questions: [],
     status: "published",
     theme: {

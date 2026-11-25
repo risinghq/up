@@ -5,11 +5,10 @@ import {
   type Backdrop,
   type EventMeta,
   type Font,
-  type Host,
   type Kind,
   type Place,
 } from "./events";
-import { emailPattern, type FormState } from "./form";
+import type { FormState } from "./form";
 import { parsePoint } from "./geo";
 import { formatQuestions, parseQuestions } from "./questions";
 
@@ -21,19 +20,6 @@ const reservedSlugs = new Set([
   "media",
   "assets",
 ]);
-
-/** "Ana Quispe <ana@correo.com>, Pedro" in the form, one host per comma. */
-const formatHosts = (hosts: Host[]) =>
-  hosts.map((h) => (h.email ? `${h.name} <${h.email}>` : h.name)).join(", ");
-
-function parseHost(text: string): Host | null {
-  const match = /^(.*?)\s*<([^>]*)>$/.exec(text);
-  if (!match) return { name: text };
-
-  const name = match[1]!.trim();
-  const email = match[2]!.trim().toLowerCase();
-  return name && emailPattern.test(email) ? { name, email } : null;
-}
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const accentPattern = /^#[0-9a-f]{6}$/;
@@ -74,7 +60,6 @@ export function eventValues(event: EventMeta): Record<string, string> {
     place_name: place.kind === "venue" ? place.name : place.platform,
     place_address: place.kind === "venue" ? place.address : "",
     map_url: place.kind === "venue" ? mapValue(place) : "",
-    hosts: formatHosts(event.hosts),
     capacity: event.capacity === undefined ? "" : String(event.capacity),
     questions: formatQuestions(event.questions),
     status: event.status,
@@ -118,7 +103,6 @@ export function parseEventForm(
     place_name: text("place_name"),
     place_address: text("place_address"),
     map_url: text("map_url"),
-    hosts: text("hosts"),
     capacity: text("capacity"),
     questions: text("questions"),
     status: text("status"),
@@ -161,15 +145,6 @@ export function parseEventForm(
   if (!online && values.map_url && !point && !isUrl(values.map_url))
     errors.map_url =
       "Pega un enlace de Google Maps o coordenadas como -12.0599, -77.0817.";
-
-  const hostTexts = values.hosts
-    .split(",")
-    .map((h) => h.trim())
-    .filter(Boolean);
-  const hosts = hostTexts.map(parseHost).filter((h) => h !== null);
-  if (!hostTexts.length) errors.hosts = "Escribe al menos un organizador.";
-  else if (hosts.length < hostTexts.length)
-    errors.hosts = "Escribe cada correo así: Ana Quispe <ana@correo.com>.";
 
   let capacity: number | undefined;
   if (values.capacity) {
@@ -223,7 +198,6 @@ export function parseEventForm(
                 ? { mapUrl: values.map_url }
                 : {}),
           },
-      hosts,
       ...(capacity !== undefined ? { capacity } : {}),
       questions,
       status,

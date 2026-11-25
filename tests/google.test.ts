@@ -165,7 +165,6 @@ function editForm(title: string) {
     end: "2026-12-12T19:00",
     place_kind: "online",
     place_name: "Google Meet",
-    hosts: "David",
     capacity: "1",
     status: "published",
     kind: "charla",

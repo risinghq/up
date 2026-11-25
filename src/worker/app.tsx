@@ -23,11 +23,11 @@ import { notifyTickets } from "./notify";
 import {
   closeProfile,
   findProfile,
-  hostedSlugs,
   openProfile,
   profilesByEmail,
 } from "./profiles";
 import { cancel, findTicket, goingCount } from "./registrations";
+import { eventRoles, rolesOf } from "./roles";
 import { findShare, shareTicket } from "./shares";
 import { signUp } from "./signup";
 import {
@@ -92,11 +92,15 @@ export function createApp(options: AppOptions = {}) {
     notice: Notice,
     status = 200,
   ) => {
-    const hostEmails = event.hosts.flatMap((h) => (h.email ? [h.email] : []));
+    const team = await eventRoles(c.env.DB, event.slug);
+    const emails = team.flatMap((person) =>
+      person.email ? [person.email] : [],
+    );
     const view = eventView(viewContext(c), {
       event,
       going: await goingCount(c.env.DB, event.slug),
-      hostProfiles: await profilesByEmail(c.env.DB, hostEmails),
+      team,
+      profiles: await profilesByEmail(c.env.DB, emails),
       form,
       notice,
       admin: Boolean(c.get("admin")),
@@ -195,7 +199,7 @@ export function createApp(options: AppOptions = {}) {
       fresh: c.req.query("nueva") !== undefined,
       door: Boolean(c.get("admin")),
       whatsapp: c.env.WHATSAPP_COMMUNITY_URL,
-      hosts: (await hostedSlugs(c.env.DB, ticket.email)).length > 0,
+      hasRole: (await rolesOf(c.env.DB, ticket.email)).length > 0,
     });
 
     c.header("Cache-Control", "no-store");

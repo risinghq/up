@@ -2,17 +2,21 @@ import { micromark } from "micromark";
 import type { ComponentChildren } from "preact";
 import { kindTag, type EventMeta, type Question } from "../worker/events";
 import type { FormState } from "../worker/form";
+import type { Role } from "../worker/roles";
 import { ArrowIcon, Cover, DateRow, PlaceRow, VenueCard } from "./EventCard";
 
 /** Why the register card shows what it shows. */
 export type Notice = "exists" | null;
 
-/** A host as the page shows it: the name, linked to a public profile. */
-export type HostLink = { name: string; url?: string };
+/** A person as the page shows them: the name, linked to a public profile. */
+export type PersonLink = { name: string; url?: string };
+
+/** The people who hold one role at the event, e.g. "Ponentes". */
+export type TeamGroup = { role: Role; label: string; people: PersonLink[] };
 
 export type EventView = {
   event: EventMeta;
-  hosts: HostLink[];
+  team: TeamGroup[];
   going: number;
   ended: boolean;
   form: FormState;
@@ -367,36 +371,46 @@ function RegisterForm({
   );
 }
 
-/** Hosts and the event's kind: the left column on desktop, last on mobile. */
-function Sidebar(props: { event: EventMeta; hosts: HostLink[]; only: string }) {
+function Person({ person }: { person: PersonLink }) {
+  const body = (
+    <>
+      <span class="avatar" aria-hidden="true">
+        {person.name.slice(0, 1)}
+      </span>
+      <span class="person-name">{person.name}</span>
+    </>
+  );
+  return (
+    <li class="person">
+      {person.url ? (
+        <a class="person-link" href={person.url}>
+          {body}
+        </a>
+      ) : (
+        body
+      )}
+    </li>
+  );
+}
+
+/** The people by role and the event's kind: left on desktop, last on mobile. */
+function Sidebar(props: { event: EventMeta; team: TeamGroup[]; only: string }) {
   const kind = kindTag(props.event);
   return (
     <div class={`sidebar ${props.only}`}>
-      <Card label="Organizan" id={`hosts-${props.only}`}>
-        <ul class="hosts">
-          {props.hosts.map((host) => {
-            const body = (
-              <>
-                <span class="avatar" aria-hidden="true">
-                  {host.name.slice(0, 1)}
-                </span>
-                <span class="host-name">{host.name}</span>
-              </>
-            );
-            return (
-              <li key={host.name} class="host">
-                {host.url ? (
-                  <a class="host-link" href={host.url}>
-                    {body}
-                  </a>
-                ) : (
-                  body
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </Card>
+      {props.team.map((group) => (
+        <Card
+          key={group.role}
+          label={group.label}
+          id={`${group.role}-${props.only}`}
+        >
+          <ul class="people">
+            {group.people.map((person, i) => (
+              <Person key={i} person={person} />
+            ))}
+          </ul>
+        </Card>
+      ))}
       {kind && (
         <p class="categories">
           <span class="category">
@@ -416,7 +430,7 @@ export function EventPage(view: EventView) {
       <div class="event-content">
         <div class="event-left">
           <Cover event={meta} />
-          <Sidebar event={meta} hosts={view.hosts} only="desktop-only" />
+          <Sidebar event={meta} team={view.team} only="desktop-only" />
         </div>
         <div class="event-right">
           <header class="top">
@@ -466,7 +480,7 @@ export function EventPage(view: EventView) {
 
           <VenueCard event={meta} />
 
-          <Sidebar event={meta} hosts={view.hosts} only="mobile-only" />
+          <Sidebar event={meta} team={view.team} only="mobile-only" />
         </div>
       </div>
     </article>

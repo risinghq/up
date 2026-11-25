@@ -172,12 +172,6 @@ function EditorForm({ view, action }: { view: EditorView; action: string }) {
         <fieldset>
           <legend>Inscripción</legend>
           <Input
-            name="hosts"
-            label="Organizan"
-            form={form}
-            hint="Nombres separados por comas. Con el correo, el evento aparece en el perfil de esa persona: Ana Quispe <ana@correo.com>. El correo no se muestra."
-          />
-          <Input
             name="capacity"
             label="Cupos"
             type="number"
