@@ -29,8 +29,9 @@ browser's WebAuthn API, and registering needs the Turnstile widget that
    `waitlist`. An email that already holds a live ticket gets `exists`, and the
    route answers 409 without the ticket link. `claimResend` lets it email that
    link to the address once per cooldown.
-5. `mailTickets` in [`src/worker/mail.ts`](../src/worker/mail.ts) emails the
-   confirmation through the `EMAIL` binding. `after` in
+5. `notifyTickets` in [`src/worker/notify.ts`](../src/worker/notify.ts) emails
+   the confirmation through the `EMAIL` binding, then sends the WhatsApp message
+   from [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts). `after` in
    [`src/worker/web.tsx`](../src/worker/web.tsx) hands the send to `waitUntil`,
    so the response does not wait for it.
 6. The route redirects with 303 to `/entrada/<token>?nueva`. The ticket route
@@ -39,7 +40,7 @@ browser's WebAuthn API, and registering needs the Turnstile widget that
 
 `POST /entrada/<token>/cancelar` calls `cancel`, which marks the registration
 `cancelled` and moves the oldest waitlisted registration to `going` when a seat
-frees. `cancel` and `fillSeats` return the seated tokens, and the route emails
+frees. `cancel` and `fillSeats` return the seated tokens, and the route notifies
 them. A checked-in ticket does not cancel.
 
 The ticket page of a venue event carries a QR code of its own URL, drawn on the
@@ -74,7 +75,7 @@ tables removed.
 The Worker's `scheduled` handler in
 [`src/worker/index.tsx`](../src/worker/index.tsx) runs every hour.
 `sendReminders` in [`src/worker/reminders.ts`](../src/worker/reminders.ts)
-emails each seated ticket of an event that starts within a day and marks
+notifies each seated ticket of an event that starts within a day and marks
 `reminded_at` once the email went out.
 
 ## An edit, from editor to page
@@ -159,6 +160,8 @@ are stored as their SHA-256 only.
 | [`src/worker/form.ts`](../src/worker/form.ts)                   | Registration parsing and phone normalization.                               |
 | [`src/worker/registrations.ts`](../src/worker/registrations.ts) | People and registration queries.                                            |
 | [`src/worker/mail.ts`](../src/worker/mail.ts)                   | The emails to ticket holders and their sending.                             |
+| [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts)           | The WhatsApp templates and their sending.                                   |
+| [`src/worker/notify.ts`](../src/worker/notify.ts)               | Sends a ticket's email and WhatsApp message together.                       |
 | [`src/worker/reminders.ts`](../src/worker/reminders.ts)         | The day-before reminders the hourly cron sends.                             |
 | [`src/worker/auth.ts`](../src/worker/auth.ts)                   | Admin, invite, session and challenge queries.                               |
 | [`src/worker/passkeys.ts`](../src/worker/passkeys.ts)           | WebAuthn options and verification.                                          |

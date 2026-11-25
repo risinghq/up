@@ -1,6 +1,6 @@
 import { placeLine } from "./calendar";
 import type { EventMeta } from "./events";
-import { findTicket, type Ticket } from "./registrations";
+import type { Ticket } from "./registrations";
 import { clock, longDate } from "./time";
 
 /** The address is listed under the EMAIL binding's allowed senders. */
@@ -42,8 +42,11 @@ const escape = (text: string) =>
 const capitalize = (text: string) =>
   text.slice(0, 1).toUpperCase() + text.slice(1);
 
-/** The lines that say when and where, the same in both bodies. */
-function details(event: EventMeta, seated: boolean): string[] {
+/** The lines that say when and where, in the email and the WhatsApp message. */
+export function details(
+  event: EventMeta,
+  seated: boolean,
+): [when: string, where: string] {
   const when = `${capitalize(longDate(event.start))}, ${clock(event.start)} a ${clock(event.end)} (hora de Lima)`;
   const where =
     event.place.kind === "online" && seated
@@ -113,22 +116,4 @@ export async function sendMail(
     console.error("email to a ticket holder failed", error);
     return false;
   }
-}
-
-/** Mails each ticket's holder; returns the tokens whose email went out. */
-export async function mailTickets(
-  env: { DB: D1Database; EMAIL?: SendEmail; SITE_URL: string },
-  kind: MailKind,
-  event: EventMeta,
-  tokens: string[],
-): Promise<string[]> {
-  const site = env.SITE_URL.replace(/\/$/, "");
-  const sent: string[] = [];
-  for (const token of tokens) {
-    const ticket = await findTicket(env.DB, token);
-    if (!ticket) continue;
-    const mail = ticketMail(kind, event, ticket, site);
-    if (await sendMail(env.EMAIL, mail)) sent.push(token);
-  }
-  return sent;
 }

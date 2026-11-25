@@ -11,6 +11,8 @@ export type Ticket = {
   status: Status;
   name: string;
   email: string;
+  /** E.164, as the form stored it. */
+  phone: string;
   createdAt: string;
   /** When an admin let the person in at the door. */
   checkedInAt: string | null;
@@ -127,7 +129,7 @@ export async function findTicket(
 ): Promise<Ticket | null> {
   return db
     .prepare(
-      `SELECT r.id AS token, r.event_slug AS eventSlug, r.number, r.status, p.name, p.email,
+      `SELECT r.id AS token, r.event_slug AS eventSlug, r.number, r.status, p.name, p.email, p.phone,
               r.created_at AS createdAt, r.checked_in_at AS checkedInAt, r.share_id AS shareId,
               p.profile_id AS profileId
        FROM registrations r JOIN people p ON p.id = r.person_id

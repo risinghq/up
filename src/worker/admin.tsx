@@ -44,7 +44,7 @@ import {
 } from "./events";
 import type { FormState } from "./form";
 import { locate } from "./geo";
-import { mailTickets } from "./mail";
+import { notifyTickets } from "./notify";
 import {
   accessToken,
   authUrl,
@@ -77,6 +77,7 @@ import {
 } from "./registrations";
 import { newToken } from "./tokens";
 import { after, notFound, page, site, type AppEnv, type Ctx } from "./web";
+import { whatsappMode } from "./whatsapp";
 
 export const SESSION_COOKIE = "up_admin";
 const GOOGLE_STATE_COOKIE = "up_google_state";
@@ -363,6 +364,7 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
       <Settings
         admins={await listAdmins(c.env.DB)}
         google={google}
+        whatsapp={whatsappMode(c.env)}
         {...extra}
       />,
       { status, section: "ajustes" },
@@ -590,7 +592,7 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
       if (cover.stale) await c.env.MEDIA.delete(cover.stale);
       // A raised capacity seats the waitlist now, not at the next cancellation.
       const seated = await fillSeats(c.env.DB, saved);
-      await after(c, mailTickets(c.env, "promoted", saved, seated));
+      await after(c, notifyTickets(c.env, fetcher, "promoted", saved, seated));
       const synced = !saved.calendar || (await syncCalendar(c, saved));
       return c.redirect(
         `/admin/eventos/${event.slug}/editar?guardado${synced ? "" : "&calendario=error"}`,
