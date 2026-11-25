@@ -10,8 +10,16 @@ import { googleCalendarUrl, ics } from "./calendar";
 import { coverUrl, findEvent, listEvents, type EventMeta } from "./events";
 import { parseRegistration, type FormState } from "./form";
 import type { Fetch } from "./google";
-import { cancel, findTicket, goingCount, register } from "./registrations";
+import { mailTickets } from "./mail";
 import {
+  cancel,
+  claimResend,
+  findTicket,
+  goingCount,
+  register,
+} from "./registrations";
+import {
+  after,
   description,
   notFound,
   page,
@@ -29,6 +37,9 @@ export type AppOptions = {
 };
 
 const emptyForm: FormState = { values: {}, errors: {} };
+
+/** A repeat registration resends the ticket link at most this often. */
+const RESEND_COOLDOWN = 15 * 60 * 1000;
 
 export function createApp(options: AppOptions = {}) {
   const now = options.now ?? (() => new Date());
@@ -181,8 +192,10 @@ export function createApp(options: AppOptions = {}) {
     const ticket = await findTicket(c.env.DB, token);
     const event = ticket && (await findEvent(c.env.DB, ticket.eventSlug));
     if (!ticket || !event) return notFound(c, "ticket");
-    if (!ended(event))
-      await cancel(c.env.DB, event, token, now().toISOString());
+    if (!ended(event)) {
+      const seated = await cancel(c.env.DB, event, token, now().toISOString());
+      await after(c, mailTickets(c.env, "promoted", event, seated));
+    }
     return c.redirect(`/entrada/${token}`, 303);
   });
 
@@ -221,8 +234,12 @@ export function createApp(options: AppOptions = {}) {
       parsed.value,
       now().toISOString(),
     );
-    if (result.kind === "exists")
+    if (result.kind === "exists") {
+      if (await claimResend(c.env.DB, result.token, now(), RESEND_COOLDOWN))
+        await after(c, mailTickets(c.env, "again", event, [result.token]));
       return eventPage(c, event, emptyForm, "exists", 409);
+    }
+    await after(c, mailTickets(c.env, result.status, event, [result.token]));
     return c.redirect(`/entrada/${result.token}?nueva`, 303);
   });
 

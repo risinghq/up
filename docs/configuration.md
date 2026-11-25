@@ -26,3 +26,6 @@ them.
 | `DB`     | The D1 database `up`: events, people, registrations and admins. The schema is in [`migrations/`](../migrations/). |
 | `MEDIA`  | The R2 bucket `up-media`: event covers, served at `/media/<key>`.                                                 |
 | `ASSETS` | The client build and `public/`.                                                                                   |
+| `EMAIL`  | Cloudflare Email Service, allowed to send from `eventos@rising.sh` ([Email](email.md)).                           |
+
+The cron trigger `0 * * * *` runs the [reminders](email.md) every hour.

@@ -22,6 +22,8 @@ export type Env = {
   /** The OAuth client that links Google Calendar. Without both, the admin hides it. */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /** Cloudflare Email Service. Without it, as in tests, no email is sent. */
+  EMAIL?: SendEmail;
 };
 
 export type AppEnv = {
@@ -36,6 +38,21 @@ export const description =
   "Eventos de rising.sh en Lima: mini hackathons, talleres y charlas. Inscríbete y únete a la comunidad.";
 
 export const site = (c: Ctx) => c.env.SITE_URL.replace(/\/$/, "");
+
+/**
+ * Finishes `work` after the response is sent. A request without an execution
+ * context, as in tests, waits for it instead.
+ */
+export async function after(c: Ctx, work: Promise<unknown>): Promise<void> {
+  let ctx: Pick<ExecutionContext, "waitUntil"> | undefined;
+  try {
+    ctx = c.executionCtx;
+  } catch {
+    // Hono throws when the request came without a context.
+  }
+  if (ctx) ctx.waitUntil(work);
+  else await work;
+}
 
 const community = (c: Ctx): Community => ({
   whatsapp: c.env.WHATSAPP_COMMUNITY_URL,

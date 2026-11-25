@@ -14,9 +14,11 @@ import {
   form,
   HOST_TIMEOUT,
   migratedDb,
+  outbox,
   seed,
   testEnv,
 } from "./support";
+import { sendReminders } from "../src/worker/reminders";
 
 setDefaultTimeout(HOST_TIMEOUT);
 
@@ -49,11 +51,12 @@ const app = createApp({ now: () => now });
 let mf: Miniflare;
 let DB: D1Database;
 let env: Env;
+const mail = outbox();
 
 beforeAll(async () => {
   let MEDIA: R2Bucket;
   ({ mf, DB, MEDIA } = await migratedDb("app"));
-  env = testEnv(DB, MEDIA);
+  env = testEnv(DB, MEDIA, { EMAIL: mail.binding });
   await seed(DB, events);
 });
 
@@ -218,14 +221,40 @@ describe("registration", () => {
     expect(html).toContain("Elige una de las opciones."); // nivel
   });
 
-  test("an email already registered gets no ticket link", async () => {
-    await registerAs("charla", { email: "twice@example.com" });
+  test("a registration emails the ticket link", async () => {
+    const token = await registerAs("charla", { email: "mail@example.com" });
+    const [message] = mail.sent.filter((m) => m.to === "mail@example.com");
+    expect(message?.subject).toBe("Estás inscrito: Charla abierta");
+    expect(message?.text).toContain(`https://up.test/entrada/${token}`);
+    expect(message?.text).toContain("Hola, Ana:");
+    expect(message?.html).toContain(`href="https://up.test/entrada/${token}"`);
+  });
+
+  test("an email already registered gets its link by email, not on the page", async () => {
+    const token = await registerAs("charla", { email: "twice@example.com" });
     const res = await post("/charla", form({ email: "twice@example.com" }));
     expect(res.status).toBe(409);
     expect(res.headers.get("location")).toBeNull();
     const html = await res.text();
     expect(html).toContain("Este correo ya está inscrito");
     expect(html).not.toContain("/entrada/");
+
+    // A third post inside the cooldown sends nothing more.
+    await post("/charla", form({ email: "twice@example.com" }));
+    expect(mail.subjects("twice@example.com")).toEqual([
+      "Estás inscrito: Charla abierta",
+      "Tu entrada: Charla abierta",
+    ]);
+    const resent = mail.sent.filter((m) => m.to === "twice@example.com")[1];
+    expect(resent?.text).toContain(`/entrada/${token}`);
+  });
+
+  test("a title with markup is escaped in the email", async () => {
+    await seed(DB, [event({ slug: "marcado", title: "<b>Taller</b> & más" })]);
+    await registerAs("marcado", { email: "marcado@example.com" });
+    const message = mail.sent.find((m) => m.to === "marcado@example.com");
+    expect(message?.html).toContain("&lt;b&gt;Taller&lt;/b&gt; &amp; más");
+    expect(message?.html).not.toContain("<b>Taller");
   });
 
   test("a filled trap field stores nothing", async () => {
@@ -268,6 +297,10 @@ describe("capacity and cancellation", () => {
     expect(await (await get(`/entrada/${second}`)).text()).toContain(
       "Tienes un cupo",
     );
+    expect(mail.subjects("dos@example.com")).toEqual([
+      "Estás en la lista de espera: Taller de Rust",
+      "Tienes cupo: Taller de Rust",
+    ]);
   });
 
   test("registering again after cancelling issues a new ticket", async () => {
@@ -285,6 +318,48 @@ describe("capacity and cancellation", () => {
     const res = await get("/entrada/AAAAAAAAAAAAAAAAAAAAAA");
     expect(res.status).toBe(404);
     expect(await res.text()).toContain("No encontramos esa entrada");
+  });
+});
+
+describe("reminders", () => {
+  test("a day before, each seated ticket gets one reminder", async () => {
+    // Every event in this file starts 2026-12-12 at 15:00 Lima.
+    expect(
+      await sendReminders(env, new Date("2026-12-11T14:00:00-05:00")),
+    ).toBe(0);
+
+    // A ticket taken inside the last day already got its confirmation.
+    const late = createApp({
+      now: () => new Date("2026-12-11T15:30:00-05:00"),
+    });
+    await late.request(
+      "/charla",
+      { method: "POST", body: form({ email: "tarde@example.com" }) },
+      env,
+    );
+
+    const sent = await sendReminders(
+      env,
+      new Date("2026-12-11T16:00:00-05:00"),
+    );
+    expect(sent).toBeGreaterThan(0);
+    expect(mail.subjects("mail@example.com")).toContain(
+      "Recordatorio: Charla abierta",
+    );
+    expect(mail.subjects("dos@example.com")).toContain(
+      "Recordatorio: Taller de Rust",
+    );
+    expect(mail.subjects("tarde@example.com")).toEqual([
+      "Estás inscrito: Charla abierta",
+    ]);
+    // Cancelled and past tickets get nothing.
+    expect(mail.subjects("uno@example.com")).not.toContain(
+      "Recordatorio: Taller de Rust",
+    );
+
+    expect(
+      await sendReminders(env, new Date("2026-12-11T17:00:00-05:00")),
+    ).toBe(0);
   });
 });
 

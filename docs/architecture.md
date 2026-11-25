@@ -22,14 +22,26 @@ the browser's WebAuthn API.
    upserts the person by email, then inserts the registration with a fresh
    ticket token and the next number. Past the event's capacity the status is
    `waitlist`. An email that already holds a live ticket gets `exists`, and the
-   route answers 409 without the ticket link.
-5. The route redirects with 303 to `/entrada/<token>?nueva`. The ticket route
+   route answers 409 without the ticket link. `claimResend` lets it email that
+   link to the address once per cooldown.
+5. `mailTickets` in [`src/worker/mail.ts`](../src/worker/mail.ts) emails the
+   confirmation through the `EMAIL` binding. `after` in
+   [`src/worker/web.tsx`](../src/worker/web.tsx) hands the send to `waitUntil`,
+   so the response does not wait for it.
+6. The route redirects with 303 to `/entrada/<token>?nueva`. The ticket route
    looks the token up with `findTicket` and renders
    [`src/pages/Ticket.tsx`](../src/pages/Ticket.tsx).
 
 `POST /entrada/<token>/cancelar` calls `cancel`, which marks the registration
 `cancelled` and moves the oldest waitlisted registration to `going` when a seat
-frees.
+frees. `cancel` and `fillSeats` return the seated tokens, and the route emails
+them.
+
+The Worker's `scheduled` handler in
+[`src/worker/index.tsx`](../src/worker/index.tsx) runs every hour.
+`sendReminders` in [`src/worker/reminders.ts`](../src/worker/reminders.ts)
+emails each seated ticket of an event that starts within a day and marks
+`reminded_at` once the email went out.
 
 ## An edit, from editor to page
 
@@ -97,13 +109,15 @@ are stored as their SHA-256 only.
 | --------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | [`src/worker/app.tsx`](../src/worker/app.tsx)                   | Public routes, headers and the session middleware.                          |
 | [`src/worker/admin.tsx`](../src/worker/admin.tsx)               | The `/admin` routes.                                                        |
-| [`src/worker/web.tsx`](../src/worker/web.tsx)                   | The `Env` type and page rendering.                                          |
+| [`src/worker/web.tsx`](../src/worker/web.tsx)                   | The `Env` type, page rendering and work after the response.                 |
 | [`src/worker/events.ts`](../src/worker/events.ts)               | The event type and its D1 queries.                                          |
 | [`src/worker/google.ts`](../src/worker/google.ts)               | Google OAuth, the Calendar API and the connected account.                   |
 | [`src/worker/eventForm.ts`](../src/worker/eventForm.ts)         | The editor's form parsing.                                                  |
 | [`src/worker/questions.ts`](../src/worker/questions.ts)         | The one-per-line question syntax.                                           |
 | [`src/worker/form.ts`](../src/worker/form.ts)                   | Registration parsing and phone normalization.                               |
 | [`src/worker/registrations.ts`](../src/worker/registrations.ts) | People and registration queries.                                            |
+| [`src/worker/mail.ts`](../src/worker/mail.ts)                   | The emails to ticket holders and their sending.                             |
+| [`src/worker/reminders.ts`](../src/worker/reminders.ts)         | The day-before reminders the hourly cron sends.                             |
 | [`src/worker/auth.ts`](../src/worker/auth.ts)                   | Admin, invite, session and challenge queries.                               |
 | [`src/worker/passkeys.ts`](../src/worker/passkeys.ts)           | WebAuthn options and verification.                                          |
 | [`src/worker/tokens.ts`](../src/worker/tokens.ts)               | Random tokens and their hashes.                                             |
