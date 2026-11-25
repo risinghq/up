@@ -432,9 +432,9 @@ a:hover {
 .theme-toggle {
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
-  margin: -0.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.625rem;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -926,6 +926,15 @@ a:hover {
   z-index: 1;
 }
 
+/* Opening the featured event moves its cover into the event page's cover:
+   Cover names itself after its event, so only the same event's covers
+   pair. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+}
+
 .cover-under {
   position: absolute;
   inset: 1rem 0 0;
@@ -1397,9 +1406,25 @@ a:hover {
   font-size: 0.625rem;
 }
 
+/* On a tinted dark page, the dark tiles lose their gray and take the event's
+   hue at their own lightness, so the map reads as part of the page. */
+.dark .tinted .venue-map {
+  background: var(--card-bg-color);
+}
+
+.dark .tinted .venue-map canvas {
+  filter: grayscale(1);
+}
+
+.dark .tinted .venue-map::after {
+  background: var(--brand-50);
+  mix-blend-mode: color;
+  opacity: 0.6;
+}
+
 .dark .venue-map .maplibregl-ctrl-attrib {
-  background: rgba(0, 0, 0, 0.6);
-  color: var(--secondary-color);
+  background: color-mix(in srgb, var(--page-bg) 80%, transparent);
+  color: var(--secondary-color-alpha);
 }
 
 .dark .venue-map .maplibregl-ctrl-attrib a {
@@ -1698,6 +1723,13 @@ a:hover {
   color: var(--brand-active-color);
 }
 
+/* The ticket card is narrower than the event page, so the venue wraps
+   instead of cutting its name. */
+.ticket-page .meta-title,
+.ticket-page .meta-title > span:first-child {
+  white-space: normal;
+}
+
 .ticket-facts {
   display: flex;
   gap: 2rem;
@@ -1749,8 +1781,18 @@ a:hover {
   font-size: var(--font-size-sm);
 }
 
+/* A destructive act set as a plain link: the underline marks it as one, and
+   the row is a full tap target. */
 .cancel {
   margin-top: 0.25rem;
+}
+
+.cancel .link-button {
+  min-height: 2.75rem;
+  color: var(--secondary-color-alpha);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
 }
 
 /* Plain pages: privacy, not found */

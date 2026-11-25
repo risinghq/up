@@ -39,8 +39,11 @@ function apply(choice: Choice | null) {
         : "not all"
       : `(prefers-color-scheme: ${scheme})`;
   }
+  // A labeled toggle names the scheme it switches to, so only the icon
+  // toggle carries a pressed state.
   for (const toggle of toggles) {
-    toggle.setAttribute("aria-pressed", String(dark));
+    if (toggle.hasAttribute("aria-pressed"))
+      toggle.setAttribute("aria-pressed", String(dark));
   }
 }
 

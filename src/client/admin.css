@@ -86,19 +86,113 @@
   font-size: inherit;
 }
 
+/* A phone keeps the header to one row: the logo, Crear and the menu. The
+   menu holds the rest. */
+
+.admin-menu {
+  display: none;
+  position: relative;
+}
+
+.admin-menu > summary {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.375rem -0.625rem -0.375rem 0;
+  border-radius: 50%;
+  color: var(--nav-link-color);
+  list-style: none;
+  cursor: pointer;
+}
+
+.admin-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.admin-menu > summary svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.admin-menu[open] > summary {
+  background-color: var(--opacity-light);
+  color: var(--primary-color);
+}
+
+.admin-menu > nav {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: -0.5rem;
+  display: flex;
+  flex-direction: column;
+  width: 13.75rem;
+  padding: 0.375rem;
+  border: 1px solid var(--divider-color);
+  border-radius: var(--card-border-radius);
+  background-color: var(--primary-bg-color);
+  box-shadow: var(--shadow-lg);
+}
+
+.admin-nav .admin-menu nav > a,
+.admin-menu nav button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 2.75rem;
+  margin: 0;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: var(--border-radius);
+  background: none;
+  color: var(--secondary-color-alpha);
+  font: inherit;
+  font-size: var(--font-size-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-nav .admin-menu nav > a:hover,
+.admin-menu nav button:hover {
+  background-color: var(--opacity-light);
+  color: var(--primary-color);
+}
+
+.admin-nav .admin-menu nav > a[aria-current="page"] {
+  color: var(--primary-color);
+}
+
+/* The row names the scheme it switches to, as the icon does. */
+.dark .theme-toggle-row .label-dark,
+:root:not(.dark) .theme-toggle-row .label-light {
+  display: none;
+}
+
+.admin-menu form {
+  margin-top: 0.375rem;
+  padding-top: 0.375rem;
+  border-top: 1px solid var(--divider-color);
+}
+
+.admin-menu .theme-toggle-row svg {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.admin-menu .theme-toggle-row[hidden] {
+  display: none;
+}
+
 @media (max-width: 650px) {
-  .admin-nav {
-    flex-wrap: wrap;
-  }
-
-  .admin-nav .admin-sections {
-    order: 3;
-    flex-basis: 100%;
-    margin-left: -0.625rem;
-  }
-
-  .admin-who span {
+  .admin-nav .admin-sections,
+  .admin-nav .admin-wide,
+  .admin-nav .site-links > .theme-toggle {
     display: none;
+  }
+
+  .admin-menu {
+    display: block;
   }
 }
 
@@ -682,4 +776,60 @@
 
 .registrants .status-cancelled td {
   color: var(--ink-3);
+}
+
+/* A phone shows each registrant as a stacked row: the number beside the name,
+   the rest under the name, each answer after its question. */
+@media (max-width: 650px) {
+  .table-wrap {
+    overflow-x: visible;
+  }
+
+  .registrants thead {
+    display: none;
+  }
+
+  .registrants tr {
+    display: grid;
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+    gap: 0.25rem 0.625rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .registrants tr:last-child {
+    border-bottom: 0;
+  }
+
+  .registrants td {
+    padding: 0;
+    border: 0;
+  }
+
+  .registrants td:first-child {
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .registrants td:nth-child(2) {
+    font-weight: 550;
+  }
+
+  .registrants td:nth-child(n + 3) {
+    grid-column: 2;
+    color: var(--ink-2);
+  }
+
+  .registrants .registrant-email {
+    overflow-wrap: anywhere;
+  }
+
+  .registrants td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--ink-3);
+  }
+
+  .registrants td:empty {
+    display: none;
+  }
 }
