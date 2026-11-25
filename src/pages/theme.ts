@@ -110,6 +110,8 @@ export function themeStyle(theme: Theme) {
   const tint = palette(theme.accent);
   if (!tint) return `--accent:${theme.accent}`;
   const { brand, black } = tint;
+  const [button, buttonHover] = buttonSteps(brand);
+
   return [
     `--accent:${theme.accent}`,
     `--black-base-rgb:${black.join(",")}`,
@@ -120,9 +122,23 @@ export function themeStyle(theme: Theme) {
     `--brand-60:${brand[60]}`,
     `--brand-70:${brand[70]}`,
     `--brand-80:${brand[80]}`,
-    `--event-primary-button-bg-color:${brand[50]}`,
-    `--event-primary-button-hover-bg-color:${brand[40]}`,
+    `--event-primary-button-bg-color:${brand[button]}`,
+    `--event-primary-button-hover-bg-color:${brand[buttonHover]}`,
   ].join(";");
+}
+
+const luminance = (hex: string) => {
+  const [r, g, b] = parseHex(hex).map(toLinear) as Rgb;
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+/**
+ * The primary button's steps. Its white label needs 4.5:1, which step 50
+ * misses on light hues such as cyan, so those take one step darker.
+ */
+export function buttonSteps(brand: Record<Step, string>): [Step, Step] {
+  const onWhite = 1.05 / (luminance(brand[50]) + 0.05);
+  return onWhite >= 4.5 ? [50, 40] : [60, 50];
 }
 
 /** The colors of a card that stands for the event: the share card, the credential. */

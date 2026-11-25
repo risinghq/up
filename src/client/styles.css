@@ -36,8 +36,8 @@
   --opacity-64: rgba(var(--black-base-rgb), 0.64);
   --primary-color: var(--black);
   --primary-bg-color: var(--white);
-  --secondary-color-alpha: rgba(var(--black-base-rgb), 0.64);
-  --tertiary-color-alpha: rgba(var(--black-base-rgb), 0.36);
+  --secondary-color-alpha: rgba(var(--black-base-rgb), 0.8);
+  --tertiary-color-alpha: rgba(var(--black-base-rgb), 0.6);
   --divider-color: var(--opacity-8);
   --bg-opacity-16: rgba(var(--white-base-rgb), 0.16);
   --bg-opacity-32: rgba(var(--white-base-rgb), 0.32);
@@ -50,8 +50,8 @@
   --opacity-light: color-mix(in srgb, var(--brand-80) 4%, transparent);
   --brand-pale-bg-color: color-mix(in srgb, var(--brand-50) 13%, transparent);
   --hover-bg-color: var(--opacity-light);
-  --brand-color: var(--brand-50);
-  --brand-active-color: var(--brand-60);
+  --brand-color: var(--brand-60);
+  --brand-active-color: var(--brand-70);
   --nav-bg-color: var(--page-bg);
   --nav-link-color: var(--tertiary-color-alpha);
   --nav-link-hover-color: var(--primary-color);
@@ -158,7 +158,7 @@
   --primary-color: var(--white);
   --primary-bg-color: var(--black);
   --secondary-color-alpha: #ffffffc9;
-  --tertiary-color-alpha: #ffffff80;
+  --tertiary-color-alpha: #ffffffa3;
   --bg-opacity-16: rgba(var(--black-base-rgb), 0.16);
   --bg-opacity-32: rgba(var(--black-base-rgb), 0.32);
   --card-bg-color: var(--opacity-4);
@@ -606,6 +606,12 @@ a:hover {
 
 .site-footer a {
   color: var(--secondary-color-alpha);
+}
+
+.site-footer p a {
+  text-decoration: underline;
+  text-decoration-color: var(--opacity-32);
+  text-underline-offset: 0.2em;
 }
 
 .site-footer nav a {
@@ -1238,6 +1244,7 @@ main > .spotlight:first-child {
 .date-tile-month {
   padding: 2px 0;
   background-color: var(--opacity-8);
+  color: var(--secondary-color-alpha);
   font-size: 0.5rem;
   font-weight: var(--font-weight-bold);
   line-height: 1;
