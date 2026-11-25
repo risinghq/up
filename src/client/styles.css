@@ -119,6 +119,7 @@
     0 3px 3px #00000008, 0 8px 7px #0000000a, 0 17px 14px #0000000d,
     0 35px 29px #0000000f, 0 96px 80px #00000012;
   --max-width: 820px;
+  --nav-height: 3.8125rem;
   --max-width-wide-page: 960px;
   --section-title-font-size: var(--font-size-xl);
 
@@ -359,6 +360,7 @@ a:hover {
   position: sticky;
   top: 0;
   z-index: 10;
+  height: var(--nav-height);
   border-bottom: 1px solid transparent;
   background-color: transparent;
   -webkit-backdrop-filter: blur(16px);
@@ -707,6 +709,13 @@ a:hover {
   background-color: var(--page-bg);
 }
 
+/* A spotlight that opens the page runs up behind the sticky nav, so its color
+   starts at the top edge, as an event page's does. */
+main > .spotlight:first-child {
+  margin-top: calc(-1 * var(--nav-height));
+  padding-top: var(--nav-height);
+}
+
 .spotlight > a {
   display: flex;
   align-items: center;
@@ -1025,15 +1034,6 @@ a:hover {
 .cover {
   position: relative;
   z-index: 1;
-}
-
-/* Opening the featured event moves its cover into the event page's cover:
-   Cover names itself after its event, so only the same event's covers
-   pair. */
-@media (prefers-reduced-motion: no-preference) {
-  @view-transition {
-    navigation: auto;
-  }
 }
 
 .cover-under {

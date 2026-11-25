@@ -97,7 +97,7 @@ describe("home", () => {
   test("preloads the Geist file the stylesheet uses", async () => {
     const html = await (await get("/")).text();
     expect(html).toContain(
-      '<link rel="preload" href="/assets/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>',
+      '<link rel="preload" href="/assets/geist-latin-wght-normal-test.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>',
     );
   });
 
@@ -105,7 +105,7 @@ describe("home", () => {
     const html = await (await get("/")).text();
     const script = html.indexOf('classList.toggle("dark"');
     expect(script).toBeGreaterThan(-1);
-    expect(script).toBeLessThan(html.indexOf("/assets/client.css"));
+    expect(script).toBeLessThan(html.indexOf("/assets/client-test.css"));
     expect(html).toContain(
       '<meta name="theme-color" media="(prefers-color-scheme: light)" data-scheme="light" content="#f2f2f2"/>',
     );

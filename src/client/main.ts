@@ -9,8 +9,8 @@ import { showTurnstile } from "./turnstile";
 
 // Every page but registration works without this script. It stops a double
 // submit, confirms a cancellation, copies the ticket link, marks a scrolled
-// nav, runs the scheme toggle, renders the register form's Turnstile, draws a
-// venue's map and hangs a ticket's credential.
+// nav, closes the admin's menu, runs the scheme toggle, renders the register
+// form's Turnstile, draws a venue's map and hangs a ticket's credential.
 
 // MapLibre is most of the script's weight, so it loads only when the venue's
 // map nears the viewport.
@@ -63,6 +63,20 @@ if (nav) {
   };
   mark();
   addEventListener("scroll", mark, { passive: true });
+}
+
+const menu = document.querySelector<HTMLDetailsElement>(".admin-menu");
+if (menu) {
+  // A <details> only closes from its summary; a menu closes on any click
+  // outside it and on Escape.
+  addEventListener("click", (event) => {
+    if (menu.open && !menu.contains(event.target as Node)) menu.open = false;
+  });
+  addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key !== "Escape" || !menu.open) return;
+    menu.open = false;
+    menu.querySelector("summary")?.focus();
+  });
 }
 
 for (const form of document.querySelectorAll<HTMLFormElement>("form")) {

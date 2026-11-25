@@ -178,5 +178,8 @@ are stored as their SHA-256 only.
 | [`src/client/`](../src/client/)                                 | The stylesheets and the client scripts.                                     |
 | [`scripts/admin-invite.ts`](../scripts/admin-invite.ts)         | The first-admin invite.                                                     |
 
-[`vite.config.ts`](../vite.config.ts) builds the client to `/assets/client.css`,
-`/assets/client.js` and `/assets/admin.js`, the names the layout links.
+[`vite.config.ts`](../vite.config.ts) builds the client to
+`/assets/client-<build>.css`, `/assets/client-<build>.js` and
+`/assets/admin-<build>.js`, and passes the build stamp to the layout as
+`BUILD_ID`. [`public/_headers`](../public/_headers) caches `/assets/` for a
+year.

@@ -24,8 +24,39 @@ export type AdminShell = {
   section?: "eventos" | "ajustes";
 };
 
-// Vite serves the client entry in dev; the build writes it under fixed names.
+// Vite serves the client entry in dev; the build names it after BUILD_ID.
 const dev = Boolean(import.meta.env?.DEV);
+const build = import.meta.env?.BUILD_ID ?? "test";
+const asset = (file: string, ext: string) => `/assets/${file}-${build}${ext}`;
+
+/**
+ * Prerenders a same-site page once a visitor hovers or presses its link, so
+ * the page is ready when the click lands. Every GET here only reads; the
+ * exclusions are downloads and the Google sign-in hop.
+ */
+const speculation = JSON.stringify({
+  prerender: [
+    {
+      where: {
+        and: [
+          { href_matches: "/*" },
+          {
+            not: {
+              href_matches: [
+                "/admin/google/*",
+                "/media/*",
+                "/*.ics",
+                "/*.csv",
+                "/*.png",
+              ],
+            },
+          },
+        ],
+      },
+      eagerness: "moderate",
+    },
+  ],
+});
 
 /** The neutral page background in each scheme, as styles.css sets it. */
 const neutralBg = { light: "#f2f2f2", dark: "#141414" };
@@ -36,6 +67,16 @@ const neutralBg = { light: "#f2f2f2", dark: "#141414" };
  * load and owns the "theme" storage key.
  */
 const schemeScript = `(function(){var s;try{s=localStorage.getItem("theme")}catch(e){}var d=s?s==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d);if(s)document.querySelectorAll("meta[name=theme-color]").forEach(function(m){m.media=m.dataset.scheme===s?"all":"not all"})})()`;
+
+/**
+ * Opts every page into cross-document view transitions, so opening an event
+ * moves its cover into the event page's cover: Cover names itself after its
+ * event, so only the same event's covers pair. Chrome reads the new page's
+ * opt-in before the linked stylesheet always applies, and skips the
+ * transition when it finds none, so the rule is inline at the top of <head>.
+ */
+const transitionOptIn =
+  "@media (prefers-reduced-motion: no-preference){@view-transition{navigation:auto}}";
 
 /** Switches the scheme; src/client/scheme.ts shows it and wires it. The
     labeled form is a full-width row in the admin's phone menu. */
@@ -130,34 +171,36 @@ function SiteHeader(props: {
 const current = (shell: AdminShell, section: AdminShell["section"]) =>
   shell.section === section ? ("page" as const) : undefined;
 
-/** The phone's admin menu: what the wide header shows inline. A <details>
-    opens it without script. */
-function AdminMenu({ shell }: { shell: AdminShell }) {
+/** The account menu, behind the admin's initial. On a phone it also holds the
+    sections. A <details> opens it without script. */
+function AdminMenu({ shell, name }: { shell: AdminShell; name: string }) {
   return (
     <details class="admin-menu">
-      <summary aria-label="Menú">
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          aria-hidden="true"
-        >
-          <path d="M4 7h16M4 12h16M4 17h16" />
-        </svg>
+      <summary aria-label={`Cuenta de ${name}`}>
+        <span class="avatar" aria-hidden="true">
+          {name.slice(0, 1)}
+        </span>
       </summary>
-      <nav aria-label="Admin">
-        <a href="/admin" aria-current={current(shell, "eventos")}>
+      <nav aria-label="Cuenta">
+        <p class="admin-menu-name">{name}</p>
+        <a
+          class="admin-narrow"
+          href="/admin"
+          aria-current={current(shell, "eventos")}
+        >
           Eventos
         </a>
-        <a href="/admin/ajustes" aria-current={current(shell, "ajustes")}>
+        <a
+          class="admin-narrow"
+          href="/admin/ajustes"
+          aria-current={current(shell, "ajustes")}
+        >
           Ajustes
         </a>
         <a href="/">Ver sitio</a>
         <SchemeToggle labeled />
         <form method="post" action="/admin/salir">
-          <button type="submit">Salir ({shell.name})</button>
+          <button type="submit">Salir</button>
         </form>
       </nav>
     </details>
@@ -186,27 +229,13 @@ function AdminHeader({ shell }: { shell: AdminShell }) {
             </a>
           </nav>
           <div class="site-links">
-            <a class="admin-wide" href="/">
-              Ver sitio
-            </a>
-            <SchemeToggle />
             <a
               class="button button-light button-small button-round"
               href="/admin/eventos/nuevo"
             >
               Crear<span class="admin-wide"> evento</span>
             </a>
-            <form
-              method="post"
-              action="/admin/salir"
-              class="admin-who admin-wide"
-            >
-              <span>{shell.name}</span>
-              <button class="link-button" type="submit">
-                Salir
-              </button>
-            </form>
-            <AdminMenu shell={shell} />
+            <AdminMenu shell={shell} name={shell.name} />
           </div>
         </>
       ) : (
@@ -245,6 +274,7 @@ export function Layout(props: {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <style dangerouslySetInnerHTML={{ __html: transitionOptIn }} />
         <title>{title}</title>
         <meta name="description" content={head.description} />
         {head.noindex && <meta name="robots" content="noindex" />}
@@ -288,16 +318,22 @@ export function Layout(props: {
           <>
             <link
               rel="preload"
-              href="/assets/geist-latin-wght-normal.woff2"
+              href={asset("geist-latin-wght-normal", ".woff2")}
               as="font"
               type="font/woff2"
               crossorigin="anonymous"
             />
-            <link rel="stylesheet" href="/assets/client.css" />
-            <script type="module" src="/assets/client.js" />
-            {props.passkeys && <script type="module" src="/assets/admin.js" />}
+            <link rel="stylesheet" href={asset("client", ".css")} />
+            <script type="module" src={asset("client", ".js")} />
+            {props.passkeys && (
+              <script type="module" src={asset("admin", ".js")} />
+            )}
           </>
         )}
+        <script
+          type="speculationrules"
+          dangerouslySetInnerHTML={{ __html: speculation }}
+        />
       </head>
       <body class={bodyClass} style={theme ? themeStyle(theme) : undefined}>
         <a class="skip" href="#main">
