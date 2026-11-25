@@ -16,87 +16,79 @@ export function Home(props: {
       : undefined;
   const list = props.tab === "proximos" ? props.upcoming : props.past;
   const { whatsapp, instagram } = props.community;
+  // The featured event's title is the page heading when there is one.
+  const ListingTitle = featured ? "h2" : "h1";
   return (
-    <div class="discover">
-      <header class="discover-header">
-        <p class="discover-kicker">
-          up<span>rising</span>
-        </p>
-        <h1>Levántate y construye.</h1>
-        <p class="discover-desc">
-          Mini hackathons, talleres y charlas sobre los proyectos de rising.sh,
-          en Lima. Inscríbete, ven y construye con nosotros.
-        </p>
-      </header>
-
+    <>
       {featured && <Spotlight event={featured} />}
-
-      <section class="section" aria-labelledby="listing-title">
-        <div class="section-title-row">
-          <h2 class="section-title" id="listing-title">
-            Eventos
-          </h2>
-          <nav class="tabs" aria-label="Filtrar eventos">
-            <a
-              href="/"
-              aria-current={props.tab === "proximos" ? "page" : undefined}
-            >
-              Próximos <span>{props.upcoming.length}</span>
-            </a>
-            <a
-              href="/?ver=pasados"
-              aria-current={props.tab === "pasados" ? "page" : undefined}
-            >
-              Pasados <span>{props.past.length}</span>
-            </a>
-          </nav>
-        </div>
-        {list.length ? (
-          <ul class="event-list">
-            {list.map((event) => (
-              <EventCard
-                key={event.slug}
-                event={event}
-                past={props.tab === "pasados"}
-              />
-            ))}
-          </ul>
-        ) : (
-          <p class="empty">
-            {props.tab === "proximos"
-              ? "Pronto anunciamos el próximo evento."
-              : "Todavía no hay eventos pasados."}
-            {props.tab === "proximos" &&
-              (whatsapp || instagram) &&
-              " Síguenos para enterarte primero."}
-          </p>
-        )}
-      </section>
-
-      {(whatsapp || instagram) && (
-        <section class="section community" aria-labelledby="community-title">
-          <h2 class="section-title" id="community-title">
-            Únete a la comunidad
-          </h2>
-          <p class="community-desc">
-            {whatsapp
-              ? "Anunciamos cada evento primero en la comunidad de WhatsApp."
-              : "Anunciamos cada evento en Instagram."}
-          </p>
-          <div class="row">
-            {whatsapp && (
-              <a class="button button-primary" href={whatsapp}>
-                Comunidad de WhatsApp
+      <div class="discover">
+        <section class="section" aria-labelledby="listing-title">
+          <div class="section-title-row">
+            <ListingTitle class="section-title" id="listing-title">
+              Eventos
+            </ListingTitle>
+            <nav class="tabs" aria-label="Filtrar eventos">
+              <a
+                href="/"
+                aria-current={props.tab === "proximos" ? "page" : undefined}
+              >
+                Próximos <span>{props.upcoming.length}</span>
               </a>
-            )}
-            {instagram && (
-              <a class="button button-light" href={instagram}>
-                Instagram
+              <a
+                href="/?ver=pasados"
+                aria-current={props.tab === "pasados" ? "page" : undefined}
+              >
+                Pasados <span>{props.past.length}</span>
               </a>
-            )}
+            </nav>
           </div>
+          {list.length ? (
+            <ul class="event-list">
+              {list.map((event) => (
+                <EventCard
+                  key={event.slug}
+                  event={event}
+                  past={props.tab === "pasados"}
+                />
+              ))}
+            </ul>
+          ) : (
+            <p class="empty">
+              {props.tab === "proximos"
+                ? "Pronto anunciamos el próximo evento."
+                : "Todavía no hay eventos pasados."}
+              {props.tab === "proximos" &&
+                (whatsapp || instagram) &&
+                " Síguenos para enterarte primero."}
+            </p>
+          )}
         </section>
-      )}
-    </div>
+
+        {(whatsapp || instagram) && (
+          <section class="section community" aria-labelledby="community-title">
+            <h2 class="section-title" id="community-title">
+              Únete a la comunidad
+            </h2>
+            <p class="community-desc">
+              {whatsapp
+                ? "Anunciamos cada evento primero en la comunidad de WhatsApp."
+                : "Anunciamos cada evento en Instagram."}
+            </p>
+            <div class="row">
+              {whatsapp && (
+                <a class="button button-primary" href={whatsapp}>
+                  Comunidad de WhatsApp
+                </a>
+              )}
+              {instagram && (
+                <a class="button button-light" href={instagram}>
+                  Instagram
+                </a>
+              )}
+            </div>
+          </section>
+        )}
+      </div>
+    </>
   );
 }

@@ -37,7 +37,7 @@ the form with a message per field when one is wrong.
 | Color               | The accent of the event's buttons, chip and cover. The text on it turns black or white for contrast.                                                                                      |
 | Fondo de la portada | Plain, grid, dots or glow, drawn behind the site's mark when the event has no cover image.                                                                                                |
 | Portada             | A JPG, PNG or WebP of up to 5 MB, 1200×630. It is also the link preview image. It is stored in R2 and served at `/media/covers/...`.                                                      |
-| Destacar            | Leads the home page with a large card. One event at a time: featuring one unfeatures the others.                                                                                          |
+| Destacar            | Opens the home page with a full-width band in the event's colors, holding its cover, title, date and button. One event at a time: featuring one unfeatures the others.                   |
 | Estado              | Borrador or Publicado.                                                                                                                                                                    |
 | Grabación           | A link shown on the event page after the event ends.                                                                                                                                      |
 
