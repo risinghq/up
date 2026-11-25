@@ -55,12 +55,14 @@ export function Registrants(props: {
                   <td>
                     <a href={`https://wa.me/${r.phone.slice(1)}`}>{r.phone}</a>
                   </td>
-                  <td>{r.email}</td>
-                  <td>{statusLabel[r.status]}</td>
+                  <td class="registrant-email">{r.email}</td>
+                  <td data-label="Estado">{statusLabel[r.status]}</td>
                   {event.questions.map((q) => (
-                    <td key={q.id}>{r.answers[q.id] ?? ""}</td>
+                    <td key={q.id} data-label={q.label}>
+                      {r.answers[q.id] ?? ""}
+                    </td>
                   ))}
-                  <td>{r.newsOptIn ? "Sí" : "No"}</td>
+                  <td data-label="Novedades">{r.newsOptIn ? "Sí" : "No"}</td>
                 </tr>
               ))}
             </tbody>

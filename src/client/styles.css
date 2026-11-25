@@ -432,9 +432,9 @@ a:hover {
 .theme-toggle {
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
-  margin: -0.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.625rem;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -704,25 +704,20 @@ a:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* On a phone the next event leads the page. The intro stays for screen
+   readers and search, which still need the page's heading. */
 @media (max-width: 650px) {
   .discover-header {
-    padding-top: 2rem;
-  }
-
-  .discover-header h1 {
-    font-size: 1.5rem;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 
 @media (max-width: 450px) {
-  .discover-header {
-    padding-top: 1.5625rem;
-  }
-
-  .discover-header h1 {
-    font-size: 1.375rem;
-  }
-
   .section + .section {
     margin-top: 1.5rem;
     padding-top: 1.5rem;
@@ -785,10 +780,34 @@ a:hover {
   margin: 1rem 0 1.25rem;
 }
 
+/* On a phone the featured event is laid out as its own page's top: no card,
+   the full width, and in dark its page color edge to edge, so tapping it
+   continues into the same page. */
 @media (max-width: 650px) {
+  .discover > .spotlight {
+    margin: 0;
+    padding: 1rem 1rem 1.5rem;
+  }
+
+  .dark .discover > .spotlight {
+    background-color: var(--brand-80);
+  }
+
+  .spotlight + .section {
+    border-top: 0;
+  }
+
   .spotlight > a {
     flex-direction: column;
     align-items: stretch;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+  }
+
+  .spotlight > a:hover {
+    box-shadow: none;
   }
 
   .spotlight .cover {
@@ -958,6 +977,15 @@ a:hover {
 .cover {
   position: relative;
   z-index: 1;
+}
+
+/* Opening the featured event moves its cover into the event page's cover:
+   Cover names itself after its event, so only the same event's covers
+   pair. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
 }
 
 .cover-under {
@@ -1431,9 +1459,25 @@ a:hover {
   font-size: 0.625rem;
 }
 
+/* On a tinted dark page, the dark tiles lose their gray and take the event's
+   hue at their own lightness, so the map reads as part of the page. */
+.dark .tinted .venue-map {
+  background: var(--card-bg-color);
+}
+
+.dark .tinted .venue-map canvas {
+  filter: grayscale(1);
+}
+
+.dark .tinted .venue-map::after {
+  background: var(--brand-50);
+  mix-blend-mode: color;
+  opacity: 0.6;
+}
+
 .dark .venue-map .maplibregl-ctrl-attrib {
-  background: rgba(0, 0, 0, 0.6);
-  color: var(--secondary-color);
+  background: color-mix(in srgb, var(--page-bg) 80%, transparent);
+  color: var(--secondary-color-alpha);
 }
 
 .dark .venue-map .maplibregl-ctrl-attrib a {
@@ -1732,6 +1776,13 @@ a:hover {
   color: var(--brand-active-color);
 }
 
+/* The ticket card is narrower than the event page, so the venue wraps
+   instead of cutting its name. */
+.ticket-page .meta-title,
+.ticket-page .meta-title > span:first-child {
+  white-space: normal;
+}
+
 .ticket-facts {
   display: flex;
   gap: 2rem;
@@ -1783,8 +1834,18 @@ a:hover {
   font-size: var(--font-size-sm);
 }
 
+/* A destructive act set as a plain link: the underline marks it as one, and
+   the row is a full tap target. */
 .cancel {
   margin-top: 0.25rem;
+}
+
+.cancel .link-button {
+  min-height: 2.75rem;
+  color: var(--secondary-color-alpha);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
 }
 
 /* Plain pages: privacy, not found */
