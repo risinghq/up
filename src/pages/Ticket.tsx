@@ -99,28 +99,20 @@ function SharePanel(props: { token: string; title: string; url?: string }) {
       </h2>
       {props.url ? (
         <div class="ticket-actions">
-          <div class="copy-row">
-            <input
-              class="copy-input"
-              readOnly
-              value={props.url}
-              aria-label="Enlace para compartir"
-            />
-            <button
-              class="button button-light"
-              type="button"
-              data-copy={props.url}
-              hidden
-            >
-              Copiar
-            </button>
-          </div>
           <a
             class="button button-light button-full"
             href={`https://wa.me/?text=${encodeURIComponent(`Voy a ${props.title}: ${props.url}`)}`}
           >
             Compartir por WhatsApp
           </a>
+          <button
+            class="button button-light button-full"
+            type="button"
+            data-copy={props.url}
+            hidden
+          >
+            Copiar el enlace
+          </button>
         </div>
       ) : (
         <form
@@ -142,8 +134,13 @@ function SharePanel(props: { token: string; title: string; url?: string }) {
 }
 
 /** Opens, shows or hides the holder's public profile of badges. */
-function ProfilePanel(props: { token: string; url?: string }) {
+function ProfilePanel(props: {
+  token: string;
+  url?: string;
+  primary: boolean;
+}) {
   const action = `/entrada/${props.token}/perfil`;
+  const weight = props.primary ? "button-primary" : "button-light";
   return (
     <section class="content-card" id="perfil" aria-labelledby="profile-title">
       <h2 class="card-title" id="profile-title">
@@ -151,23 +148,7 @@ function ProfilePanel(props: { token: string; url?: string }) {
       </h2>
       {props.url ? (
         <div class="ticket-actions">
-          <div class="copy-row">
-            <input
-              class="copy-input"
-              readOnly
-              value={props.url}
-              aria-label="Enlace de tu perfil"
-            />
-            <button
-              class="button button-light"
-              type="button"
-              data-copy={props.url}
-              hidden
-            >
-              Copiar
-            </button>
-          </div>
-          <a class="button button-light button-full" href={props.url}>
+          <a class={`button ${weight} button-full`} href={props.url}>
             Ver mi perfil
           </a>
           <form method="post" action={`${action}/ocultar`} class="cancel">
@@ -182,7 +163,7 @@ function ProfilePanel(props: { token: string; url?: string }) {
             Cada evento al que entras te da una insignia. Crea una página
             pública con tu nombre y tus insignias.
           </p>
-          <button class="button button-light button-full" type="submit">
+          <button class={`button ${weight} button-full`} type="submit">
             Crear mi perfil
           </button>
         </form>
@@ -191,17 +172,109 @@ function ProfilePanel(props: { token: string; url?: string }) {
   );
 }
 
+/**
+ * What to do before the event: join the call, save the date, join the
+ * community, or give the seat back. Once inside, only the call and the
+ * community are left, and the profile is the primary action.
+ */
+function NextSteps({ view }: { view: TicketView }) {
+  const { ticket, event } = view;
+  const inside = Boolean(ticket.checkedInAt);
+  if (inside && !view.meetUrl && !view.whatsapp) return null;
+
+  const communityWeight =
+    view.meetUrl || inside ? "button-light" : "button-primary";
+  return (
+    <section class="content-card" aria-labelledby="next-title">
+      <h2 class="card-title" id="next-title">
+        {inside ? "Durante el evento" : "Antes del evento"}
+      </h2>
+      <div class="ticket-actions">
+        {view.meetUrl && (
+          <a
+            class="button button-primary button-full"
+            href={view.meetUrl}
+            rel="noopener"
+          >
+            Entrar a la llamada en Google Meet
+          </a>
+        )}
+        {!inside && (
+          <div class="row">
+            <a
+              class="button button-light button-small button-round"
+              href={view.calendarUrl}
+            >
+              Agregar a Google Calendar
+            </a>
+            <a
+              class="button button-light button-small button-round"
+              href={`/${event.slug}/calendario.ics`}
+            >
+              Descargar .ics
+            </a>
+          </div>
+        )}
+        {view.whatsapp && (
+          <a
+            class={`button button-full ${communityWeight}`}
+            href={view.whatsapp}
+          >
+            Únete a la comunidad
+          </a>
+        )}
+        {!inside && (
+          <form
+            method="post"
+            action={`/entrada/${ticket.token}/cancelar`}
+            class="cancel"
+            data-confirm="¿Seguro que quieres cancelar tu inscripción?"
+          >
+            <button class="link-button" type="submit">
+              Ya no puedo ir: cancelar mi inscripción
+            </button>
+          </form>
+        )}
+      </div>
+    </section>
+  );
+}
+
 export function TicketPage(view: TicketView) {
   const { ticket, event } = view;
   const live = ticket.status !== "cancelled" && !view.ended;
+  const checkedIn = Boolean(ticket.checkedInAt);
+
+  const next = live && <NextSteps view={view} />;
+  const share = live && (
+    <SharePanel token={ticket.token} title={event.title} url={view.shareUrl} />
+  );
+  const profile = (checkedIn || view.profileUrl) && (
+    <ProfilePanel
+      token={ticket.token}
+      url={view.profileUrl}
+      primary={checkedIn}
+    />
+  );
+
   return (
     <article class="ticket-page">
       {view.door && <DoorPanel ticket={ticket} />}
       {view.fresh && (
-        <p class="notice" role="status">
-          ¡Listo, {ticket.name.split(" ")[0]}! Guarda este enlace: es tu entrada
-          y la única forma de volver a ella.
-        </p>
+        <div class="notice notice-fresh" role="status">
+          <p>
+            ¡Listo, {ticket.name.split(" ")[0]}! Esta página es tu entrada.
+            Guarda su enlace: también te lo enviamos por correo.
+          </p>
+          <button
+            class="button button-light button-small"
+            type="button"
+            data-copy={view.ticketUrl}
+            hidden
+          >
+            Copiar el enlace
+          </button>
+        </div>
       )}
       <section
         class={`register ticket ticket-${ticket.status}`}
@@ -251,89 +324,22 @@ export function TicketPage(view: TicketView) {
         </div>
       </section>
 
+      {checkedIn ? (
+        <>
+          {profile}
+          {next}
+          {share}
+        </>
+      ) : (
+        <>
+          {next}
+          {share}
+          {profile}
+        </>
+      )}
+
       {ticket.status === "going" && (
         <Credential ticket={ticket} event={event} />
-      )}
-
-      {live && (
-        <section class="content-card" aria-labelledby="next-title">
-          <h2 class="card-title" id="next-title">
-            Qué hacer ahora
-          </h2>
-          <div class="ticket-actions">
-            {view.meetUrl && (
-              <a
-                class="button button-primary button-full"
-                href={view.meetUrl}
-                rel="noopener"
-              >
-                Entrar a la llamada en Google Meet
-              </a>
-            )}
-            <div class="copy-row">
-              <input
-                class="copy-input"
-                readOnly
-                value={view.ticketUrl}
-                aria-label="Enlace de tu entrada"
-              />
-              <button
-                class="button button-light"
-                type="button"
-                data-copy={view.ticketUrl}
-                hidden
-              >
-                Copiar
-              </button>
-            </div>
-            <div class="row">
-              <a
-                class="button button-light button-small button-round"
-                href={view.calendarUrl}
-              >
-                Agregar a Google Calendar
-              </a>
-              <a
-                class="button button-light button-small button-round"
-                href={`/${event.slug}/calendario.ics`}
-              >
-                Descargar .ics
-              </a>
-            </div>
-            {view.whatsapp && (
-              <a
-                class={`button button-full ${view.meetUrl ? "button-light" : "button-primary"}`}
-                href={view.whatsapp}
-              >
-                Únete a la comunidad
-              </a>
-            )}
-            {!ticket.checkedInAt && (
-              <form
-                method="post"
-                action={`/entrada/${ticket.token}/cancelar`}
-                class="cancel"
-                data-confirm="¿Seguro que quieres cancelar tu inscripción?"
-              >
-                <button class="link-button" type="submit">
-                  Ya no puedo ir: cancelar mi inscripción
-                </button>
-              </form>
-            )}
-          </div>
-        </section>
-      )}
-
-      {live && (
-        <SharePanel
-          token={ticket.token}
-          title={event.title}
-          url={view.shareUrl}
-        />
-      )}
-
-      {(ticket.checkedInAt || view.profileUrl) && (
-        <ProfilePanel token={ticket.token} url={view.profileUrl} />
       )}
 
       {ticket.status === "cancelled" && !view.ended && (
