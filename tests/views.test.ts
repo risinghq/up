@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { EventMeta } from "../src/worker/events";
+import type { Profile } from "../src/worker/profiles";
 import type { Ticket } from "../src/worker/registrations";
+import type { EventRole, Role } from "../src/worker/roles";
 import { eventView, profileView, ticketView } from "../src/worker/views";
 import { event } from "./support";
 
@@ -34,7 +36,7 @@ function ticket(overrides: Partial<Ticket> = {}): Ticket {
 
 const view = (
   t: Ticket,
-  options: { e?: EventMeta; context?: typeof before; hosts?: boolean } = {},
+  options: { e?: EventMeta; context?: typeof before; hasRole?: boolean } = {},
 ) =>
   ticketView(options.context ?? before, {
     ticket: t,
@@ -42,7 +44,7 @@ const view = (
     fresh: false,
     door: false,
     whatsapp: "https://chat.whatsapp.com/test",
-    hosts: options.hosts ?? false,
+    hasRole: options.hasRole ?? false,
   });
 
 describe("ticketView", () => {
@@ -55,9 +57,9 @@ describe("ticketView", () => {
         panels: ["next", "venue", "share"],
       },
       {
-        name: "a host, before check-in",
+        name: "a role holder, before check-in",
         t: ticket(),
-        hosts: true,
+        hasRole: true,
         panels: ["next", "venue", "share", "profile"],
       },
       {
@@ -78,7 +80,7 @@ describe("ticketView", () => {
       expect(
         view(c.t, {
           context: "context" in c ? c.context : before,
-          hosts: "hosts" in c ? c.hosts : false,
+          hasRole: "hasRole" in c ? c.hasRole : false,
         }).panels,
         c.name,
       ).toEqual([...c.panels]);
@@ -127,28 +129,36 @@ describe("ticketView", () => {
 });
 
 describe("eventView", () => {
-  test("links a host only when the host has a profile", () => {
-    const e = event({
-      slug: "organizado",
-      hosts: [
-        { name: "Ana Quispe", email: "ana@example.com" },
-        { name: "Luis", email: "luis@example.com" },
-        { name: "Pedro" },
-      ],
-    });
+  test("groups the people by role and links only those with a profile", () => {
+    const person = (
+      id: number,
+      name: string,
+      role: Role,
+      email: string | null = null,
+    ): EventRole => ({ id, eventSlug: "charla", name, email, role });
     const v = eventView(before, {
-      event: e,
+      event: charla,
       going: 0,
-      hostProfiles: new Map([["ana@example.com", "P1"]]),
+      team: [
+        person(1, "Rosa", "jurado"),
+        person(2, "Ana Quispe", "organiza", "ana@example.com"),
+        person(3, "Luis", "organiza", "luis@example.com"),
+        person(4, "Pedro", "ponente"),
+      ],
+      profiles: new Map([["ana@example.com", "P1"]]),
       form: { values: {}, errors: {} },
       notice: null,
       admin: false,
       turnstileKey: null,
     });
-    expect(v.hosts).toEqual([
-      { name: "Ana Quispe", url: "/p/P1" },
-      { name: "Luis" },
-      { name: "Pedro" },
+    expect(v.team).toEqual([
+      {
+        role: "organiza",
+        label: "Organizan",
+        people: [{ name: "Ana Quispe", url: "/p/P1" }, { name: "Luis" }],
+      },
+      { role: "ponente", label: "Ponentes", people: [{ name: "Pedro" }] },
+      { role: "jurado", label: "Jurado", people: [{ name: "Rosa" }] },
     ]);
   });
 
@@ -159,7 +169,8 @@ describe("eventView", () => {
         {
           event: charla,
           going: 0,
-          hostProfiles: new Map(),
+          team: [],
+          profiles: new Map(),
           form: { values: {}, errors: {} },
           notice: null,
           admin: false,
@@ -181,7 +192,7 @@ describe("profileView", () => {
     firstName: "Valeria",
     since: "2026-09-01T00:00:00.000Z",
     attended: ["a", "b", "c"],
-    hosted: [] as string[],
+    roles: [] as Profile["roles"],
   };
 
   test("lists events newest first, only the ones the person attended", () => {
@@ -189,14 +200,30 @@ describe("profileView", () => {
     expect(v.events.map((e) => e.slug)).toEqual(["b", "a"]);
   });
 
-  test("the description names hosting only for a host", () => {
-    expect(profileView(profile, events).description).toBe(
-      "Los eventos a los que fue Valeria.",
+  test("groups the events a person had a role at, in role order", () => {
+    const plain = profileView(profile, events);
+    expect(plain.roles).toEqual([]);
+    expect(plain.description).toBe("Los eventos a los que fue Valeria.");
+
+    const v = profileView(
+      {
+        ...profile,
+        roles: [
+          { slug: "a", role: "mentor" },
+          { slug: "a", role: "organiza" },
+          { slug: "b", role: "organiza" },
+        ],
+      },
+      events,
     );
-    const host = profileView({ ...profile, hosted: ["c"] }, events);
-    expect(host.hosted.map((e) => e.slug)).toEqual(["c"]);
-    expect(host.description).toBe(
-      "Los eventos que organiza Valeria y a los que fue.",
+    expect(
+      v.roles.map((g) => [g.role, g.tally, g.events.map((e) => e.slug)]),
+    ).toEqual([
+      ["organiza", "organizados", ["b", "a"]],
+      ["mentor", "como mentor", ["a"]],
+    ]);
+    expect(v.description).toBe(
+      "Los eventos en los que participa Valeria y a los que fue.",
     );
   });
 });

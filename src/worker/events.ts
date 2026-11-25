@@ -53,9 +53,6 @@ export type CalendarLink = {
   meetUrl?: string;
 };
 
-/** The email ties the event to the host's profile; pages never show it. */
-export type Host = { name: string; email?: string };
-
 export type EventMeta = {
   slug: string;
   title: string;
@@ -67,7 +64,6 @@ export type EventMeta = {
   start: string;
   end: string;
   place: Place;
-  hosts: Host[];
   /** Registrations past this go to the waitlist. Absent means no limit. */
   capacity?: number;
   /** An R2 key under MEDIA, served at /media/<key>. */
@@ -119,7 +115,6 @@ type Row = {
   map_url: string | null;
   lat: number | null;
   lng: number | null;
-  hosts: string;
   capacity: number | null;
   cover_key: string | null;
   questions: string;
@@ -155,7 +150,6 @@ function fromRow(r: Row): EventMeta {
               : {}),
           }
         : { kind: "online", platform: r.place_name },
-    hosts: JSON.parse(r.hosts),
     ...(r.capacity !== null ? { capacity: r.capacity } : {}),
     ...(r.cover_key ? { coverKey: r.cover_key } : {}),
     questions: JSON.parse(r.questions),
@@ -225,7 +219,6 @@ export async function saveEvent(
     place.kind === "venue" ? (place.mapUrl ?? null) : null,
     place.kind === "venue" ? (place.point?.lat ?? null) : null,
     place.kind === "venue" ? (place.point?.lng ?? null) : null,
-    JSON.stringify(event.hosts),
     event.capacity ?? null,
     event.coverKey ?? null,
     JSON.stringify(event.questions),
@@ -238,7 +231,7 @@ export async function saveEvent(
     event.featured ? 1 : 0,
   ];
   const columns = `slug, title, summary, body, start_at, end_at, place_kind,
-    place_name, place_address, map_url, lat, lng, hosts, capacity, cover_key, questions,
+    place_name, place_address, map_url, lat, lng, capacity, cover_key, questions,
     status, recording_url, kind, accent, backdrop, font, featured`;
   const at = values.length + 1;
   const sets = columns

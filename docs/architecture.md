@@ -73,8 +73,9 @@ registering again clears `share_id`, so the old link answers 404.
 `POST /entrada/<token>/perfil` calls `openProfile` in
 [`src/worker/profiles.ts`](../src/worker/profiles.ts), which gives the ticket's
 person a random `profile_id` unless they have one. `GET /p/<id>` looks it up
-with `findProfile`, which returns the first name and the slugs of the published
-events where the person checked in, and renders
+with `findProfile`, which returns the first name, the slugs of the published
+events where the person checked in, and the roles their email holds with
+`rolesOf` in [`src/worker/roles.ts`](../src/worker/roles.ts), and renders
 [`src/pages/Profile.tsx`](../src/pages/Profile.tsx).
 `POST /entrada/<token>/perfil/ocultar` calls `closeProfile`, which clears
 `profile_id`.
@@ -109,6 +110,9 @@ notifies each seated ticket of an event that starts within a day and marks
 4. A new cover goes to R2 under `covers/`, and the old one is deleted after the
    save. `saveEvent` writes the row and clears `featured` on every other event.
    `fillSeats` seats the waitlist when the capacity rose.
+   `/admin/eventos/<slug>/equipo` is `teamRoutes` in
+   [`src/worker/team.tsx`](../src/worker/team.tsx), mounted under the same
+   guard. It adds and removes the event's roles with `addRole` and `removeRole`.
 5. The event page renders the theme with
    [`src/pages/theme.ts`](../src/pages/theme.ts): the accent's tint palette as
    CSS variables, and the kind and backdrop as classes.
@@ -147,6 +151,7 @@ schema.
 | Table            | Row                                                                                                                             |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.                                 |
+| `event_roles`    | One person's role at one event: name, optional email, role and position. It follows the event's slug and dies with the event.   |
 | `people`         | One email, with the latest name and phone, the consent dates and the public profile's `profile_id`.                             |
 | `registrations`  | One person at one event: the ticket token as `id`, the number, the status, the answers as JSON and the share link's `share_id`. |
 | `admins`         | One admin's name.                                                                                                               |
@@ -166,6 +171,8 @@ are stored as their SHA-256 only.
 | --------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | [`src/worker/app.tsx`](../src/worker/app.tsx)                   | Public routes, headers and the session middleware.                          |
 | [`src/worker/admin.tsx`](../src/worker/admin.tsx)               | The `/admin` routes.                                                        |
+| [`src/worker/adminPage.tsx`](../src/worker/adminPage.tsx)       | The admin page frame and the loader of the event in the path.               |
+| [`src/worker/team.tsx`](../src/worker/team.tsx)                 | The routes of an event's Equipo tab.                                        |
 | [`src/worker/web.tsx`](../src/worker/web.tsx)                   | The `Env` type, page rendering and work after the response.                 |
 | [`src/worker/events.ts`](../src/worker/events.ts)               | The event type and its D1 queries.                                          |
 | [`src/worker/google.ts`](../src/worker/google.ts)               | Google OAuth, the Calendar API and the connected account.                   |
@@ -177,7 +184,8 @@ are stored as their SHA-256 only.
 | [`src/worker/people.ts`](../src/worker/people.ts)               | People by email.                                                            |
 | [`src/worker/registrants.ts`](../src/worker/registrants.ts)     | An event's registrant list and counts, for the admin.                       |
 | [`src/worker/shares.ts`](../src/worker/shares.ts)               | The share link of a ticket.                                                 |
-| [`src/worker/profiles.ts`](../src/worker/profiles.ts)           | Public profiles and the events a person attended or hosted.                 |
+| [`src/worker/profiles.ts`](../src/worker/profiles.ts)           | Public profiles and the events a person attended.                           |
+| [`src/worker/roles.ts`](../src/worker/roles.ts)                 | The roles at an event, their labels and their D1 queries.                   |
 | [`src/worker/views.ts`](../src/worker/views.ts)                 | The view models of the event, ticket and profile pages.                     |
 | [`src/worker/mail.ts`](../src/worker/mail.ts)                   | The emails to ticket holders and their sending.                             |
 | [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts)           | The WhatsApp templates and their sending.                                   |

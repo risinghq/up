@@ -1,4 +1,6 @@
+import { Fragment } from "preact";
 import { kindLabel, type EventMeta } from "../worker/events";
+import type { ProfileView } from "../worker/views";
 import { monthYear, shortDate } from "../worker/time";
 import { Mark } from "./Layout";
 import { themeClass, themeStyle } from "./theme";
@@ -24,20 +26,24 @@ function Badge({ event }: { event: EventMeta }) {
   );
 }
 
+function Badges({ events }: { events: EventMeta[] }) {
+  return (
+    <ul class="badges">
+      {events.map((event) => (
+        <Badge event={event} key={event.slug} />
+      ))}
+    </ul>
+  );
+}
+
 /**
  * A person's public page, after Luma's profile: a header with an initial,
- * the name, since when and how many events, then the events they host and
- * the badges, newest first.
+ * the name, since when and how many events, then the events of each role
+ * they held and the badges, newest first.
  */
-export function ProfilePage(props: {
-  firstName: string;
-  since: string;
-  events: EventMeta[];
-  hosted: EventMeta[];
-}) {
+export function ProfilePage(props: ProfileView) {
   const count = props.events.length;
-  const hosted = props.hosted.length;
-  const latest = props.hosted[0] ?? props.events[0];
+  const latest = props.roles[0]?.events[0] ?? props.events[0];
 
   return (
     <article class="profile">
@@ -56,38 +62,33 @@ export function ProfilePage(props: {
           </p>
           <p class="profile-count">
             <strong>{count}</strong> {count === 1 ? "evento" : "eventos"}
-            {hosted > 0 && (
-              <>
+            {props.roles.map((group) => (
+              <Fragment key={group.role}>
                 {" · "}
-                <strong>{hosted}</strong>{" "}
-                {hosted === 1 ? "organizado" : "organizados"}
-              </>
-            )}
+                <strong>{group.events.length}</strong> {group.tally}
+              </Fragment>
+            ))}
           </p>
         </div>
       </header>
 
-      {hosted > 0 && (
-        <section class="profile-badges" aria-labelledby="organiza">
-          <h2 id="organiza">Organiza</h2>
-          <ul class="badges">
-            {props.hosted.map((event) => (
-              <Badge event={event} key={event.slug} />
-            ))}
-          </ul>
+      {props.roles.map((group) => (
+        <section
+          key={group.role}
+          class="profile-badges"
+          aria-labelledby={group.role}
+        >
+          <h2 id={group.role}>{group.title}</h2>
+          <Badges events={group.events} />
         </section>
-      )}
+      ))}
 
       <section class="profile-badges" aria-labelledby="insignias">
         <h2 id="insignias">Insignias</h2>
         {count === 0 ? (
           <p class="profile-empty">Todavía no tiene insignias.</p>
         ) : (
-          <ul class="badges">
-            {props.events.map((event) => (
-              <Badge event={event} key={event.slug} />
-            ))}
-          </ul>
+          <Badges events={props.events} />
         )}
       </section>
     </article>

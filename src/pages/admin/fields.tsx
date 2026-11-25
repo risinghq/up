@@ -34,7 +34,7 @@ const described = ({ name, form, hint }: FieldProps, id: string) => ({
 
 export function Input(
   props: FieldProps & {
-    type?: "text" | "url" | "number" | "datetime-local" | "color";
+    type?: "text" | "email" | "url" | "number" | "datetime-local" | "color";
     readOnly?: boolean;
     placeholder?: string;
   },

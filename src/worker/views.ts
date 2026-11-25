@@ -1,10 +1,11 @@
 import { renderSVG } from "uqr";
-import type { EventView, Notice } from "../pages/Event";
+import type { EventView, Notice, TeamGroup } from "../pages/Event";
 import { googleCalendarUrl } from "./calendar";
 import { hasEnded, type EventMeta } from "./events";
 import type { FormState } from "./form";
 import type { Profile } from "./profiles";
 import type { Ticket } from "./registrations";
+import { roleLabel, roles, type EventRole, type Role } from "./roles";
 
 /** What every view builder knows about the request. */
 export type ViewContext = {
@@ -16,14 +17,34 @@ export type ViewContext = {
 export const eventUrl = (origin: string, event: EventMeta) =>
   `${origin}/${event.slug}`;
 
-/** The event page: the event, its hosts linked to their profiles, the form. */
+/** The event's people in role groups, each name linked to its profile. */
+function teamGroups(
+  team: EventRole[],
+  profiles: Map<string, string>,
+): TeamGroup[] {
+  return roles.flatMap((role) => {
+    const people = team
+      .filter((person) => person.role === role)
+      .map((person) => {
+        const profileId = person.email && profiles.get(person.email);
+        return {
+          name: person.name,
+          ...(profileId && { url: `/p/${profileId}` }),
+        };
+      });
+    return people.length ? [{ role, label: roleLabel[role].many, people }] : [];
+  });
+}
+
+/** The event page: the event, its people by role, the form. */
 export function eventView(
   context: ViewContext,
   input: {
     event: EventMeta;
     going: number;
-    /** Profile ids of the hosts that have one, by email. */
-    hostProfiles: Map<string, string>;
+    team: EventRole[];
+    /** Profile ids of the people who have one, by email. */
+    profiles: Map<string, string>;
     form: FormState;
     notice: Notice;
     admin: boolean;
@@ -33,10 +54,7 @@ export function eventView(
   const { event } = input;
   return {
     event,
-    hosts: event.hosts.map((h) => {
-      const profileId = h.email && input.hostProfiles.get(h.email);
-      return { name: h.name, ...(profileId && { url: `/p/${profileId}` }) };
-    }),
+    team: teamGroups(input.team, input.profiles),
     going: input.going,
     ended: hasEnded(event, context.now),
     form: input.form,
@@ -78,8 +96,8 @@ export type TicketView = {
     url?: string;
     /** After check-in the profile is the next thing to do. */
     primary: boolean;
-    /** True when a published event lists the holder as a host. */
-    hosts: boolean;
+    /** True when the holder has a role at a published event. */
+    hasRole: boolean;
   };
   /** The 3D credential: only a ticket with a seat has one. */
   credential: boolean;
@@ -91,7 +109,7 @@ export type TicketView = {
  * Decides what a ticket page shows. A live ticket (not cancelled, event not
  * ended) gets the next steps and the share panel. The profile panel shows
  * once there is something to put on it: a check-in, an open profile, or a
- * hosted event. After check-in the profile leads and the venue goes.
+ * role at an event. After check-in the profile leads and the venue goes.
  */
 export function ticketView(
   context: ViewContext,
@@ -101,7 +119,7 @@ export function ticketView(
     fresh: boolean;
     door: boolean;
     whatsapp: string;
-    hosts: boolean;
+    hasRole: boolean;
   },
 ): TicketView {
   const { ticket, event } = input;
@@ -117,7 +135,7 @@ export function ticketView(
     : undefined;
 
   const showNext = live && !(inside && !meetUrl && !input.whatsapp);
-  const showProfile = inside || Boolean(profileUrl) || input.hosts;
+  const showProfile = inside || Boolean(profileUrl) || input.hasRole;
   const order: TicketPanel[] = inside
     ? ["profile", "next", "share"]
     : ["next", "venue", "share", "profile"];
@@ -150,22 +168,38 @@ export function ticketView(
     shareUrl: ticket.shareId
       ? `${eventUrl(origin, event)}/voy/${ticket.shareId}`
       : undefined,
-    profile: { url: profileUrl, primary: inside, hosts: input.hosts },
+    profile: { url: profileUrl, primary: inside, hasRole: input.hasRole },
     credential: ticket.status === "going",
     rejoin: ticket.status === "cancelled" && !ended,
   };
 }
+
+/** The events where a person held one role, newest first. */
+export type RoleEvents = {
+  role: Role;
+  title: string;
+  /** The count's noun after the number: "3 organizados", "1 como jurado". */
+  tally: string;
+  events: EventMeta[];
+};
 
 export type ProfileView = {
   firstName: string;
   since: string;
   /** Attended events, newest first. */
   events: EventMeta[];
-  /** Hosted events, newest first. */
-  hosted: EventMeta[];
+  /** One group per role the person held, in the order of `roles`. */
+  roles: RoleEvents[];
   /** The page's meta description. */
   description: string;
 };
+
+const tally = (role: Role, count: number) =>
+  role === "organiza"
+    ? count === 1
+      ? "organizado"
+      : "organizados"
+    : `como ${roleLabel[role].one.toLowerCase()}`;
 
 /** A public profile: the person's events, newest first, from every event. */
 export function profileView(
@@ -175,16 +209,30 @@ export function profileView(
   const newest = [...events].sort((a, b) => b.start.localeCompare(a.start));
   const among = (slugs: string[]) =>
     newest.filter((e) => slugs.includes(e.slug));
-  const hosted = among(profile.hosted);
+  const groups = roles.flatMap((role) => {
+    const held = among(
+      profile.roles.filter((r) => r.role === role).map((r) => r.slug),
+    );
+    return held.length
+      ? [
+          {
+            role,
+            title: roleLabel[role].one,
+            tally: tally(role, held.length),
+            events: held,
+          },
+        ]
+      : [];
+  });
   const name = profile.firstName;
 
   return {
     firstName: name,
     since: profile.since,
     events: among(profile.attended),
-    hosted,
-    description: hosted.length
-      ? `Los eventos que organiza ${name} y a los que fue.`
+    roles: groups,
+    description: groups.length
+      ? `Los eventos en los que participa ${name} y a los que fue.`
       : `Los eventos a los que fue ${name}.`,
   };
 }

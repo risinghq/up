@@ -1,4 +1,5 @@
 import { firstName } from "./people";
+import { rolesOf, type Role } from "./roles";
 import { newToken } from "./tokens";
 
 export type Profile = {
@@ -7,8 +8,8 @@ export type Profile = {
   since: string;
   /** The slugs of the published events the person checked in at. */
   attended: string[];
-  /** The slugs of the published events that list the person as a host. */
-  hosted: string[];
+  /** The person's roles at published events. */
+  roles: { slug: string; role: Role }[];
 };
 
 /** Opens the public profile of the ticket's holder; a second call keeps it. */
@@ -39,21 +40,6 @@ export async function closeProfile(
     .run();
 }
 
-/** The slugs of the published events that list this email as a host's. */
-export async function hostedSlugs(
-  db: D1Database,
-  email: string,
-): Promise<string[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT DISTINCT e.slug FROM events e, json_each(e.hosts) h
-       WHERE e.status = 'published' AND json_extract(h.value, '$.email') = ?`,
-    )
-    .bind(email)
-    .all<{ slug: string }>();
-  return results.map((r) => r.slug);
-}
-
 /** The public profile of each email that has one, by email. */
 export async function profilesByEmail(
   db: D1Database,
@@ -72,7 +58,7 @@ export async function profilesByEmail(
   return new Map(results.map((r) => [r.email, r.profileId]));
 }
 
-/** What a profile shows: the first name and the events attended and hosted. */
+/** What a profile shows: the first name, the events attended, the roles. */
 export async function findProfile(
   db: D1Database,
   profileId: string,
@@ -99,6 +85,6 @@ export async function findProfile(
     firstName: firstName(person.name),
     since: person.created_at,
     attended: results.map((r) => r.slug),
-    hosted: await hostedSlugs(db, person.email),
+    roles: await rolesOf(db, person.email),
   };
 }

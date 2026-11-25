@@ -10,6 +10,7 @@ import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
 import { createInvite } from "../src/worker/auth";
 import { findEvent } from "../src/worker/events";
+import { addRole, eventRoles } from "../src/worker/roles";
 import { softPasskey } from "./authenticator";
 import { page, type Page } from "./dom";
 import {
@@ -94,7 +95,6 @@ function eventForm(overrides: Record<string, string | File> = {}) {
     place_kind: "venue",
     place_name: "FCF, UNMSM",
     place_address: "Av. Venezuela s/n",
-    hosts: "David, Pedro",
     capacity: "30",
     questions: "Carrera*\nNivel: Básico | Avanzado",
     status: "published",
@@ -164,7 +164,6 @@ describe("events", () => {
     const saved = await findEvent(DB, "taller-qiskit");
     expect(saved).toMatchObject({
       start: "2027-01-16T10:00:00-05:00",
-      hosts: [{ name: "David" }, { name: "Pedro" }],
       capacity: 30,
       questions: [
         { id: "carrera", label: "Carrera", required: true },
@@ -228,36 +227,12 @@ describe("events", () => {
     );
   });
 
-  test("a host's email is kept apart from the name", async () => {
-    const res = await post(
-      "/admin/eventos/vacio/editar",
-      eventForm({ slug: "vacio", hosts: "Ana Quispe <Ana@Correo.com>, Pedro" }),
-    );
-    expect(res.status).toBe(303);
-    expect((await findEvent(DB, "vacio"))?.hosts).toEqual([
-      { name: "Ana Quispe", email: "ana@correo.com" },
-      { name: "Pedro" },
-    ]);
-
-    const editor = await open("/admin/eventos/vacio/editar");
-    expect(value(editor, "Organizan")).toBe(
-      "Ana Quispe <ana@correo.com>, Pedro",
-    );
-  });
-
-  test("a host with a broken email is refused", async () => {
-    const res = await post(
-      "/admin/eventos/vacio/editar",
-      eventForm({ slug: "vacio", hosts: "Ana <ana@>" }),
-    );
-    const p = await page(res);
-    expect(p.status).toBe(422);
-    expect(described(p, "Organizan")).toBe(
-      "Escribe cada correo así: Ana Quispe <ana@correo.com>.",
-    );
-  });
-
   test("renames an event without registrations and replaces its cover", async () => {
+    await addRole(DB, "taller-qiskit", {
+      name: "Pedro",
+      email: null,
+      role: "ponente",
+    });
     const before = await findEvent(DB, "taller-qiskit");
     const res = await post(
       "/admin/eventos/taller-qiskit/editar",
@@ -268,6 +243,10 @@ describe("events", () => {
     const after = await findEvent(DB, "qiskit");
     expect(after?.coverKey).toMatch(/^covers\/qiskit-/);
     expect(await MEDIA.head(before?.coverKey ?? "")).toBeNull();
+    expect(
+      (await eventRoles(DB, "qiskit")).map((p) => p.name),
+      "the roles follow the new slug",
+    ).toEqual(["Pedro"]);
 
     await post(
       "/admin/eventos/qiskit/editar",
@@ -382,10 +361,112 @@ describe("events", () => {
     );
   });
 
-  test("deletes an event without registrations", async () => {
+  test("deletes an event without registrations, and its roles", async () => {
+    await addRole(DB, "vacio", { name: "Ana", email: null, role: "mentor" });
     const res = await post("/admin/eventos/vacio/eliminar", new FormData());
     expect(res.status).toBe(303);
     expect(await findEvent(DB, "vacio")).toBeNull();
+    expect(await eventRoles(DB, "vacio")).toEqual([]);
+  });
+});
+
+describe("team", () => {
+  const team = "/admin/eventos/lleno/equipo";
+
+  const person = (fields: Record<string, string>) => {
+    const data = new FormData();
+    for (const [key, value] of Object.entries(fields)) data.set(key, value);
+    return data;
+  };
+
+  /** The names under one role's heading on the Equipo tab. */
+  const holders = (p: Page, role: string) =>
+    [
+      ...(p.screen
+        .queryByRole("region", { name: role })
+        ?.querySelectorAll(".team-member > span:first-child") ?? []),
+    ].map((li) => li.firstChild?.textContent);
+
+  test("an admin gives roles; the event page shows them without emails", async () => {
+    const empty = await open(team);
+    expect(empty.status).toBe(200);
+    expect(empty.screen.getByText(/Nadie tiene un rol/)).toBeTruthy();
+
+    for (const fields of [
+      { name: "Ana Quispe", email: "Ana@Correo.com", role: "organiza" },
+      { name: "Luis", email: "", role: "organiza" },
+      { name: "Ana Quispe", email: "ana@correo.com", role: "jurado" },
+    ]) {
+      const res = await post(team, person(fields));
+      expect(res.status, fields.role).toBe(303);
+      expect(res.headers.get("location")).toBe(team);
+    }
+
+    const tab = await open(team);
+    expect(holders(tab, "Organizan")).toEqual(["Ana Quispe", "Luis"]);
+    expect(holders(tab, "Jurado")).toEqual(["Ana Quispe"]);
+    expect(tab.screen.getAllByText(/ana@correo\.com/)).toHaveLength(2);
+
+    const event = await visit("/lleno");
+    const [organizers] = event.screen.getAllByRole("region", {
+      name: "Organizan",
+    });
+    expect(organizers?.textContent).toContain("Ana Quispe");
+    expect(organizers?.textContent).toContain("Luis");
+    expect(event.document.documentElement.outerHTML).not.toContain(
+      "ana@correo.com",
+    );
+  });
+
+  test("the same person twice in one role is refused", async () => {
+    const p = await page(
+      await post(
+        team,
+        person({ name: "Ana", email: "ana@correo.com", role: "organiza" }),
+      ),
+    );
+    expect(p.status).toBe(422);
+    expect(described(p, "Correo")).toBe("Esa persona ya tiene ese rol.");
+    expect(value(p, "Nombre")).toBe("Ana");
+  });
+
+  test("a short name, a broken email and no role are refused", async () => {
+    const p = await page(
+      await post(team, person({ name: "A", email: "ana@" })),
+    );
+    expect(p.status).toBe(422);
+    expect(described(p, "Nombre")).toBe("Escribe el nombre.");
+    expect(described(p, "Correo")).toBe(
+      "Escribe un correo válido o déjalo vacío.",
+    );
+    expect(p.screen.getByRole("alert").textContent).toContain("Revisa");
+  });
+
+  test("an admin removes a role", async () => {
+    const tab = await open(team);
+    const quitar = tab.screen.getByRole("button", {
+      name: "Quitar a Luis (Organiza)",
+    });
+    const action = quitar.closest("form")?.getAttribute("action") ?? "";
+    const res = await post(action, new FormData());
+    expect(res.status).toBe(303);
+    expect(holders(await open(team), "Organizan")).toEqual(["Ana Quispe"]);
+  });
+
+  test("a visitor can neither see nor change the team", async () => {
+    const res = await get(team, {});
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe("/admin/entrar");
+
+    const refused = await post(
+      team,
+      person({ name: "Intruso", role: "organiza" }),
+      { origin: ORIGIN },
+    );
+    expect(refused.status).not.toBe(303);
+    expect((await eventRoles(DB, "lleno")).map((p) => p.name)).not.toContain(
+      "Intruso",
+    );
   });
 });
 

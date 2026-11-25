@@ -119,7 +119,7 @@ function ProfilePanel(props: {
   token: string;
   url?: string;
   primary: boolean;
-  hosts: boolean;
+  hasRole: boolean;
 }) {
   const action = `/entrada/${props.token}/perfil`;
   const weight = props.primary ? "button-primary" : "button-light";
@@ -142,8 +142,8 @@ function ProfilePanel(props: {
       ) : (
         <form method="post" action={action} class="ticket-actions">
           <p class="ticket-note">
-            {props.hosts
-              ? "Crea una página pública con tu nombre, los eventos que organizas y una insignia por cada evento al que entras."
+            {props.hasRole
+              ? "Crea una página pública con tu nombre, los eventos en los que participas y una insignia por cada evento al que entras."
               : "Cada evento al que entras te da una insignia. Crea una página pública con tu nombre y tus insignias."}
           </p>
           <button class={`button ${weight} button-full`} type="submit">

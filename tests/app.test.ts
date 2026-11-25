@@ -11,6 +11,7 @@ import { createApp, type Env } from "../src/worker/app";
 import type { Fetch } from "../src/worker/google";
 import { checkIn } from "../src/worker/registrations";
 import { sendReminders } from "../src/worker/reminders";
+import { addRole } from "../src/worker/roles";
 import { page, parse, type Page } from "./dom";
 import {
   adminCookie,
@@ -53,10 +54,6 @@ const events = [
     title: "Meetup organizado",
     start: "2026-11-08T15:00:00-05:00",
     end: "2026-11-08T19:00:00-05:00",
-    hosts: [
-      { name: "Ana Quispe", email: "ana@example.com" },
-      { name: "Pedro" },
-    ],
   }),
 ];
 
@@ -72,6 +69,16 @@ beforeAll(async () => {
   ({ mf, DB, MEDIA } = await migratedDb("app"));
   env = testEnv(DB, MEDIA, { EMAIL: mail.binding });
   await seed(DB, events);
+  await addRole(DB, "organizado", {
+    name: "Ana Quispe",
+    email: "ana@example.com",
+    role: "organiza",
+  });
+  await addRole(DB, "organizado", {
+    name: "Pedro",
+    email: null,
+    role: "ponente",
+  });
 });
 
 afterAll(() => mf.dispose());
@@ -517,13 +524,16 @@ describe("profile", () => {
     ).not.toBeNull();
   });
 
-  test("a host opens a profile before any check-in; the event links to it", async () => {
+  test("a role holder opens a profile before any check-in; the event links to it", async () => {
     const token = await registerAs("charla", {
       email: "ana@example.com",
       name: "Ana Quispe",
     });
     const ticket = await open(`/entrada/${token}`);
-    expect(ticket.screen.getByText(/los eventos que organizas/)).toBeTruthy();
+    expect(
+      button(ticket, "Crear mi perfil"),
+      "a role opens the profile before check-in",
+    ).not.toBeNull();
 
     const path = await openProfile(token);
     const profile = await open(path);
@@ -536,6 +546,10 @@ describe("profile", () => {
     const event = await open("/organizado");
     const links = event.screen.getAllByRole("link", { name: "Ana Quispe" });
     expect(links.map((a) => a.getAttribute("href"))).toEqual([path, path]);
+    const [speakers] = event.screen.getAllByRole("region", {
+      name: "Ponentes",
+    });
+    expect(speakers?.textContent).toContain("Pedro");
     expect(event.screen.queryAllByRole("link", { name: "Pedro" })).toEqual([]);
     expect(event.document.documentElement.outerHTML).not.toContain(
       "ana@example.com",
