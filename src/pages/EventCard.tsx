@@ -1,6 +1,7 @@
 import { placeLine } from "../worker/calendar";
-import { coverUrl, kindLabel, type EventMeta } from "../worker/events";
+import { coverUrl, kindTag, type EventMeta } from "../worker/events";
 import { clock, longDate, shortDate, tile } from "../worker/time";
+import { Mark } from "./Layout";
 import { themeClass, themeStyle } from "./theme";
 
 /** The month over the day, in a square tile. */
@@ -130,8 +131,7 @@ export function Cover({ event }: { event: EventMeta }) {
           <img src={cover} alt="" width={1080} height={1080} />
         ) : (
           <div class="cover-blank" aria-hidden="true">
-            <span class="cover-kind">{kindLabel[event.theme.kind]}</span>
-            <span class="cover-title">{event.title}</span>
+            <Mark />
           </div>
         )}
       </div>
@@ -146,6 +146,7 @@ export function EventCard({
   event: EventMeta;
   past: boolean;
 }) {
+  const kind = kindTag(event);
   return (
     <li
       class={`event-row tint ${themeClass(event.theme)}`}
@@ -156,7 +157,7 @@ export function EventCard({
         <div class="event-row-text">
           <p class="event-row-meta">
             <span class="kind-dot" aria-hidden="true" />
-            {kindLabel[event.theme.kind]} ·{" "}
+            {kind && `${kind} · `}
             <time dateTime={event.start}>{shortDate(event.start)}</time>
             {!past && `, ${clock(event.start)}`}
             {event.status === "draft" && " · Borrador"}
@@ -174,14 +175,13 @@ export function EventCard({
 export function Spotlight({ event }: { event: EventMeta }) {
   return (
     <section
-      class={`spotlight tint ${themeClass(event.theme)}`}
+      class={`section spotlight tint ${themeClass(event.theme)}`}
       style={themeStyle(event.theme)}
       aria-labelledby="spotlight-title"
     >
       <a href={`/${event.slug}`}>
         <Cover event={event} />
         <div class="spotlight-text">
-          <p class="category">Destacado · {kindLabel[event.theme.kind]}</p>
           <h2 id="spotlight-title">{event.title}</h2>
           <p class="spotlight-desc">{event.summary}</p>
           <div class="spotlight-meta">

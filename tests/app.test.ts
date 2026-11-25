@@ -83,6 +83,13 @@ describe("home", () => {
     expect(html).not.toContain("Evento en borrador");
   });
 
+  test("preloads the Geist file the stylesheet uses", async () => {
+    const html = await (await get("/")).text();
+    expect(html).toContain(
+      '<link rel="preload" href="/assets/geist-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>',
+    );
+  });
+
   test("the past tab lists ended events", async () => {
     const html = await (await get("/?ver=pasados")).text();
     expect(html).toContain("Evento pasado");
@@ -118,6 +125,13 @@ describe("event page", () => {
     expect(html).not.toContain("<form");
     const res = await post("/pasado", form({ email: "late@example.com" }));
     expect(res.status).toBe(410);
+  });
+
+  test("shows the kind only when the title does not name it", async () => {
+    const named = await (await get("/taller")).text();
+    expect(named).not.toContain('class="category"');
+    const unnamed = await (await get("/charla")).text();
+    expect(unnamed).toMatch(/class="category">.*Taller<\/span>/);
   });
 
   test("an unknown slug is a 404 page", async () => {

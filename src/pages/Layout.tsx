@@ -30,7 +30,7 @@ const dev = Boolean(import.meta.env?.DEV);
 /** The page background of the neutral palette, Luma's brand-10. */
 const neutralBg = "#f2f2f2";
 
-const Mark = () => (
+export const Mark = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
     <path
       fill="currentColor"
@@ -170,6 +170,13 @@ export function Layout(props: {
           </>
         ) : (
           <>
+            <link
+              rel="preload"
+              href="/assets/geist-latin-wght-normal.woff2"
+              as="font"
+              type="font/woff2"
+              crossorigin="anonymous"
+            />
             <link rel="stylesheet" href="/assets/client.css" />
             <script type="module" src="/assets/client.js" />
             {props.passkeys && <script type="module" src="/assets/admin.js" />}
