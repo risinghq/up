@@ -199,7 +199,14 @@ function EditorForm({ view, action }: { view: EditorView; action: string }) {
           />
         </fieldset>
 
-        <fieldset class="make-special">
+        <fieldset
+          class="make-special"
+          style={
+            /^#[0-9a-f]{6}$/i.test(form.values.accent ?? "")
+              ? `--accent-preview: ${form.values.accent}`
+              : undefined
+          }
+        >
           <legend>Hazlo especial</legend>
           <Choice
             name="kind"
@@ -210,12 +217,25 @@ function EditorForm({ view, action }: { view: EditorView; action: string }) {
           <div class="field">
             <label for="a-accent">Color</label>
             <div class="accent-picker">
+              {palette.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  class="accent-chip"
+                  data-accent={c}
+                  aria-label={`Usar ${c}`}
+                  aria-pressed={c === form.values.accent ? "true" : "false"}
+                  style={{ backgroundColor: c }}
+                  hidden
+                />
+              ))}
               <input
                 id="a-accent"
                 name="accent"
                 type="color"
                 value={form.values.accent}
                 list="a-palette"
+                title="Otro color"
                 aria-invalid={form.errors.accent ? "true" : undefined}
               />
               <datalist id="a-palette">
@@ -223,12 +243,18 @@ function EditorForm({ view, action }: { view: EditorView; action: string }) {
                   <option key={c} value={c} />
                 ))}
               </datalist>
-              <span class="hint">
+              <output class="accent-value" for="a-accent">
+                {form.values.accent}
+              </output>
+            </div>
+            {form.errors.accent ? (
+              <p class="error">{form.errors.accent}</p>
+            ) : (
+              <p class="hint">
                 La página entera toma su paleta de este color: fondo, botones y
                 textos secundarios.
-              </span>
-            </div>
-            {form.errors.accent && <p class="error">{form.errors.accent}</p>}
+              </p>
+            )}
           </div>
           <Choice
             name="backdrop"
@@ -243,42 +269,66 @@ function EditorForm({ view, action }: { view: EditorView; action: string }) {
             form={form}
             options={fonts.map((f) => [f, fontLabel[f]])}
           />
-          <div class="field">
-            <label for="a-cover">Portada</label>
-            {view.coverUrl && (
-              <img
-                class="cover-preview"
-                src={view.coverUrl}
-                alt="Portada actual"
-                width={1080}
-                height={1080}
-              />
-            )}
-            <input
-              id="a-cover"
-              name="cover"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              aria-invalid={form.errors.cover ? "true" : undefined}
-            />
-            {form.errors.cover ? (
-              <p class="error">{form.errors.cover}</p>
-            ) : (
-              <p class="hint">
-                Cuadrada, 1080 × 1080, JPG, PNG o WebP, hasta 5 MB. Sin portada
-                se usa el color y el fondo.
-              </p>
-            )}
-            {view.coverUrl && (
-              <div class="check">
+          <div class="field cover-field">
+            <span class="field-label" id="a-cover-label">
+              Portada
+            </span>
+            <div class="cover-row">
+              <label
+                class="cover-drop"
+                data-filled={view.coverUrl ? "" : undefined}
+              >
                 <input
-                  id="a-remove-cover"
-                  name="remove_cover"
-                  type="checkbox"
+                  id="a-cover"
+                  name="cover"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  aria-labelledby="a-cover-label"
+                  aria-describedby="a-cover-hint"
+                  aria-invalid={form.errors.cover ? "true" : undefined}
                 />
-                <label for="a-remove-cover">Quitar la portada</label>
+                <img
+                  src={view.coverUrl}
+                  alt=""
+                  width={1080}
+                  height={1080}
+                  hidden={!view.coverUrl}
+                />
+                <span class="cover-empty" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="22" height="22">
+                    <path d="M12 16V4m0 0-4.5 4.5M12 4l4.5 4.5M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+                  </svg>
+                  <strong>Sube una imagen</strong>
+                  <span>o arrástrala aquí</span>
+                </span>
+                <span class="cover-change" aria-hidden="true">
+                  Cambiar
+                </span>
+              </label>
+              <div class="cover-side">
+                {form.errors.cover ? (
+                  <p class="error" id="a-cover-hint">
+                    {form.errors.cover}
+                  </p>
+                ) : (
+                  <p class="hint" id="a-cover-hint">
+                    Cuadrada, 1080 × 1080, JPG, PNG o WebP, hasta 5 MB. Sin
+                    portada se usa el color y el fondo.
+                  </p>
+                )}
+                <p class="cover-name" hidden />
+                {view.coverUrl && (
+                  <div class="check">
+                    <input
+                      id="a-remove-cover"
+                      name="remove_cover"
+                      type="checkbox"
+                    />
+                    <label for="a-remove-cover">Quitar la portada</label>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
           <Toggle
             name="featured"

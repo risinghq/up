@@ -1,5 +1,5 @@
 import { kindLabel, type EventMeta } from "../worker/events";
-import { shortDate } from "../worker/time";
+import { monthYear, shortDate } from "../worker/time";
 import { Mark } from "./Layout";
 import { themeClass, themeStyle } from "./theme";
 
@@ -24,24 +24,51 @@ function Badge({ event }: { event: EventMeta }) {
   );
 }
 
-/** A person's public page: the events they attended, as badges. */
-export function ProfilePage(props: { firstName: string; events: EventMeta[] }) {
+/**
+ * A person's public page, after Luma's profile: a header with an initial,
+ * the name, since when and how many events, then the badges, newest first.
+ */
+export function ProfilePage(props: {
+  firstName: string;
+  since: string;
+  events: EventMeta[];
+}) {
   const count = props.events.length;
+  const latest = props.events[0];
+
   return (
     <article class="profile">
-      <h1>{props.firstName}</h1>
-      <p class="profile-count">
-        {count === 0
-          ? "Todavía no tiene insignias."
-          : `${count} ${count === 1 ? "evento" : "eventos"} en up.rising.sh`}
-      </p>
-      {count > 0 && (
-        <ul class="badges">
-          {props.events.map((event) => (
-            <Badge event={event} key={event.slug} />
-          ))}
-        </ul>
-      )}
+      <header class="profile-head">
+        <span
+          class="profile-avatar"
+          style={latest && { backgroundColor: latest.theme.accent }}
+          aria-hidden="true"
+        >
+          {props.firstName.charAt(0).toUpperCase()}
+        </span>
+        <div>
+          <h1>{props.firstName}</h1>
+          <p class="profile-since">
+            En up.rising.sh desde {monthYear(props.since)}
+          </p>
+          <p class="profile-count">
+            <strong>{count}</strong> {count === 1 ? "evento" : "eventos"}
+          </p>
+        </div>
+      </header>
+
+      <section class="profile-badges" aria-labelledby="insignias">
+        <h2 id="insignias">Insignias</h2>
+        {count === 0 ? (
+          <p class="profile-empty">Todavía no tiene insignias.</p>
+        ) : (
+          <ul class="badges">
+            {props.events.map((event) => (
+              <Badge event={event} key={event.slug} />
+            ))}
+          </ul>
+        )}
+      </section>
     </article>
   );
 }

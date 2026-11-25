@@ -244,9 +244,9 @@ export function createApp(options: AppOptions = {}) {
     const profile = await findProfile(c.env.DB, c.req.param("profileId"));
     if (!profile) return notFound(c);
     const attended = new Set(profile.attended);
-    const events = (await listEvents(c.env.DB)).filter((e) =>
-      attended.has(e.slug),
-    );
+    const events = (await listEvents(c.env.DB))
+      .filter((e) => attended.has(e.slug))
+      .sort((a, b) => b.start.localeCompare(a.start));
     c.header("Cache-Control", "no-store");
     return page(
       c,
@@ -256,7 +256,11 @@ export function createApp(options: AppOptions = {}) {
         url: `${site(c)}/p/${c.req.param("profileId")}`,
         noindex: true,
       },
-      <ProfilePage firstName={profile.firstName} events={events} />,
+      <ProfilePage
+        firstName={profile.firstName}
+        since={profile.since}
+        events={events}
+      />,
     );
   });
 
