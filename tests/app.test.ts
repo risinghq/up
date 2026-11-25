@@ -458,14 +458,18 @@ describe("ticket page", () => {
     expect(later).not.toContain(`https://up.test/entrada/${token}`);
   });
 
-  test("a check-in drops the calendar and leads with the profile", async () => {
+  test("a check-in drops the calendar and the venue, and leads with the profile", async () => {
     const token = await registerAs("charla", { email: "dentro@example.com" });
     const before = await (await get(`/entrada/${token}`)).text();
     expect(before).toContain("Agregar a Google Calendar");
+    expect(before).toContain(
+      '<h2 class="card-title" id="place-title">Lugar</h2>',
+    );
 
     await checkIn(DB, token, now.toISOString());
     const html = await (await get(`/entrada/${token}`)).text();
     expect(html).not.toContain("Agregar a Google Calendar");
+    expect(html).not.toContain('id="place-title"');
     expect(html).toContain(
       '<button class="button button-primary button-full" type="submit">Crear mi perfil</button>',
     );

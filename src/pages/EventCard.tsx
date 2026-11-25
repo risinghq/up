@@ -117,6 +117,44 @@ export function PlaceRow({ event }: { event: EventMeta }) {
   );
 }
 
+/** The venue's name, address and map, in a content card. */
+export function VenueCard({ event }: { event: EventMeta }) {
+  const place = event.place;
+  if (place.kind !== "venue") return null;
+
+  return (
+    <section class="content-card" aria-labelledby="place-title">
+      <h2 class="card-title" id="place-title">
+        Lugar
+      </h2>
+      <p class="place">{place.name}</p>
+      <p class="street">{place.address}</p>
+      {place.point ? (
+        <div
+          class="venue-map"
+          data-lat={place.point.lat}
+          data-lng={place.point.lng}
+        >
+          <a
+            class="venue-map-link"
+            href={mapLink(place)}
+            rel="noopener"
+            aria-label="Ver en el mapa"
+          />
+        </div>
+      ) : (
+        place.mapUrl && (
+          <p class="place-map">
+            <a href={place.mapUrl} rel="noopener">
+              Ver en el mapa
+            </a>
+          </p>
+        )
+      )}
+    </section>
+  );
+}
+
 /** The square cover, or the event's color and backdrop when it has none. */
 export function Cover({ event }: { event: EventMeta }) {
   const cover = coverUrl(event);

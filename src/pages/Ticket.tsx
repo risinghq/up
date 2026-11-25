@@ -1,7 +1,7 @@
 import { kindLabel, type EventMeta } from "../worker/events";
 import type { Ticket } from "../worker/registrations";
 import { clock, shortDate } from "../worker/time";
-import { DateRow, PlaceRow } from "./EventCard";
+import { DateRow, PlaceRow, VenueCard } from "./EventCard";
 import { cardColors } from "./theme";
 
 export type TicketView = {
@@ -333,6 +333,7 @@ export function TicketPage(view: TicketView) {
       ) : (
         <>
           {next}
+          {live && <VenueCard event={event} />}
           {share}
           {profile}
         </>
