@@ -1,6 +1,6 @@
 import { micromark } from "micromark";
 import type { ComponentChildren } from "preact";
-import { kindLabel, type EventMeta, type Question } from "../worker/events";
+import { kindTag, type EventMeta, type Question } from "../worker/events";
 import type { FormState } from "../worker/form";
 import { ArrowIcon, Cover, DateRow, PlaceRow } from "./EventCard";
 
@@ -253,6 +253,7 @@ function RegisterCard(view: EventView) {
 
 /** Hosts and the event's kind: the left column on desktop, last on mobile. */
 function Sidebar({ event, only }: { event: EventMeta; only: string }) {
+  const kind = kindTag(event);
   return (
     <div class={`sidebar ${only}`}>
       <Card label="Organizan" id={`hosts-${only}`}>
@@ -267,12 +268,14 @@ function Sidebar({ event, only }: { event: EventMeta; only: string }) {
           ))}
         </ul>
       </Card>
-      <p class="categories">
-        <span class="category">
-          <span class="kind-dot" aria-hidden="true" />
-          {kindLabel[event.theme.kind]}
-        </span>
-      </p>
+      {kind && (
+        <p class="categories">
+          <span class="category">
+            <span class="kind-dot" aria-hidden="true" />
+            {kind}
+          </span>
+        </p>
+      )}
     </div>
   );
 }

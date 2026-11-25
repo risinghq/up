@@ -3,6 +3,26 @@
    class; the derived tokens below re-resolve on that element, so its text,
    dividers and buttons take the event's hue. */
 
+/* Local fonts scaled to Geist's metrics (capsize), so text does not move when
+   Geist loads. */
+@font-face {
+  font-family: "Geist Fallback: Arial";
+  src: local("Arial"), local("ArialMT");
+  ascent-override: 95.9379%;
+  descent-override: 28.1609%;
+  line-gap-override: 0%;
+  size-adjust: 104.7553%;
+}
+
+@font-face {
+  font-family: "Geist Fallback: Roboto";
+  src: local("Roboto Regular"), local("Roboto-Regular");
+  ascent-override: 95.7277%;
+  descent-override: 28.0992%;
+  line-gap-override: 0%;
+  size-adjust: 104.9853%;
+}
+
 :root,
 .tint {
   --white: #fff;
@@ -62,7 +82,9 @@
   --event-primary-button-hover-bg-color: #838383;
   --accent: #0a0a0a;
 
-  --font: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font:
+    "Geist Variable", "Geist Fallback: Arial", "Geist Fallback: Roboto",
+    ui-sans-serif, system-ui, sans-serif;
   --title-font: var(--font);
   --font-size-xxs: 0.75rem;
   --font-size-xs: 0.8125rem;
@@ -123,7 +145,7 @@
 }
 
 .font-sans {
-  --title-font: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --title-font: var(--font);
 }
 
 .font-pixel {
@@ -631,14 +653,7 @@ a:hover {
   min-width: 0;
 }
 
-.category {
-  color: var(--tint-color);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-}
-
 .spotlight h2 {
-  margin-top: 0.25rem;
   font-family: var(--title-font);
   font-size: 1.75rem;
   line-height: var(--reduced-title-line-height);
@@ -861,27 +876,16 @@ a:hover {
 
 /* An event without a cover shows its color and backdrop pattern. */
 .cover-blank {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  display: grid;
+  place-items: center;
   height: 100%;
-  padding: 1.25rem;
   background-color: var(--brand-50);
-  color: var(--white);
+  color: rgb(255 255 255 / 0.9);
 }
 
-.cover-kind {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  opacity: 0.8;
-}
-
-.cover-title {
-  font-family: var(--title-font);
-  font-size: 1.75rem;
-  font-weight: var(--font-weight-bold);
-  line-height: var(--reduced-title-line-height);
-  text-wrap: pretty;
+.cover-blank > svg {
+  width: 28%;
+  height: 28%;
 }
 
 .backdrop-grid .cover-blank {

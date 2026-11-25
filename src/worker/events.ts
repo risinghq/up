@@ -70,6 +70,18 @@ export const kindLabel: Record<Kind, string> = {
   meetup: "Meetup",
 };
 
+const fold = (text: string) =>
+  text
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+
+/** The event's kind label, or null when its title already names the kind. */
+export function kindTag(event: EventMeta): string | null {
+  const label = kindLabel[event.theme.kind];
+  return fold(event.title).includes(fold(label)) ? null : label;
+}
+
 export const coverUrl = (event: EventMeta) =>
   event.coverKey ? `/media/${event.coverKey}` : undefined;
 

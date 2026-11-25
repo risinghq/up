@@ -29,11 +29,7 @@ export function Home(props: {
         </p>
       </header>
 
-      {featured && (
-        <section class="section" aria-label="Destacado">
-          <Spotlight event={featured} />
-        </section>
-      )}
+      {featured && <Spotlight event={featured} />}
 
       <section class="section" aria-labelledby="listing-title">
         <div class="section-title-row">
