@@ -1,6 +1,11 @@
 import { micromark } from "micromark";
 import type { ComponentChildren } from "preact";
-import { kindTag, type EventMeta, type Question } from "../worker/events";
+import {
+  kindTag,
+  mapLink,
+  type EventMeta,
+  type Question,
+} from "../worker/events";
 import type { FormState } from "../worker/form";
 import { ArrowIcon, Cover, DateRow, PlaceRow } from "./EventCard";
 
@@ -340,12 +345,27 @@ export function EventPage(view: EventView) {
             <Card label="Lugar" id="place-title">
               <p class="place">{place.name}</p>
               <p class="street">{place.address}</p>
-              {place.mapUrl && (
-                <p class="place-map">
-                  <a href={place.mapUrl} rel="noopener">
-                    Ver en el mapa
-                  </a>
-                </p>
+              {place.point ? (
+                <div
+                  class="venue-map"
+                  data-lat={place.point.lat}
+                  data-lng={place.point.lng}
+                >
+                  <a
+                    class="venue-map-link"
+                    href={mapLink(place)}
+                    rel="noopener"
+                    aria-label="Ver en el mapa"
+                  />
+                </div>
+              ) : (
+                place.mapUrl && (
+                  <p class="place-map">
+                    <a href={place.mapUrl} rel="noopener">
+                      Ver en el mapa
+                    </a>
+                  </p>
+                )
               )}
             </Card>
           )}

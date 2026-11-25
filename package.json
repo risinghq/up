@@ -24,6 +24,7 @@
     "@simplewebauthn/browser": "^14.0.0",
     "@simplewebauthn/server": "^14.1.0",
     "hono": "^4.13.21",
+    "maplibre-gl": "^6.19.0",
     "micromark": "^4.0.3",
     "preact": "^11.2.0",
     "preact-render-to-string": "^6.8.3"

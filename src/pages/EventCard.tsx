@@ -1,5 +1,5 @@
 import { placeLine } from "../worker/calendar";
-import { coverUrl, kindTag, type EventMeta } from "../worker/events";
+import { coverUrl, kindTag, mapLink, type EventMeta } from "../worker/events";
 import { clock, longDate, shortDate, tile } from "../worker/time";
 import { Mark } from "./Layout";
 import { themeClass, themeStyle } from "./theme";
@@ -85,6 +85,7 @@ export function DateRow({ event }: { event: EventMeta }) {
 export function PlaceRow({ event }: { event: EventMeta }) {
   const place = event.place;
   const online = place.kind === "online";
+  const link = mapLink(place);
   const body = (
     <>
       <span class="icon-tile" aria-hidden="true">
@@ -93,7 +94,7 @@ export function PlaceRow({ event }: { event: EventMeta }) {
       <div class="meta-text">
         <p class="meta-title">
           <span>{online ? "En línea" : place.name}</span>
-          {!online && place.mapUrl && (
+          {link && (
             <span class="meta-arrow">
               <ArrowIcon />
             </span>
@@ -107,8 +108,8 @@ export function PlaceRow({ event }: { event: EventMeta }) {
       </div>
     </>
   );
-  return !online && place.mapUrl ? (
-    <a class="meta-row meta-link" href={place.mapUrl} rel="noopener">
+  return link ? (
+    <a class="meta-row meta-link" href={link} rel="noopener">
       {body}
     </a>
   ) : (

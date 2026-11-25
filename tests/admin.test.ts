@@ -226,6 +226,34 @@ describe("events", () => {
     expect(await MEDIA.head(after?.coverKey ?? "")).toBeNull();
   });
 
+  test("coordinates in the map field put the venue on a map", async () => {
+    const res = await post(
+      "/admin/eventos/vacio/editar",
+      eventForm({ slug: "vacio", map_url: "-12.0598607, -77.0817416" }),
+    );
+    expect(res.status).toBe(303);
+    const saved = await findEvent(DB, "vacio");
+    expect(saved?.place).toMatchObject({
+      point: { lat: -12.0598607, lng: -77.0817416 },
+    });
+    const editor = await (await get("/admin/eventos/vacio/editar")).text();
+    expect(editor).toContain('value="-12.0598607, -77.0817416"');
+    const page = await (await app.request("/vacio", {}, env)).text();
+    expect(page).toContain(
+      '<div class="venue-map" data-lat="-12.0598607" data-lng="-77.0817416">',
+    );
+    expect(page).toContain(
+      "https://www.google.com/maps/search/?api=1&amp;query=-12.0598607,-77.0817416",
+    );
+
+    const refused = await post(
+      "/admin/eventos/vacio/editar",
+      eventForm({ slug: "vacio", map_url: "cerca del parque" }),
+    );
+    expect(refused.status).toBe(422);
+    expect(await refused.text()).toContain("Pega un enlace de Google Maps");
+  });
+
   test("an event with registrations keeps its slug and cannot be deleted", async () => {
     const reg = await app.request(
       "/lleno",

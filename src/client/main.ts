@@ -7,8 +7,23 @@ import "./admin.css";
 import "./scheme";
 
 // Every page works without this script. It only stops a double submit,
-// confirms a cancellation, copies the ticket link, marks a scrolled nav and
-// runs the scheme toggle.
+// confirms a cancellation, copies the ticket link, marks a scrolled nav, runs
+// the scheme toggle and draws a venue's map.
+
+// MapLibre is most of the script's weight, so it loads only when the venue's
+// map nears the viewport.
+const venue = document.querySelector<HTMLElement>(".venue-map");
+if (venue) {
+  const near = new IntersectionObserver(
+    (entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return;
+      near.disconnect();
+      void import("./map").then((m) => m.showMap(venue));
+    },
+    { rootMargin: "400px" },
+  );
+  near.observe(venue);
+}
 
 const nav = document.querySelector<HTMLElement>(".site-nav.sticky");
 if (nav) {
