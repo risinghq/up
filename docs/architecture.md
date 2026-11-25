@@ -51,6 +51,14 @@ Its `og:image` is `GET /<slug>/voy/<id>.png`, which `renderCard` in
 as SVG and resvg turns it into a PNG. Cancelling or registering again clears
 `share_id`, so the old link answers 404.
 
+`POST /entrada/<token>/perfil` calls `openProfile`, which gives the ticket's
+person a random `profile_id` unless they have one. `GET /p/<id>` looks it up
+with `findProfile`, which returns the first name and the slugs of the published
+events where the person checked in, and renders
+[`src/pages/Profile.tsx`](../src/pages/Profile.tsx).
+`POST /entrada/<token>/perfil/ocultar` calls `closeProfile`, which clears
+`profile_id`.
+
 satori is pinned to 0.32.0. Later releases bundle a HarfBuzz module that reads
 `self.location` and compiles WebAssembly at run time, and workerd allows
 neither. 0.32.0 measures text without kerning but draws it with kerning, so the
@@ -111,7 +119,7 @@ schema.
 | Table            | Row                                                                                                                             |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.                                 |
-| `people`         | One email, with the latest name and phone, and the consent dates.                                                               |
+| `people`         | One email, with the latest name and phone, the consent dates and the public profile's `profile_id`.                             |
 | `registrations`  | One person at one event: the ticket token as `id`, the number, the status, the answers as JSON and the share link's `share_id`. |
 | `admins`         | One admin's name.                                                                                                               |
 | `credentials`    | One passkey of one admin.                                                                                                       |

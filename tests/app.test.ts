@@ -8,6 +8,8 @@ import {
 } from "bun:test";
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
+import { checkIn } from "../src/worker/registrations";
+import { sendReminders } from "../src/worker/reminders";
 import {
   adminCookie,
   cardAssets,
@@ -19,7 +21,6 @@ import {
   seed,
   testEnv,
 } from "./support";
-import { sendReminders } from "../src/worker/reminders";
 
 setDefaultTimeout(HOST_TIMEOUT);
 
@@ -376,6 +377,61 @@ describe("share link", () => {
     await post(`/entrada/${token}/cancelar`, new FormData());
     expect((await get(path)).status).toBe(404);
     expect((await get(`${path}.png`)).status).toBe(404);
+  });
+});
+
+describe("profile", () => {
+  /** Opens the ticket holder's profile and returns its path. */
+  async function openProfile(token: string) {
+    const res = await post(`/entrada/${token}/perfil`, new FormData());
+    expect(res.status).toBe(303);
+    const html = await (await get(`/entrada/${token}`)).text();
+    const url = html.match(/https:\/\/up\.test(\/p\/[\w-]{22})/);
+    expect(url).not.toBeNull();
+    return url?.[1] ?? "";
+  }
+
+  test("a check-in offers the profile; it lists attended events only", async () => {
+    const email = "valeria@example.com";
+    const name = "Valeria Quispe";
+    const went = await registerAs("charla", { email, name });
+    const skipped = await registerAs("taller", {
+      email,
+      name,
+      q_carrera: "Física",
+    });
+
+    const before = await (await get(`/entrada/${went}`)).text();
+    expect(before).not.toContain("Crear mi perfil");
+
+    await checkIn(DB, went, now.toISOString());
+    expect(await (await get(`/entrada/${went}`)).text()).toContain(
+      "Crear mi perfil",
+    );
+    const path = await openProfile(went);
+    expect(await openProfile(skipped)).toBe(path);
+
+    const res = await get(path);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("<h1>Valeria</h1>");
+    expect(html).not.toContain("Quispe");
+    expect(html).toContain("1 evento en up.rising.sh");
+    expect(html).toContain('href="/charla"');
+    expect(html).not.toContain('href="/taller"');
+    expect(html).not.toContain(went);
+  });
+
+  test("hiding the profile kills its link", async () => {
+    const token = await registerAs("charla", { email: "oculta@example.com" });
+    await checkIn(DB, token, now.toISOString());
+    const path = await openProfile(token);
+    const res = await post(`/entrada/${token}/perfil/ocultar`, new FormData());
+    expect(res.status).toBe(303);
+    expect((await get(path)).status).toBe(404);
+    expect(await (await get(`/entrada/${token}`)).text()).toContain(
+      "Crear mi perfil",
+    );
   });
 });
 

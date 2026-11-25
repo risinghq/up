@@ -780,6 +780,82 @@ a:hover {
   }
 }
 
+/* A public profile: the person's first name over a grid of badges. */
+
+.profile {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+.profile-count {
+  margin-top: 0.25rem;
+  color: var(--secondary-color-alpha);
+}
+
+.badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.75rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.badge > a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  padding: 1.25rem 0.75rem 1rem;
+  border: 1px solid var(--divider-color);
+  border-radius: var(--border-radius);
+  background-color: var(--brand-pale-bg-color);
+  color: var(--primary-color);
+  text-align: center;
+}
+
+@media (hover: hover) {
+  .badge > a:hover {
+    border-color: var(--card-hover-border-color);
+    color: var(--primary-color);
+  }
+}
+
+.badge .badge-medal {
+  width: 5.5rem;
+  height: 5.5rem;
+  margin-bottom: 0.75rem;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 3px var(--primary-bg-color),
+    0 0 0 4px var(--brand-30, var(--divider-color));
+}
+
+.badge .badge-medal > svg {
+  width: 36%;
+  height: 36%;
+}
+
+.badge-kind {
+  color: var(--tint-color);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.badge-title {
+  margin: 0.125rem 0 0.25rem;
+  font-family: var(--title-font);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--reduced-line-height);
+}
+
+.badge-date {
+  margin-top: auto;
+  color: var(--tertiary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
 /* The event list: rows with a date tile, as Luma's calendar rows. */
 
 .event-list {
@@ -975,8 +1051,10 @@ a:hover {
   inset: 0;
 }
 
-/* An event without a cover shows its color and backdrop pattern. */
-.cover-blank {
+/* An event without a cover, and an event's badge, show its color and
+   backdrop pattern. */
+.cover-blank,
+.badge-medal {
   display: grid;
   place-items: center;
   height: 100%;
@@ -989,14 +1067,16 @@ a:hover {
   height: 28%;
 }
 
-.backdrop-grid .cover-blank {
+.backdrop-grid .cover-blank,
+.backdrop-grid .badge-medal {
   background-image:
     linear-gradient(rgb(255 255 255 / 0.16) 1px, transparent 1px),
     linear-gradient(90deg, rgb(255 255 255 / 0.16) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-.backdrop-dots .cover-blank {
+.backdrop-dots .cover-blank,
+.backdrop-dots .badge-medal {
   background-image: radial-gradient(
     rgb(255 255 255 / 0.28) 1.5px,
     transparent 1.5px
@@ -1004,7 +1084,8 @@ a:hover {
   background-size: 16px 16px;
 }
 
-.backdrop-glow .cover-blank {
+.backdrop-glow .cover-blank,
+.backdrop-glow .badge-medal {
   background-image:
     radial-gradient(
       90% 80% at 100% 0%,
