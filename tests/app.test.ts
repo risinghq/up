@@ -435,6 +435,24 @@ describe("profile", () => {
   });
 });
 
+describe("credential", () => {
+  test("only a ticket with a seat carries the credential's data", async () => {
+    const token = await registerAs("charla", {
+      email: "credencial@example.com",
+      name: "Rosa Mamani",
+    });
+    const html = await (await get(`/entrada/${token}`)).text();
+    expect(html).toMatch(/<div class="credential" hidden/);
+    expect(html).toContain('data-name="Rosa Mamani"');
+    expect(html).toContain('data-title="Charla abierta"');
+
+    const res = await post(`/entrada/${token}/cancelar`, new FormData());
+    expect(res.status).toBe(303);
+    const cancelled = await (await get(`/entrada/${token}`)).text();
+    expect(cancelled).not.toContain('class="credential"');
+  });
+});
+
 describe("reminders", () => {
   test("a day before, each seated ticket gets one reminder", async () => {
     // Every event in this file starts 2026-12-12 at 15:00 Lima.
