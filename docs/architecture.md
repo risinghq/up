@@ -35,7 +35,12 @@ the browser's WebAuthn API.
 `POST /entrada/<token>/cancelar` calls `cancel`, which marks the registration
 `cancelled` and moves the oldest waitlisted registration to `going` when a seat
 frees. `cancel` and `fillSeats` return the seated tokens, and the route emails
-them.
+them. A checked-in ticket does not cancel.
+
+The ticket page of a venue event carries a QR code of its own URL, drawn on the
+server by `renderSVG` from `uqr`. An admin who opens the URL gets the door
+panel. Its form posts to `/admin/entrada/<token>/ingreso`, under the admin
+guard, and `checkIn` sets `checked_in_at` once.
 
 The Worker's `scheduled` handler in
 [`src/worker/index.tsx`](../src/worker/index.tsx) runs every hour.

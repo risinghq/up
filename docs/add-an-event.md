@@ -67,7 +67,8 @@ the page shows a **Ver en el mapa** link instead.
 ## Registrants
 
 The **Inscritos** tab opens `/admin/eventos/<slug>/inscritos`. **Descargar CSV**
-exports the registrations with one column per question.
+exports the registrations with one column per question. The **Ingreso** column
+checks a registrant in; [Check in at the door](check-in.md) covers the door.
 
 ## Delete
 

@@ -12,6 +12,8 @@ export type Ticket = {
   name: string;
   email: string;
   createdAt: string;
+  /** When an admin let the person in at the door. */
+  checkedInAt: string | null;
 };
 
 export type RegisterResult =
@@ -95,7 +97,7 @@ export async function register(
   if (existing) {
     await db
       .prepare(
-        `UPDATE registrations SET id = ?, status = ?, answers = ?, created_at = ?, cancelled_at = NULL
+        `UPDATE registrations SET id = ?, status = ?, answers = ?, created_at = ?, cancelled_at = NULL, checked_in_at = NULL
          WHERE id = ?`,
       )
       .bind(token, status, answers, now, existing.id)
@@ -121,12 +123,41 @@ export async function findTicket(
 ): Promise<Ticket | null> {
   return db
     .prepare(
-      `SELECT r.id AS token, r.event_slug AS eventSlug, r.number, r.status, p.name, p.email, r.created_at AS createdAt
+      `SELECT r.id AS token, r.event_slug AS eventSlug, r.number, r.status, p.name, p.email,
+              r.created_at AS createdAt, r.checked_in_at AS checkedInAt
        FROM registrations r JOIN people p ON p.id = r.person_id
        WHERE r.id = ?`,
     )
     .bind(token)
     .first<Ticket>();
+}
+
+/**
+ * Records that the ticket's holder came in. A cancelled ticket cannot, and a
+ * second check-in keeps the first time.
+ */
+export async function checkIn(
+  db: D1Database,
+  token: string,
+  now: string,
+): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE registrations SET checked_in_at = ?
+       WHERE id = ? AND status != 'cancelled' AND checked_in_at IS NULL`,
+    )
+    .bind(now, token)
+    .run();
+}
+
+export async function undoCheckIn(
+  db: D1Database,
+  token: string,
+): Promise<void> {
+  await db
+    .prepare("UPDATE registrations SET checked_in_at = NULL WHERE id = ?")
+    .bind(token)
+    .run();
 }
 
 /**
@@ -140,10 +171,14 @@ export async function cancel(
   now = new Date().toISOString(),
 ): Promise<string[]> {
   const ticket = await db
-    .prepare("SELECT status FROM registrations WHERE id = ? AND event_slug = ?")
+    .prepare(
+      "SELECT status, checked_in_at FROM registrations WHERE id = ? AND event_slug = ?",
+    )
     .bind(token, event.slug)
-    .first<{ status: Status }>();
-  if (!ticket || ticket.status === "cancelled") return [];
+    .first<{ status: Status; checked_in_at: string | null }>();
+  // A person already let in has attended; cancelling would erase that.
+  if (!ticket || ticket.status === "cancelled" || ticket.checked_in_at)
+    return [];
 
   await db
     .prepare(
@@ -263,6 +298,7 @@ export async function statusCounts(
 }
 
 export type Registrant = {
+  token: string;
   number: number;
   status: Status;
   name: string;
@@ -271,6 +307,7 @@ export type Registrant = {
   newsOptIn: boolean;
   answers: Record<string, string>;
   createdAt: string;
+  checkedInAt: string | null;
 };
 
 type RegistrantRow = Omit<Registrant, "answers" | "newsOptIn"> & {
@@ -284,9 +321,9 @@ export async function listRegistrants(
 ): Promise<Registrant[]> {
   const { results } = await db
     .prepare(
-      `SELECT r.number, r.status, p.name, p.email, p.phone,
+      `SELECT r.id AS token, r.number, r.status, p.name, p.email, p.phone,
               p.news_opt_in_at IS NOT NULL AS newsOptIn, r.answers,
-              r.created_at AS createdAt
+              r.created_at AS createdAt, r.checked_in_at AS checkedInAt
        FROM registrations r JOIN people p ON p.id = r.person_id
        WHERE r.event_slug = ? ORDER BY r.number`,
     )
