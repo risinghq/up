@@ -90,6 +90,20 @@ describe("home", () => {
     );
   });
 
+  test("sets the scheme before paint, with a theme-color for each", async () => {
+    const html = await (await get("/")).text();
+    const script = html.indexOf('classList.toggle("dark"');
+    expect(script).toBeGreaterThan(-1);
+    expect(script).toBeLessThan(html.indexOf("/assets/client.css"));
+    expect(html).toContain(
+      '<meta name="theme-color" media="(prefers-color-scheme: light)" data-scheme="light" content="#f2f2f2"/>',
+    );
+    expect(html).toContain(
+      '<meta name="theme-color" media="(prefers-color-scheme: dark)" data-scheme="dark" content="#141414"/>',
+    );
+    expect(html).toContain('<button class="theme-toggle"');
+  });
+
   test("the past tab lists ended events", async () => {
     const html = await (await get("/?ver=pasados")).text();
     expect(html).toContain("Evento pasado");
@@ -132,6 +146,12 @@ describe("event page", () => {
     expect(home).toContain('<header class="site-nav sticky">');
     const page = await (await get("/charla")).text();
     expect(page).toContain('<header class="site-nav">');
+  });
+
+  test("a tinted event marks its page for the dark palette", async () => {
+    const html = await (await get("/charla")).text();
+    expect(html).toMatch(/<body class="tint [^"]* tinted"/);
+    expect(html).not.toContain('data-scheme="dark" content="#141414"');
   });
 
   test("shows the kind only when the title does not name it", async () => {

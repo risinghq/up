@@ -46,10 +46,13 @@
   --card-hover-border-color: var(--opacity-16);
   --card-hover-shadow:
     0 28px 17px #00000001, 0 12px 12px #00000003, 0 3px 7px #00000003;
+  --tint-color: color-mix(in srgb, var(--brand-70) 80%, transparent);
+  --opacity-light: color-mix(in srgb, var(--brand-80) 4%, transparent);
+  --brand-pale-bg-color: color-mix(in srgb, var(--brand-50) 13%, transparent);
   --hover-bg-color: var(--opacity-light);
   --brand-color: var(--brand-50);
   --brand-active-color: var(--brand-60);
-  --nav-bg-color: var(--brand-10);
+  --nav-bg-color: var(--page-bg);
   --nav-link-color: var(--tertiary-color-alpha);
   --nav-link-hover-color: var(--primary-color);
   --light-button-color: var(--secondary-color-alpha);
@@ -75,9 +78,6 @@
   --brand-60: #636363;
   --brand-70: #484848;
   --brand-80: #2e2e2e;
-  --tint-color: #484848cc;
-  --opacity-light: #2e2e2e0a;
-  --brand-pale-bg-color: #77777721;
   --event-primary-button-bg-color: #636363;
   --event-primary-button-hover-bg-color: #838383;
   --accent: #0a0a0a;
@@ -125,6 +125,9 @@
   --error: #c4291c;
   --ok: #157f3b;
   --wait: #9a5b00;
+  --error-bg-color: #fdecea;
+  --ok-bg-color: #e8f6ed;
+  --wait-bg-color: #fdf3e1;
 
   /* The admin pages' names. */
   --ink: #0a0a0a;
@@ -136,6 +139,66 @@
   --radius: 12px;
 
   color-scheme: light;
+}
+
+/* Dark, from Luma's .theme-root.dark: white text and dividers, a near-black
+   page, cards at white 4%, and a white primary button. Text colors move to
+   step 30 of their palette, pale fills stay at step 50. The head script in
+   Layout.tsx sets .dark on <html> before paint. */
+.dark,
+.dark .tint {
+  --opacity-0: rgba(var(--white-base-rgb), 0);
+  --opacity-4: rgba(var(--white-base-rgb), 0.04);
+  --opacity-8: rgba(var(--white-base-rgb), 0.08);
+  --opacity-16: rgba(var(--white-base-rgb), 0.16);
+  --opacity-32: rgba(var(--white-base-rgb), 0.32);
+  --opacity-64: rgba(var(--white-base-rgb), 0.64);
+  --opacity-light: var(--opacity-8);
+  --primary-color: var(--white);
+  --primary-bg-color: var(--black);
+  --secondary-color-alpha: #ffffffc9;
+  --tertiary-color-alpha: #ffffff80;
+  --bg-opacity-16: rgba(var(--black-base-rgb), 0.16);
+  --bg-opacity-32: rgba(var(--black-base-rgb), 0.32);
+  --card-bg-color: var(--opacity-4);
+  --card-border-color: var(--opacity-4);
+  --card-hover-shadow:
+    0 28px 17px #00000003, 0 12px 12px #00000005, 0 3px 7px #00000005;
+  --tint-color: color-mix(in srgb, var(--brand-30) 80%, transparent);
+  --brand-color: var(--brand-30);
+  --brand-active-color: var(--brand-40);
+  --primary-button-color: var(--black);
+  --primary-button-bg-color: var(--white);
+  --primary-button-hover-bg-color: #ececec;
+  --page-bg: var(--black);
+}
+
+/* A tinted event's page, as Luma's .dark .event-theme.tinted. */
+.dark .tinted {
+  --page-bg: var(--brand-80);
+  --primary-bg-color: var(--brand-80);
+  --card-bg-color: var(--brand-70);
+}
+
+.dark {
+  --light-shadow-xs: 0 1px 4px #00000040;
+  --shadow-lg:
+    0 3.3px 3px #0000004d, 0 8px 7px #0000004d, 0 17px 14px #00000059,
+    0 35px 29px #0006;
+  --error: #ff766d;
+  --ok: #77d86b;
+  --wait: #f2ca77;
+  --error-bg-color: #ed2b3222;
+  --ok-bg-color: #3cbd2c22;
+  --wait-bg-color: #d6971222;
+  --ink: #ffffff;
+  --ink-2: #c9c9c9;
+  --ink-3: #959595;
+  --line: #ffffff1f;
+  --wash: #ffffff0a;
+  --paper: #141414;
+
+  color-scheme: dark;
 }
 
 @media (max-width: 450px) {
@@ -364,6 +427,35 @@ a:hover {
   border-radius: 100px;
   outline: 2px solid var(--nav-link-color);
   outline-offset: 4px;
+}
+
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin: -0.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--nav-link-color);
+  transition: var(--transition);
+}
+
+.theme-toggle[hidden] {
+  display: none;
+}
+
+.theme-toggle:hover {
+  background-color: var(--hover-bg-color);
+  color: var(--nav-link-hover-color);
+}
+
+/* The button shows the scheme it switches to. */
+.dark .theme-toggle .icon-moon,
+:root:not(.dark) .theme-toggle .icon-sun {
+  display: none;
 }
 
 /* The logo already leads home, so a phone drops the Eventos link. */
@@ -1476,7 +1568,7 @@ a:hover {
 }
 
 .notice-error {
-  background-color: #fdecea;
+  background-color: var(--error-bg-color);
   color: var(--error);
 }
 
@@ -1491,7 +1583,7 @@ a:hover {
   align-self: flex-start;
   padding: 0.125rem 0.5rem;
   border-radius: 100px;
-  background-color: #fdf3e1;
+  background-color: var(--wait-bg-color);
   color: var(--wait);
 }
 
@@ -1511,7 +1603,7 @@ a:hover {
 }
 
 .ticket-page > .notice {
-  background-color: #e8f6ed;
+  background-color: var(--ok-bg-color);
   color: var(--ok);
 }
 

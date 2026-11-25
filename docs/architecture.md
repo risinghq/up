@@ -48,8 +48,10 @@ frees.
    save. `saveEvent` writes the row and clears `featured` on every other event.
    `fillSeats` seats the waitlist when the capacity rose.
 5. The event page renders the theme with
-   [`src/pages/theme.ts`](../src/pages/theme.ts): the accent and its readable
-   ink as CSS variables, and the kind and backdrop as classes.
+   [`src/pages/theme.ts`](../src/pages/theme.ts): the accent's tint palette as
+   CSS variables, and the kind and backdrop as classes.
+   [`src/client/styles.css`](../src/client/styles.css) derives text, dividers
+   and buttons from the palette, once for light and once under `.dark`.
 
 Sign-in uses passkeys through
 [`src/worker/passkeys.ts`](../src/worker/passkeys.ts). The server stores each
@@ -105,7 +107,7 @@ are stored as their SHA-256 only.
 | [`src/worker/calendar.ts`](../src/worker/calendar.ts)           | Google Calendar links and `.ics` files.                                     |
 | [`src/worker/time.ts`](../src/worker/time.ts)                   | Dates in Lima time, es-PE.                                                  |
 | [`src/pages/`](../src/pages/)                                   | The page components; [`admin/`](../src/pages/admin/) holds the admin pages. |
-| [`src/client/`](../src/client/)                                 | The stylesheet and the two client scripts.                                  |
+| [`src/client/`](../src/client/)                                 | The stylesheets and the client scripts.                                     |
 | [`scripts/admin-invite.ts`](../scripts/admin-invite.ts)         | The first-admin invite.                                                     |
 
 [`vite.config.ts`](../vite.config.ts) builds the client to `/assets/client.css`,

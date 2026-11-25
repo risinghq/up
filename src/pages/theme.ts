@@ -120,9 +120,6 @@ export function themeStyle(theme: Theme) {
     `--brand-60:${brand[60]}`,
     `--brand-70:${brand[70]}`,
     `--brand-80:${brand[80]}`,
-    `--tint-color:${brand[70]}cc`,
-    `--opacity-light:${brand[80]}0a`,
-    `--brand-pale-bg-color:${brand[50]}21`,
     `--event-primary-button-bg-color:${brand[50]}`,
     `--event-primary-button-hover-bg-color:${brand[40]}`,
   ].join(";");

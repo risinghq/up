@@ -4,9 +4,11 @@ import "@fontsource/geist-pixel/latin-400.css";
 import "@fontsource/instrument-serif/latin-400.css";
 import "./styles.css";
 import "./admin.css";
+import "./scheme";
 
 // Every page works without this script. It only stops a double submit,
-// confirms a cancellation, copies the ticket link and marks a scrolled nav.
+// confirms a cancellation, copies the ticket link, marks a scrolled nav and
+// runs the scheme toggle.
 
 const nav = document.querySelector<HTMLElement>(".site-nav.sticky");
 if (nav) {
