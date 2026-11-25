@@ -18,6 +18,8 @@ export type TicketView = {
   qr?: string;
   /** True when an admin opens the ticket, as at the door after a scan. */
   door: boolean;
+  /** The public "voy" link, once the holder made one. */
+  shareUrl?: string;
 };
 
 const statusText = {
@@ -57,6 +59,57 @@ function DoorPanel({ ticket }: { ticket: Ticket }) {
             </button>
           </form>
         )
+      )}
+    </section>
+  );
+}
+
+/** Makes or shows the public link that says the holder is going. */
+function SharePanel(props: { token: string; title: string; url?: string }) {
+  return (
+    <section class="content-card" id="compartir" aria-labelledby="share-title">
+      <h2 class="card-title" id="share-title">
+        Cuéntale a tus amigos
+      </h2>
+      {props.url ? (
+        <div class="ticket-actions">
+          <div class="copy-row">
+            <input
+              class="copy-input"
+              readOnly
+              value={props.url}
+              aria-label="Enlace para compartir"
+            />
+            <button
+              class="button button-light"
+              type="button"
+              data-copy={props.url}
+              hidden
+            >
+              Copiar
+            </button>
+          </div>
+          <a
+            class="button button-light button-full"
+            href={`https://wa.me/?text=${encodeURIComponent(`Voy a ${props.title}: ${props.url}`)}`}
+          >
+            Compartir por WhatsApp
+          </a>
+        </div>
+      ) : (
+        <form
+          method="post"
+          action={`/entrada/${props.token}/compartir`}
+          class="ticket-actions"
+        >
+          <p class="ticket-note">
+            Crea un enlace público con tu nombre y el evento. No abre tu
+            entrada.
+          </p>
+          <button class="button button-light button-full" type="submit">
+            Compartir que voy
+          </button>
+        </form>
       )}
     </section>
   );
@@ -189,6 +242,14 @@ export function TicketPage(view: TicketView) {
             )}
           </div>
         </section>
+      )}
+
+      {live && (
+        <SharePanel
+          token={ticket.token}
+          title={event.title}
+          url={view.shareUrl}
+        />
       )}
 
       {ticket.status === "cancelled" && !view.ended && (

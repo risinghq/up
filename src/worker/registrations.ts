@@ -14,6 +14,8 @@ export type Ticket = {
   createdAt: string;
   /** When an admin let the person in at the door. */
   checkedInAt: string | null;
+  /** The public "voy" link's id, once the holder shared the ticket. */
+  shareId: string | null;
 };
 
 export type RegisterResult =
@@ -97,7 +99,7 @@ export async function register(
   if (existing) {
     await db
       .prepare(
-        `UPDATE registrations SET id = ?, status = ?, answers = ?, created_at = ?, cancelled_at = NULL, checked_in_at = NULL
+        `UPDATE registrations SET id = ?, status = ?, answers = ?, created_at = ?, cancelled_at = NULL, checked_in_at = NULL, share_id = NULL
          WHERE id = ?`,
       )
       .bind(token, status, answers, now, existing.id)
@@ -124,7 +126,7 @@ export async function findTicket(
   return db
     .prepare(
       `SELECT r.id AS token, r.event_slug AS eventSlug, r.number, r.status, p.name, p.email,
-              r.created_at AS createdAt, r.checked_in_at AS checkedInAt
+              r.created_at AS createdAt, r.checked_in_at AS checkedInAt, r.share_id AS shareId
        FROM registrations r JOIN people p ON p.id = r.person_id
        WHERE r.id = ?`,
     )
@@ -149,6 +151,45 @@ export async function checkIn(
     .bind(now, token)
     .run();
 }
+
+/**
+ * The ticket's public share id, made on the first call. A cancelled ticket
+ * gets none.
+ */
+export async function shareTicket(
+  db: D1Database,
+  token: string,
+): Promise<string | null> {
+  const row = await db
+    .prepare(
+      `UPDATE registrations SET share_id = COALESCE(share_id, ?)
+       WHERE id = ? AND status != 'cancelled'
+       RETURNING share_id AS shareId`,
+    )
+    .bind(newToken(), token)
+    .first<{ shareId: string }>();
+  return row?.shareId ?? null;
+}
+
+export type Share = { eventSlug: string; firstName: string };
+
+/** What a share link shows: the event and the holder's first name only. */
+export async function findShare(
+  db: D1Database,
+  shareId: string,
+): Promise<Share | null> {
+  const row = await db
+    .prepare(
+      `SELECT r.event_slug AS eventSlug, p.name
+       FROM registrations r JOIN people p ON p.id = r.person_id
+       WHERE r.share_id = ?`,
+    )
+    .bind(shareId)
+    .first<{ eventSlug: string; name: string }>();
+  return row && { eventSlug: row.eventSlug, firstName: firstName(row.name) };
+}
+
+export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
 
 export async function undoCheckIn(
   db: D1Database,
@@ -182,7 +223,7 @@ export async function cancel(
 
   await db
     .prepare(
-      "UPDATE registrations SET status = 'cancelled', cancelled_at = ? WHERE id = ?",
+      "UPDATE registrations SET status = 'cancelled', cancelled_at = ?, share_id = NULL WHERE id = ?",
     )
     .bind(now, token)
     .run();
