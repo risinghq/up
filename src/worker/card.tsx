@@ -1,6 +1,6 @@
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import satori, { init as initSatori } from "satori/standalone";
-import { palette } from "../pages/theme";
+import { cardColors } from "../pages/theme";
 import { kindTag, type EventMeta } from "./events";
 import { clock, longDate } from "./time";
 
@@ -23,16 +23,9 @@ const init = (assets: CardAssets) =>
     initWasm(assets.resvg),
   ]).then(() => undefined));
 
-const colors = (event: EventMeta) => {
-  const tint = palette(event.theme.accent);
-  return tint
-    ? { ground: tint.brand[80], text: tint.brand[10], soft: tint.brand[30] }
-    : { ground: "#18181b", text: "#fafafa", soft: "#a1a1aa" };
-};
-
 function Card(props: { firstName: string; event: EventMeta; ended: boolean }) {
   const { event } = props;
-  const c = colors(event);
+  const c = cardColors(event.theme);
   const tag = kindTag(event);
   const place =
     event.place.kind === "venue" ? event.place.name : event.place.platform;

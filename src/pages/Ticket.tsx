@@ -1,7 +1,8 @@
-import type { EventMeta } from "../worker/events";
+import { kindLabel, type EventMeta } from "../worker/events";
 import type { Ticket } from "../worker/registrations";
-import { clock } from "../worker/time";
+import { clock, shortDate } from "../worker/time";
 import { DateRow, PlaceRow } from "./EventCard";
+import { cardColors } from "./theme";
 
 export type TicketView = {
   ticket: Ticket;
@@ -63,6 +64,29 @@ function DoorPanel({ ticket }: { ticket: Ticket }) {
         )
       )}
     </section>
+  );
+}
+
+/**
+ * The data the client draws the 3D credential from. It stays hidden, and
+ * empty, until the script shows it; the ticket above says the same in text.
+ */
+function Credential({ ticket, event }: { ticket: Ticket; event: EventMeta }) {
+  const colors = cardColors(event.theme);
+  return (
+    <div
+      class="credential"
+      hidden
+      data-name={ticket.name}
+      data-number={ticket.number}
+      data-title={event.title}
+      data-kind={kindLabel[event.theme.kind]}
+      data-date={shortDate(event.start)}
+      data-ground={colors.ground}
+      data-text={colors.text}
+      data-soft={colors.soft}
+      data-strap={colors.strap}
+    />
   );
 }
 
@@ -226,6 +250,10 @@ export function TicketPage(view: TicketView) {
           )}
         </div>
       </section>
+
+      {ticket.status === "going" && (
+        <Credential ticket={ticket} event={event} />
+      )}
 
       {live && (
         <section class="content-card" aria-labelledby="next-title">

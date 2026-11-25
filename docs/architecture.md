@@ -104,6 +104,14 @@ browser, and it loads only on the sign-in and invite pages.
 and OpenFreeMap tiles. `main.ts` imports it when the map nears the viewport, so
 its chunk and worker load only on an event page with a point.
 
+The ticket page renders an empty, hidden `.credential` slot under a ticket with
+a seat. Its data attributes carry the face's text and the colors from
+`cardColors` in [`src/pages/theme.ts`](../src/pages/theme.ts), the same colors
+as the share card. `main.ts` imports
+[`src/client/credential.ts`](../src/client/credential.ts) only when WebGL 2 runs
+and the reader allows motion. The module draws the faces on 2D canvases, builds
+the card and strap with three.js, and moves them with its own verlet rope.
+
 The Google Calendar link runs through
 [`src/worker/google.ts`](../src/worker/google.ts): the OAuth exchange, the
 Calendar API calls and the `google_account` row. Every call goes through the

@@ -780,6 +780,21 @@ a:hover {
   }
 }
 
+/* The 3D credential under a ticket with a seat. It keeps `display` unset so
+   `hidden` holds it out until the script draws it. */
+
+.credential {
+  position: relative;
+  height: 28rem;
+  touch-action: pan-y;
+}
+
+.credential > canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* A public profile: the person's first name over a grid of badges. */
 
 .profile {

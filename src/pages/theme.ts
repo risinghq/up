@@ -125,5 +125,18 @@ export function themeStyle(theme: Theme) {
   ].join(";");
 }
 
+/** The colors of a card that stands for the event: the share card, the credential. */
+export function cardColors(theme: Theme) {
+  const tint = palette(theme.accent);
+  return tint
+    ? {
+        ground: tint.brand[80],
+        text: tint.brand[10],
+        soft: tint.brand[30],
+        strap: tint.brand[50],
+      }
+    : { ground: "#18181b", text: "#fafafa", soft: "#a1a1aa", strap: "#52525b" };
+}
+
 export const themeClass = (theme: Theme) =>
   `kind-${theme.kind} backdrop-${theme.backdrop} font-${theme.font}`;

@@ -8,7 +8,7 @@ import "./scheme";
 
 // Every page works without this script. It only stops a double submit,
 // confirms a cancellation, copies the ticket link, marks a scrolled nav, runs
-// the scheme toggle and draws a venue's map.
+// the scheme toggle, draws a venue's map and hangs a ticket's credential.
 
 // MapLibre is most of the script's weight, so it loads only when the venue's
 // map nears the viewport.
@@ -24,6 +24,16 @@ if (venue) {
   );
   near.observe(venue);
 }
+
+// three.js is the credential's whole weight, so it loads only where a ticket
+// has a seat, WebGL runs and motion is welcome.
+const credential = document.querySelector<HTMLElement>(".credential");
+if (
+  credential &&
+  !matchMedia("(prefers-reduced-motion: reduce)").matches &&
+  document.createElement("canvas").getContext("webgl2")
+)
+  void import("./credential").then((m) => m.showCredential(credential));
 
 const signup = document.querySelector<HTMLDetailsElement>("#inscripcion");
 if (signup) {
