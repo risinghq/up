@@ -1,5 +1,6 @@
 import type { EventMeta } from "./events";
 import type { Registration } from "./form";
+import { upsertPerson } from "./people";
 import { newToken } from "./tokens";
 
 export type Status = "going" | "waitlist" | "cancelled";
@@ -26,6 +27,18 @@ export type RegisterResult =
   | { kind: "created"; token: string; status: "going" | "waitlist" }
   | { kind: "exists"; token: string };
 
+/** A repeat registration resends the ticket link at most this often. */
+export const RESEND_COOLDOWN = 15 * 60 * 1000;
+
+/**
+ * The status a new or revived registration takes, decided in the statement
+ * that writes it, so two registrations at once cannot both take the last
+ * seat. ?2 is the event's slug and ?7 its capacity, NULL for no limit.
+ */
+const seatOrWaitlist = `CASE WHEN ?7 IS NULL OR
+  (SELECT COUNT(*) FROM registrations WHERE event_slug = ?2 AND status = 'going') < ?7
+  THEN 'going' ELSE 'waitlist' END`;
+
 export async function goingCount(
   db: D1Database,
   slug: string,
@@ -39,38 +52,6 @@ export async function goingCount(
   return row?.n ?? 0;
 }
 
-async function upsertPerson(
-  db: D1Database,
-  r: Registration,
-  now: string,
-): Promise<string> {
-  // Unticking the news box on a later form does not withdraw an earlier
-  // opt-in; withdrawal is its own request.
-  const row = await db
-    .prepare(
-      `INSERT INTO people (id, email, name, phone, privacy_accepted_at, news_opt_in_at, created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?5, ?5)
-       ON CONFLICT (email) DO UPDATE SET
-         name = excluded.name,
-         phone = excluded.phone,
-         privacy_accepted_at = excluded.privacy_accepted_at,
-         news_opt_in_at = COALESCE(people.news_opt_in_at, excluded.news_opt_in_at),
-         updated_at = excluded.updated_at
-       RETURNING id`,
-    )
-    .bind(
-      crypto.randomUUID(),
-      r.email,
-      r.name,
-      r.phone,
-      now,
-      r.newsOptIn ? now : null,
-    )
-    .first<{ id: string }>();
-  if (!row) throw new Error("people upsert returned no row");
-  return row.id;
-}
-
 /**
  * Registers a person for an event. An email already holding a live ticket
  * gets `exists` with that ticket's token, which the caller mails to the
@@ -81,7 +62,7 @@ export async function register(
   db: D1Database,
   event: EventMeta,
   r: Registration,
-  now = new Date().toISOString(),
+  now: string,
 ): Promise<RegisterResult> {
   const personId = await upsertPerson(db, r, now);
   const existing = await db
@@ -93,34 +74,33 @@ export async function register(
   if (existing && existing.status !== "cancelled")
     return { kind: "exists", token: existing.id };
 
-  const full =
-    event.capacity !== undefined &&
-    (await goingCount(db, event.slug)) >= event.capacity;
-  const status = full ? "waitlist" : "going";
   const token = newToken();
   const answers = JSON.stringify(r.answers);
+  const capacity = event.capacity ?? null;
 
-  if (existing) {
-    await db
-      .prepare(
-        `UPDATE registrations SET id = ?, status = ?, answers = ?, created_at = ?, cancelled_at = NULL, checked_in_at = NULL, share_id = NULL
-         WHERE id = ?`,
-      )
-      .bind(token, status, answers, now, existing.id)
-      .run();
-  } else {
-    // The number is taken in the same statement that inserts, so two
-    // registrations at once cannot share one.
-    await db
-      .prepare(
-        `INSERT INTO registrations (id, event_slug, person_id, number, status, answers, created_at)
-         SELECT ?1, ?2, ?3, COALESCE(MAX(number), 0) + 1, ?4, ?5, ?6
-         FROM registrations WHERE event_slug = ?2`,
-      )
-      .bind(token, event.slug, personId, status, answers, now)
-      .run();
-  }
-  return { kind: "created", token, status };
+  // The number, like the status, is taken in the statement that inserts.
+  const statement = existing
+    ? db
+        .prepare(
+          `UPDATE registrations SET id = ?1, status = ${seatOrWaitlist}, answers = ?4,
+             created_at = ?5, cancelled_at = NULL, checked_in_at = NULL, share_id = NULL
+           WHERE id = ?6
+           RETURNING status`,
+        )
+        .bind(token, event.slug, null, answers, now, existing.id, capacity)
+    : db
+        .prepare(
+          `INSERT INTO registrations (id, event_slug, person_id, number, status, answers, created_at)
+           SELECT ?1, ?2, ?3, COALESCE(MAX(number), 0) + 1, ${seatOrWaitlist}, ?4, ?5
+           FROM registrations WHERE event_slug = ?2
+           RETURNING status`,
+        )
+        .bind(token, event.slug, personId, answers, now, null, capacity);
+
+  const row = await statement.first<{ status: "going" | "waitlist" }>();
+  if (!row) throw new Error("registration write returned no row");
+
+  return { kind: "created", token, status: row.status };
 }
 
 export async function findTicket(
@@ -157,146 +137,6 @@ export async function checkIn(
     .run();
 }
 
-/**
- * The ticket's public share id, made on the first call. A cancelled ticket
- * gets none.
- */
-export async function shareTicket(
-  db: D1Database,
-  token: string,
-): Promise<string | null> {
-  const row = await db
-    .prepare(
-      `UPDATE registrations SET share_id = COALESCE(share_id, ?)
-       WHERE id = ? AND status != 'cancelled'
-       RETURNING share_id AS shareId`,
-    )
-    .bind(newToken(), token)
-    .first<{ shareId: string }>();
-  return row?.shareId ?? null;
-}
-
-export type Share = { eventSlug: string; firstName: string };
-
-/** What a share link shows: the event and the holder's first name only. */
-export async function findShare(
-  db: D1Database,
-  shareId: string,
-): Promise<Share | null> {
-  const row = await db
-    .prepare(
-      `SELECT r.event_slug AS eventSlug, p.name
-       FROM registrations r JOIN people p ON p.id = r.person_id
-       WHERE r.share_id = ?`,
-    )
-    .bind(shareId)
-    .first<{ eventSlug: string; name: string }>();
-  return row && { eventSlug: row.eventSlug, firstName: firstName(row.name) };
-}
-
-export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
-
-/** Opens the public profile of the ticket's holder; a second call keeps it. */
-export async function openProfile(
-  db: D1Database,
-  token: string,
-): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE people SET profile_id = COALESCE(profile_id, ?)
-       WHERE id = (SELECT person_id FROM registrations WHERE id = ?)`,
-    )
-    .bind(newToken(), token)
-    .run();
-}
-
-/** Hides the holder's profile; its link stops working. */
-export async function closeProfile(
-  db: D1Database,
-  token: string,
-): Promise<void> {
-  await db
-    .prepare(
-      `UPDATE people SET profile_id = NULL
-       WHERE id = (SELECT person_id FROM registrations WHERE id = ?)`,
-    )
-    .bind(token)
-    .run();
-}
-
-export type Profile = {
-  firstName: string;
-  /** When the person first registered. */
-  since: string;
-  /** The slugs of the published events the person checked in at. */
-  attended: string[];
-  /** The slugs of the published events that list the person as a host. */
-  hosted: string[];
-};
-
-/** The slugs of the published events that list this email as a host's. */
-export async function hostedSlugs(
-  db: D1Database,
-  email: string,
-): Promise<string[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT DISTINCT e.slug FROM events e, json_each(e.hosts) h
-       WHERE e.status = 'published' AND json_extract(h.value, '$.email') = ?`,
-    )
-    .bind(email)
-    .all<{ slug: string }>();
-  return results.map((r) => r.slug);
-}
-
-/** The public profile of each email that has one, by email. */
-export async function profilesByEmail(
-  db: D1Database,
-  emails: string[],
-): Promise<Map<string, string>> {
-  if (!emails.length) return new Map();
-
-  const { results } = await db
-    .prepare(
-      `SELECT email, profile_id AS profileId FROM people
-       WHERE profile_id IS NOT NULL
-         AND email IN (SELECT value FROM json_each(?))`,
-    )
-    .bind(JSON.stringify(emails))
-    .all<{ email: string; profileId: string }>();
-  return new Map(results.map((r) => [r.email, r.profileId]));
-}
-
-/** What a profile shows: the first name and the events attended and hosted. */
-export async function findProfile(
-  db: D1Database,
-  profileId: string,
-): Promise<Profile | null> {
-  const person = await db
-    .prepare(
-      "SELECT id, name, email, created_at FROM people WHERE profile_id = ?",
-    )
-    .bind(profileId)
-    .first<{ id: string; name: string; email: string; created_at: string }>();
-  if (!person) return null;
-
-  const { results } = await db
-    .prepare(
-      `SELECT r.event_slug AS slug
-       FROM registrations r JOIN events e ON e.slug = r.event_slug
-       WHERE r.person_id = ? AND r.checked_in_at IS NOT NULL
-         AND e.status = 'published'`,
-    )
-    .bind(person.id)
-    .all<{ slug: string }>();
-  return {
-    firstName: firstName(person.name),
-    since: person.created_at,
-    attended: results.map((r) => r.slug),
-    hosted: await hostedSlugs(db, person.email),
-  };
-}
-
 export async function undoCheckIn(
   db: D1Database,
   token: string,
@@ -315,7 +155,7 @@ export async function cancel(
   db: D1Database,
   event: EventMeta,
   token: string,
-  now = new Date().toISOString(),
+  now: string,
 ): Promise<string[]> {
   const ticket = await db
     .prepare(
@@ -350,6 +190,7 @@ export async function fillSeats(
     free = event.capacity - (await goingCount(db, event.slug));
     if (free <= 0) return [];
   }
+
   const { results } = await db
     .prepare(
       `UPDATE registrations SET status = 'going'
@@ -370,7 +211,7 @@ export async function claimResend(
   db: D1Database,
   token: string,
   now: Date,
-  cooldownMs: number,
+  cooldownMs = RESEND_COOLDOWN,
 ): Promise<boolean> {
   const since = new Date(now.getTime() - cooldownMs).toISOString();
   const result = await db
@@ -414,71 +255,4 @@ export async function markReminded(
     .prepare("UPDATE registrations SET reminded_at = ? WHERE id = ?")
     .bind(now, token)
     .run();
-}
-
-/** Registrations of every status. An event with any keeps its slug. */
-export async function registrationCount(
-  db: D1Database,
-  slug: string,
-): Promise<number> {
-  const row = await db
-    .prepare("SELECT COUNT(*) AS n FROM registrations WHERE event_slug = ?")
-    .bind(slug)
-    .first<{ n: number }>();
-  return row?.n ?? 0;
-}
-
-/** Registrations of the event by status. */
-export async function statusCounts(
-  db: D1Database,
-  slug: string,
-): Promise<Record<Status, number>> {
-  const { results } = await db
-    .prepare(
-      "SELECT status, COUNT(*) AS n FROM registrations WHERE event_slug = ? GROUP BY status",
-    )
-    .bind(slug)
-    .all<{ status: Status; n: number }>();
-  const counts = { going: 0, waitlist: 0, cancelled: 0 };
-  for (const row of results) counts[row.status] = row.n;
-  return counts;
-}
-
-export type Registrant = {
-  token: string;
-  number: number;
-  status: Status;
-  name: string;
-  email: string;
-  phone: string;
-  newsOptIn: boolean;
-  answers: Record<string, string>;
-  createdAt: string;
-  checkedInAt: string | null;
-};
-
-type RegistrantRow = Omit<Registrant, "answers" | "newsOptIn"> & {
-  answers: string;
-  newsOptIn: number;
-};
-
-export async function listRegistrants(
-  db: D1Database,
-  slug: string,
-): Promise<Registrant[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT r.id AS token, r.number, r.status, p.name, p.email, p.phone,
-              p.news_opt_in_at IS NOT NULL AS newsOptIn, r.answers,
-              r.created_at AS createdAt, r.checked_in_at AS checkedInAt
-       FROM registrations r JOIN people p ON p.id = r.person_id
-       WHERE r.event_slug = ? ORDER BY r.number`,
-    )
-    .bind(slug)
-    .all<RegistrantRow>();
-  return results.map((r) => ({
-    ...r,
-    newsOptIn: r.newsOptIn === 1,
-    answers: JSON.parse(r.answers),
-  }));
 }

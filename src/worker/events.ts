@@ -100,6 +100,9 @@ export function kindTag(event: EventMeta): string | null {
   return fold(event.title).includes(fold(label)) ? null : label;
 }
 
+export const hasEnded = (event: EventMeta, now: Date) =>
+  new Date(event.end) <= now;
+
 export const coverUrl = (event: EventMeta) =>
   event.coverKey ? `/media/${event.coverKey}` : undefined;
 

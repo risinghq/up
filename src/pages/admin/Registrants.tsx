@@ -1,5 +1,6 @@
 import type { EventMeta } from "../../worker/events";
-import type { Registrant, Status } from "../../worker/registrations";
+import type { Registrant } from "../../worker/registrants";
+import type { Status } from "../../worker/registrations";
 import { clock } from "../../worker/time";
 import { ManageFrame } from "./Manage";
 

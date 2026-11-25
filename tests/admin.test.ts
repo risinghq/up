@@ -11,6 +11,7 @@ import { createApp, type Env } from "../src/worker/app";
 import { createInvite } from "../src/worker/auth";
 import { findEvent } from "../src/worker/events";
 import { softPasskey } from "./authenticator";
+import { page, type Page } from "./dom";
 import {
   adminCookie,
   event,
@@ -54,6 +55,13 @@ const post = (
   body: FormData,
   headers: Record<string, string> = { cookie, origin: ORIGIN },
 ) => app.request(path, { method: "POST", body, headers }, env);
+
+/** Opens a page as the signed-in admin, or with `headers`. */
+const open = async (path: string, headers?: Record<string, string>) =>
+  page(await get(path, headers));
+
+/** Opens a page as a visitor. */
+const visit = (path: string) => open(path, {});
 
 const postJson = (path: string, body: unknown) =>
   app.request(
@@ -105,6 +113,14 @@ const png = (name = "portada.png") =>
     type: "image/png",
   });
 
+/** The message under a labelled field: its error, or its hint. */
+const described = (p: Page, label: string) =>
+  p.message(p.screen.getByLabelText(label));
+
+/** A field's current value. */
+const value = (p: Page, label: string) =>
+  (p.screen.getByLabelText(label) as HTMLInputElement).value;
+
 describe("access", () => {
   test("a visitor is sent to sign in, and a post without a session is refused", async () => {
     const res = await get("/admin", {});
@@ -126,14 +142,12 @@ describe("access", () => {
     expect(await findEvent(DB, "taller-qiskit")).toBeNull();
   });
 
-  test("admin pages are not cached", async () => {
-    const res = await get("/admin");
-    expect(res.status).toBe(200);
-    expect(res.headers.get("cache-control")).toBe("no-store");
-    const html = await res.text();
-    expect(html).toContain('<p class="admin-menu-name">David</p>');
-    // The admin has its own header, without the public community links.
-    expect(html).not.toContain("Instagram");
+  test("admin pages are not cached, and carry their own header", async () => {
+    const p = await open("/admin");
+    expect(p.status).toBe(200);
+    expect(p.headers.get("cache-control")).toBe("no-store");
+    expect(p.text(".admin-menu-name")).toBe("David");
+    expect(p.screen.queryByRole("link", { name: "Instagram" })).toBeNull();
   });
 });
 
@@ -174,8 +188,10 @@ describe("events", () => {
 
   test("featuring an event unfeatures the previous one", async () => {
     expect((await findEvent(DB, "estrella"))?.featured).toBe(false);
-    const html = await (await get("/", {})).text();
-    expect(html).toContain("Taller de Qiskit");
+    const home = await visit("/");
+    expect(home.screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Taller de Qiskit",
+    );
   });
 
   test("a refused form keeps its values and names the fields", async () => {
@@ -188,13 +204,16 @@ describe("events", () => {
         font: "comic",
       }),
     );
-    expect(res.status).toBe(422);
-    const html = await res.text();
-    expect(html).toContain("Esa dirección la usa el sitio");
-    expect(html).toContain("El fin va después del inicio.");
-    expect(html).toContain("Un color como #2563eb.");
-    expect(html).toContain("Elige una letra.");
-    expect(html).toContain('value="Taller de Qiskit"');
+    const p = await page(res);
+    expect(p.status).toBe(422);
+    expect(described(p, "Dirección")).toStartWith(
+      "Esa dirección la usa el sitio",
+    );
+    expect(described(p, "Fin")).toBe("El fin va después del inicio.");
+    expect(described(p, "Color")).toBe("Un color como #2563eb.");
+    const font = p.screen.getByRole("group", { name: "Letra del título" });
+    expect(p.message(font)).toBe("Elige una letra.");
+    expect(value(p, "Título")).toBe("Taller de Qiskit");
   });
 
   test("a taken slug is refused", async () => {
@@ -202,8 +221,11 @@ describe("events", () => {
       "/admin/eventos/nuevo",
       eventForm({ slug: "vacio" }),
     );
-    expect(res.status).toBe(409);
-    expect(await res.text()).toContain("Ya hay un evento con esta dirección.");
+    const p = await page(res);
+    expect(p.status).toBe(409);
+    expect(described(p, "Dirección")).toBe(
+      "Ya hay un evento con esta dirección.",
+    );
   });
 
   test("a host's email is kept apart from the name", async () => {
@@ -217,8 +239,10 @@ describe("events", () => {
       { name: "Pedro" },
     ]);
 
-    const editor = await (await get("/admin/eventos/vacio/editar")).text();
-    expect(editor).toContain('value="Ana Quispe &lt;ana@correo.com>, Pedro"');
+    const editor = await open("/admin/eventos/vacio/editar");
+    expect(value(editor, "Organizan")).toBe(
+      "Ana Quispe <ana@correo.com>, Pedro",
+    );
   });
 
   test("a host with a broken email is refused", async () => {
@@ -226,9 +250,10 @@ describe("events", () => {
       "/admin/eventos/vacio/editar",
       eventForm({ slug: "vacio", hosts: "Ana <ana@>" }),
     );
-    expect(res.status).toBe(422);
-    expect(await res.text()).toContain(
-      "Escribe cada correo así: Ana Quispe &lt;ana@correo.com>.",
+    const p = await page(res);
+    expect(p.status).toBe(422);
+    expect(described(p, "Organizan")).toBe(
+      "Escribe cada correo así: Ana Quispe <ana@correo.com>.",
     );
   });
 
@@ -262,22 +287,34 @@ describe("events", () => {
     expect(saved?.place).toMatchObject({
       point: { lat: -12.0598607, lng: -77.0817416 },
     });
-    const editor = await (await get("/admin/eventos/vacio/editar")).text();
-    expect(editor).toContain('value="-12.0598607, -77.0817416"');
-    const page = await (await app.request("/vacio", {}, env)).text();
-    expect(page).toContain(
-      '<div class="venue-map" data-lat="-12.0598607" data-lng="-77.0817416">',
-    );
-    expect(page).toContain(
-      "https://www.google.com/maps/search/?api=1&amp;query=-12.0598607,-77.0817416",
+
+    const editor = await open("/admin/eventos/vacio/editar");
+    expect(value(editor, "Mapa")).toBe("-12.0598607, -77.0817416");
+
+    const p = await visit("/vacio");
+    const map = p.document.querySelector<HTMLElement>(".venue-map");
+    expect({ ...map?.dataset }).toEqual({
+      lat: "-12.0598607",
+      lng: "-77.0817416",
+    });
+    expect(
+      p.screen
+        .getByRole("link", { name: "Ver en el mapa" })
+        .getAttribute("href"),
+    ).toBe(
+      "https://www.google.com/maps/search/?api=1&query=-12.0598607,-77.0817416",
     );
 
-    const refused = await post(
-      "/admin/eventos/vacio/editar",
-      eventForm({ slug: "vacio", map_url: "cerca del parque" }),
+    const refused = await page(
+      await post(
+        "/admin/eventos/vacio/editar",
+        eventForm({ slug: "vacio", map_url: "cerca del parque" }),
+      ),
     );
     expect(refused.status).toBe(422);
-    expect(await refused.text()).toContain("Pega un enlace de Google Maps");
+    expect(described(refused, "Mapa")).toStartWith(
+      "Pega un enlace de Google Maps",
+    );
   });
 
   test("an event with registrations keeps its slug and cannot be deleted", async () => {
@@ -308,27 +345,41 @@ describe("events", () => {
     ).first<{ n: number }>();
     expect(seated?.n).toBe(2);
 
-    const removal = await post("/admin/eventos/lleno/eliminar", new FormData());
+    const removal = await page(
+      await post("/admin/eventos/lleno/eliminar", new FormData()),
+    );
     expect(removal.status).toBe(409);
-    expect(await removal.text()).toContain("Tiene inscripciones");
+    expect(removal.screen.getByRole("alert").textContent).toStartWith(
+      "Tiene inscripciones",
+    );
+    expect(removal.button("Eliminar evento")).toBeNull();
     expect(await findEvent(DB, "lleno")).not.toBeNull();
   });
 
   test("the overview counts seats, the waitlist and cancellations", async () => {
-    const html = await (await get("/admin/eventos/lleno")).text();
-    expect(html).toContain("Cuándo y dónde");
-    expect(html).toContain("<strong>2<span> / 2</span></strong> con cupo");
-    const more = await get("/admin/eventos/lleno/mas");
+    const p = await open("/admin/eventos/lleno");
+    expect(
+      p.screen.getByRole("heading", { name: "Cuándo y dónde" }),
+    ).toBeTruthy();
+    expect(p.text(".stat")).toBe("2 / 2 con cupo");
+
+    const more = await open("/admin/eventos/lleno/mas");
     expect(more.status).toBe(200);
-    expect(await more.text()).toContain("Eliminar");
+    expect(
+      more.screen.getByRole("heading", { name: "Eliminar evento" }),
+    ).toBeTruthy();
   });
 
   test("past events sit behind their own tab", async () => {
-    const upcoming = await (await get("/admin")).text();
-    const past = await (await get("/admin?periodo=pasados")).text();
-    const pastTab = 'href="/admin?periodo=pasados" aria-current="page"';
-    expect(upcoming).not.toContain(pastTab);
-    expect(past).toContain(pastTab);
+    const current = async (path: string) =>
+      (await open(path)).screen
+        .getByRole("navigation", { name: "Periodo" })
+        .querySelector('[aria-current="page"]')
+        ?.getAttribute("href");
+    expect(await current("/admin")).toBe("/admin");
+    expect(await current("/admin?periodo=pasados")).toBe(
+      "/admin?periodo=pasados",
+    );
   });
 
   test("deletes an event without registrations", async () => {
@@ -361,8 +412,10 @@ describe("registrants", () => {
   });
 
   test("the list links each WhatsApp number", async () => {
-    const html = await (await get("/admin/eventos/estrella/inscritos")).text();
-    expect(html).toContain('href="https://wa.me/51987654321"');
+    const p = await open("/admin/eventos/estrella/inscritos");
+    expect(
+      p.screen.getByRole("link", { name: "+51987654321" }).getAttribute("href"),
+    ).toBe("https://wa.me/51987654321");
   });
 });
 
@@ -386,16 +439,23 @@ describe("check-in", () => {
     return data;
   };
 
+  /** The door's verdict on the ticket: its seat, or what it lacks. */
+  const door = (p: Page) => p.text(".door-who")?.split(" · ")[1];
+
   test("a visitor sees the QR; an admin sees the door", async () => {
     const token = await register("puerta@example.com");
-    const visitor = await (await get(`/entrada/${token}`, {})).text();
-    expect(visitor).toContain("<svg");
-    expect(visitor).toContain("Muestra este código en la entrada");
-    expect(visitor).not.toContain("Registrar ingreso");
+    const visitor = await visit(`/entrada/${token}`);
+    expect(visitor.document.querySelector(".ticket-qr svg")).not.toBeNull();
+    expect(
+      visitor.screen.getByText("Muestra este código en la entrada"),
+    ).toBeTruthy();
+    expect(visitor.button("Registrar ingreso")).toBeNull();
 
-    const door = await (await get(`/entrada/${token}`)).text();
-    expect(door).toContain(`action="/admin/entrada/${token}/ingreso"`);
-    expect(door).toContain("Tiene cupo");
+    const admin = await open(`/entrada/${token}`);
+    expect(door(admin)).toBe("Tiene cupo");
+    expect(admin.button("Registrar ingreso")?.closest("form")?.action).toBe(
+      `https://up.test/admin/entrada/${token}/ingreso`,
+    );
   });
 
   test("only an admin checks a ticket in", async () => {
@@ -404,8 +464,8 @@ describe("check-in", () => {
       origin: ORIGIN,
     });
     expect(refused.status).toBe(403);
-    const html = await (await get(`/entrada/${token}`, {})).text();
-    expect(html).not.toContain("Ingresaste");
+    const p = await visit(`/entrada/${token}`);
+    expect(p.screen.queryByText(/^Ingresaste/)).toBeNull();
   });
 
   test("a check-in shows on the ticket and keeps the seat", async () => {
@@ -414,14 +474,14 @@ describe("check-in", () => {
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe(`/entrada/${token}`);
 
-    const html = await (await get(`/entrada/${token}`, {})).text();
-    expect(html).toContain("Ingresaste a las 12:00 p.");
-    expect(html).not.toContain("Muestra este código");
-    expect(html).not.toContain("/cancelar");
+    const p = await visit(`/entrada/${token}`);
+    expect(p.screen.getByText(/^Ingresaste a las 12:00 p\./)).toBeTruthy();
+    expect(p.document.querySelector(".ticket-qr")).toBeNull();
+    expect(p.button("Ya no puedo ir: cancelar mi inscripción")).toBeNull();
 
     // A late cancel does not erase the attendance.
     await post(`/entrada/${token}/cancelar`, new FormData(), {});
-    expect(await (await get(`/entrada/${token}`, {})).text()).toContain(
+    expect((await visit(`/entrada/${token}`)).text(".ticket-status")).toBe(
       "Tienes un cupo",
     );
   });
@@ -432,44 +492,45 @@ describe("check-in", () => {
       `/admin/entrada/${token}/ingreso`,
       volver("inscritos"),
     );
-    expect(res.headers.get("location")).toMatch(
-      /^\/admin\/eventos\/puerta\/inscritos#n\d+$/,
-    );
-    const html = await (await get("/admin/eventos/puerta/inscritos")).text();
-    expect(html).toMatch(/[1-9]\d* ingresaron/);
-    expect(html).toContain("12:00 p.");
+    const location = res.headers.get("location") ?? "";
+    expect(location).toMatch(/^\/admin\/eventos\/puerta\/inscritos#n\d+$/);
+
+    const list = await open("/admin/eventos/puerta/inscritos");
+    expect(list.text(".section-head p")).toMatch(/ · [1-9]\d* ingresaron$/);
+    const row = list.document.getElementById(location.split("#")[1] ?? "");
+    const cell = row?.querySelector('[data-label="Ingreso"]');
+    expect(cell?.textContent).toStartWith("12:00 p.");
 
     await post(`/admin/entrada/${token}/ingreso/deshacer`, volver());
-    const after = await (await get(`/entrada/${token}`)).text();
-    expect(after).toContain(`action="/admin/entrada/${token}/ingreso"`);
+    const after = await open(`/entrada/${token}`);
+    expect(after.button("Registrar ingreso")).not.toBeNull();
   });
 
   test("a cancelled ticket cannot check in", async () => {
     const token = await register("cancelo@example.com");
     await post(`/entrada/${token}/cancelar`, new FormData(), {});
     await post(`/admin/entrada/${token}/ingreso`, volver());
-    const html = await (await get(`/entrada/${token}`)).text();
-    expect(html).toContain("Canceló su inscripción");
-    expect(html).not.toContain("Ingresó a las");
-    expect(html).not.toContain(`action="/admin/entrada/${token}/ingreso"`);
+    const p = await open(`/entrada/${token}`);
+    expect(door(p)).toBe("Canceló su inscripción");
+    expect(p.screen.queryByText(/^Ingresó a las/)).toBeNull();
+    expect(p.button("Registrar ingreso")).toBeNull();
   });
 });
 
 describe("passkeys", () => {
   test("an invite makes an admin who then signs in", async () => {
-    const page = await post("/admin/invitaciones", new FormData());
-    expect(page.status).toBe(422);
+    const unnamed = await post("/admin/invitaciones", new FormData());
+    expect(unnamed.status).toBe(422);
     const invited = new FormData();
     invited.set("name", "Pedro");
-    const html = await (await post("/admin/invitaciones", invited)).text();
-    const url = html.match(
-      /https:\/\/up\.test\/admin\/invitacion\/[\w-]+/,
-    )?.[0];
-    expect(url).toBeDefined();
-    const token = (url ?? "").split("/").pop() ?? "";
-    expect(
-      await (await get(`/admin/invitacion/${token}`, {})).text(),
-    ).toContain("Hola, Pedro");
+    const settings = await page(await post("/admin/invitaciones", invited));
+    const url = settings.text(".invite-url code") ?? "";
+    expect(url).toMatch(/^https:\/\/up\.test\/admin\/invitacion\/[\w-]+$/);
+    const token = url.split("/").pop() ?? "";
+    const welcome = await visit(`/admin/invitacion/${token}`);
+    expect(welcome.screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Hola, Pedro",
+    );
 
     const key = await softPasskey(ORIGIN);
     const start = await begin("/admin/passkey/registro/opciones", {
@@ -498,9 +559,8 @@ describe("passkeys", () => {
     });
     expect(await signedIn.json()).toEqual({ redirect: "/admin" });
     const session = (signedIn.headers.get("set-cookie") ?? "").split(";")[0];
-    expect(
-      await (await get("/admin", { cookie: session ?? "" })).text(),
-    ).toContain('<p class="admin-menu-name">Pedro</p>');
+    const admin = await open("/admin", { cookie: session ?? "" });
+    expect(admin.text(".admin-menu-name")).toBe("Pedro");
 
     // A challenge answers once.
     const replay = await postJson("/admin/passkey/entrar", {

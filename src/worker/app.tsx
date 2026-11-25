@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
-import { renderSVG } from "uqr";
-import { EventPage, type EventView } from "../pages/Event";
+import { EventPage, type Notice } from "../pages/Event";
 import { Home, type Tab } from "../pages/Home";
 import { Privacy } from "../pages/Privacy";
 import { ProfilePage } from "../pages/Profile";
@@ -9,27 +8,35 @@ import { TicketPage } from "../pages/Ticket";
 import { Voy } from "../pages/Voy";
 import { adminRoutes, SESSION_COOKIE } from "./admin";
 import { sessionAdmin } from "./auth";
-import { googleCalendarUrl, ics } from "./calendar";
+import { ics } from "./calendar";
 import { renderCard, type CardAssets } from "./card";
-import { coverUrl, findEvent, listEvents, type EventMeta } from "./events";
-import { parseRegistration, type FormState } from "./form";
+import {
+  coverUrl,
+  findEvent,
+  hasEnded,
+  listEvents,
+  type EventMeta,
+} from "./events";
+import type { FormState } from "./form";
 import type { Fetch } from "./google";
 import { notifyTickets } from "./notify";
-import { TOKEN_FIELD, verifyHuman } from "./turnstile";
 import {
-  cancel,
-  claimResend,
   closeProfile,
   findProfile,
-  findShare,
-  findTicket,
-  goingCount,
   hostedSlugs,
   openProfile,
   profilesByEmail,
-  register,
-  shareTicket,
-} from "./registrations";
+} from "./profiles";
+import { cancel, findTicket, goingCount } from "./registrations";
+import { findShare, shareTicket } from "./shares";
+import { signUp } from "./signup";
+import {
+  eventUrl,
+  eventView,
+  profileView,
+  ticketView,
+  type ViewContext,
+} from "./views";
 import {
   after,
   description,
@@ -52,12 +59,6 @@ export type AppOptions = {
 
 const emptyForm: FormState = { values: {}, errors: {} };
 
-const humanErrors = {
-  missing:
-    "No pudimos confirmar que eres una persona. Activa JavaScript o recarga la página.",
-  refused: "No pudimos confirmar que eres una persona. Inténtalo otra vez.",
-};
-
 /** The register form's Turnstile keys, when both are set. */
 function humanCheck(c: Ctx) {
   const siteKey = c.env.TURNSTILE_SITE_KEY;
@@ -65,15 +66,16 @@ function humanCheck(c: Ctx) {
   return siteKey && secret ? { siteKey, secret } : null;
 }
 
-/** A repeat registration resends the ticket link at most this often. */
-const RESEND_COOLDOWN = 15 * 60 * 1000;
-
 export function createApp(options: AppOptions = {}) {
   const now = options.now ?? (() => new Date());
   const fetcher = options.fetch ?? ((input, init) => fetch(input, init));
   const app = new Hono<AppEnv>();
 
-  const ended = (event: EventMeta) => new Date(event.end) <= now();
+  const ended = (event: EventMeta) => hasEnded(event, now());
+  const viewContext = (c: Ctx): ViewContext => ({
+    origin: site(c),
+    now: now(),
+  });
 
   /** An event the visitor may see: published, or any event for an admin. */
   const visibleEvent = async (c: Ctx, slug: string) => {
@@ -87,38 +89,29 @@ export function createApp(options: AppOptions = {}) {
     c: Ctx,
     event: EventMeta,
     form: FormState,
-    notice: EventView["notice"],
+    notice: Notice,
     status = 200,
   ) => {
-    const going = await goingCount(c.env.DB, event.slug);
-    const profiles = await profilesByEmail(
-      c.env.DB,
-      event.hosts.flatMap((h) => (h.email ? [h.email] : [])),
-    );
-    const url = `${site(c)}/${event.slug}`;
-    const cover = coverUrl(event);
-    const view: EventView = {
+    const hostEmails = event.hosts.flatMap((h) => (h.email ? [h.email] : []));
+    const view = eventView(viewContext(c), {
       event,
-      hosts: event.hosts.map((h) => {
-        const profileId = h.email && profiles.get(h.email);
-        return { name: h.name, ...(profileId && { url: `/p/${profileId}` }) };
-      }),
-      going,
-      ended: ended(event),
+      going: await goingCount(c.env.DB, event.slug),
+      hostProfiles: await profilesByEmail(c.env.DB, hostEmails),
       form,
       notice,
-      calendarUrl: googleCalendarUrl(event, url),
       admin: Boolean(c.get("admin")),
       turnstileKey: humanCheck(c)?.siteKey ?? null,
-    };
+    });
+
     if (view.admin || event.status === "draft")
       c.header("Cache-Control", "no-store");
+    const cover = coverUrl(event);
     return page(
       c,
       {
         title: event.title,
         description: event.summary,
-        url,
+        url: eventUrl(site(c), event),
         image: cover && `${site(c)}${cover}`,
         noindex: event.status === "draft",
         theme: event.theme,
@@ -195,96 +188,66 @@ export function createApp(options: AppOptions = {}) {
     const ticket = await findTicket(c.env.DB, c.req.param("token"));
     const event = ticket && (await findEvent(c.env.DB, ticket.eventSlug));
     if (!ticket || !event) return notFound(c, "ticket");
+
+    const view = ticketView(viewContext(c), {
+      ticket,
+      event,
+      fresh: c.req.query("nueva") !== undefined,
+      door: Boolean(c.get("admin")),
+      whatsapp: c.env.WHATSAPP_COMMUNITY_URL,
+      hosts: (await hostedSlugs(c.env.DB, ticket.email)).length > 0,
+    });
+
     c.header("Cache-Control", "no-store");
-    const eventUrl = `${site(c)}/${event.slug}`;
-    const ticketUrl = `${site(c)}/entrada/${ticket.token}`;
     return page(
       c,
       {
         title: `Tu entrada: ${event.title}`,
         description: event.summary,
-        url: eventUrl,
+        url: eventUrl(site(c), event),
         noindex: true,
         theme: event.theme,
       },
-      <TicketPage
-        ticket={ticket}
-        event={event}
-        ended={ended(event)}
-        fresh={c.req.query("nueva") !== undefined}
-        ticketUrl={ticketUrl}
-        calendarUrl={googleCalendarUrl(event, eventUrl)}
-        meetUrl={
-          ticket.status === "going" ? event.calendar?.meetUrl : undefined
-        }
-        whatsapp={c.env.WHATSAPP_COMMUNITY_URL}
-        qr={
-          event.place.kind === "venue"
-            ? renderSVG(ticketUrl, { border: 2 })
-            : undefined
-        }
-        door={Boolean(c.get("admin"))}
-        shareUrl={
-          ticket.shareId ? `${eventUrl}/voy/${ticket.shareId}` : undefined
-        }
-        profileUrl={
-          ticket.profileId ? `${site(c)}/p/${ticket.profileId}` : undefined
-        }
-        hosts={(await hostedSlugs(c.env.DB, ticket.email)).length > 0}
-      />,
+      <TicketPage {...view} />,
     );
   });
 
   app.post("/entrada/:token/perfil", async (c) => {
     const token = c.req.param("token");
-    const ticket = await findTicket(c.env.DB, token);
-    if (!ticket) return notFound(c, "ticket");
+    if (!(await findTicket(c.env.DB, token))) return notFound(c, "ticket");
     await openProfile(c.env.DB, token);
     return c.redirect(`/entrada/${token}#perfil`, 303);
   });
 
   app.post("/entrada/:token/perfil/ocultar", async (c) => {
     const token = c.req.param("token");
-    const ticket = await findTicket(c.env.DB, token);
-    if (!ticket) return notFound(c, "ticket");
+    if (!(await findTicket(c.env.DB, token))) return notFound(c, "ticket");
     await closeProfile(c.env.DB, token);
     return c.redirect(`/entrada/${token}#perfil`, 303);
   });
 
   app.get("/p/:profileId", async (c) => {
-    const profile = await findProfile(c.env.DB, c.req.param("profileId"));
+    const profileId = c.req.param("profileId");
+    const profile = await findProfile(c.env.DB, profileId);
     if (!profile) return notFound(c);
-    const newest = (await listEvents(c.env.DB)).sort((a, b) =>
-      b.start.localeCompare(a.start),
-    );
-    const among = (slugs: string[]) =>
-      newest.filter((e) => slugs.includes(e.slug));
-    const hosted = among(profile.hosted);
+    const view = profileView(profile, await listEvents(c.env.DB));
 
     c.header("Cache-Control", "no-store");
     return page(
       c,
       {
-        title: `${profile.firstName} en up.rising.sh`,
-        description: hosted.length
-          ? `Los eventos que organiza ${profile.firstName} y a los que fue.`
-          : `Los eventos a los que fue ${profile.firstName}.`,
-        url: `${site(c)}/p/${c.req.param("profileId")}`,
+        title: `${view.firstName} en up.rising.sh`,
+        description: view.description,
+        url: `${site(c)}/p/${profileId}`,
         noindex: true,
       },
-      <ProfilePage
-        firstName={profile.firstName}
-        since={profile.since}
-        events={among(profile.attended)}
-        hosted={hosted}
-      />,
+      <ProfilePage {...view} />,
     );
   });
 
   app.post("/entrada/:token/compartir", async (c) => {
     const token = c.req.param("token");
-    const ticket = await findTicket(c.env.DB, token);
-    if (!ticket) return notFound(c, "ticket");
+    if (!(await findTicket(c.env.DB, token))) return notFound(c, "ticket");
     await shareTicket(c.env.DB, token);
     return c.redirect(`/entrada/${token}#compartir`, 303);
   });
@@ -294,6 +257,7 @@ export function createApp(options: AppOptions = {}) {
     const ticket = await findTicket(c.env.DB, token);
     const event = ticket && (await findEvent(c.env.DB, ticket.eventSlug));
     if (!ticket || !event) return notFound(c, "ticket");
+
     if (!ended(event)) {
       const seated = await cancel(c.env.DB, event, token, now().toISOString());
       await after(c, notifyTickets(c.env, fetcher, "promoted", event, seated));
@@ -326,14 +290,12 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.get("/:slug/voy/:shareId", async (c) => {
-    const found = await sharedEvent(
-      c,
-      c.req.param("slug"),
-      c.req.param("shareId"),
-    );
+    const shareId = c.req.param("shareId");
+    const found = await sharedEvent(c, c.req.param("slug"), shareId);
     if (!found) return notFound(c);
+
     const { share, event } = found;
-    const url = `${site(c)}/${event.slug}/voy/${c.req.param("shareId")}`;
+    const url = `${eventUrl(site(c), event)}/voy/${shareId}`;
     const verb = ended(event) ? "fue a" : "va a";
     return page(
       c,
@@ -352,7 +314,7 @@ export function createApp(options: AppOptions = {}) {
   app.get("/:slug/calendario.ics", async (c) => {
     const event = await visibleEvent(c, c.req.param("slug"));
     if (!event) return notFound(c);
-    const body = ics(event, `${site(c)}/${event.slug}`, now().toISOString());
+    const body = ics(event, eventUrl(site(c), event), now().toISOString());
     return c.body(body, 200, {
       "Content-Type": "text/calendar; charset=utf-8",
       "Content-Disposition": `attachment; filename="${event.slug}.ics"`,
@@ -370,53 +332,39 @@ export function createApp(options: AppOptions = {}) {
     if (!event) return notFound(c);
     if (ended(event)) return eventPage(c, event, emptyForm, null, 410);
 
-    const form = await c.req.formData();
-    // A person never sees the trap field; a bot that fills it gets the page back.
-    if (String(form.get("website") ?? ""))
-      return c.redirect(`/${event.slug}`, 303);
-
-    const parsed = parseRegistration(form, event);
-    if (!parsed.ok) return eventPage(c, event, parsed, null, 422);
-
-    const check = humanCheck(c);
-    if (check) {
-      const verdict = await verifyHuman(
-        fetcher,
-        check.secret,
-        String(form.get(TOKEN_FIELD) ?? ""),
-        c.req.header("CF-Connecting-IP") ?? null,
-      );
-      if (verdict !== "human") {
-        const errors = { human: humanErrors[verdict] };
-        return eventPage(
-          c,
-          event,
-          { values: parsed.values, errors },
-          null,
-          422,
-        );
-      }
-    }
-
-    const result = await register(
-      c.env.DB,
+    const outcome = await signUp(
+      {
+        db: c.env.DB,
+        fetch: fetcher,
+        now: now(),
+        turnstileSecret: humanCheck(c)?.secret ?? null,
+      },
       event,
-      parsed.value,
-      now().toISOString(),
+      await c.req.formData(),
+      c.req.header("CF-Connecting-IP") ?? null,
     );
-    if (result.kind === "exists") {
-      if (await claimResend(c.env.DB, result.token, now(), RESEND_COOLDOWN))
+
+    switch (outcome.kind) {
+      case "trapped":
+        return c.redirect(`/${event.slug}`, 303);
+      case "refused":
+        return eventPage(c, event, outcome.form, null, 422);
+      case "exists":
+        if (outcome.notify)
+          await after(
+            c,
+            notifyTickets(c.env, fetcher, outcome.notify, event, [
+              outcome.token,
+            ]),
+          );
+        return eventPage(c, event, emptyForm, "exists", 409);
+      case "created":
         await after(
           c,
-          notifyTickets(c.env, fetcher, "again", event, [result.token]),
+          notifyTickets(c.env, fetcher, outcome.notify, event, [outcome.token]),
         );
-      return eventPage(c, event, emptyForm, "exists", 409);
+        return c.redirect(`/entrada/${outcome.token}?nueva`, 303);
     }
-    await after(
-      c,
-      notifyTickets(c.env, fetcher, result.status, event, [result.token]),
-    );
-    return c.redirect(`/entrada/${result.token}?nueva`, 303);
   });
 
   app.notFound((c) => notFound(c));

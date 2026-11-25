@@ -237,6 +237,9 @@ function EditorForm({ view, action }: { view: EditorView; action: string }) {
                 list="a-palette"
                 title="Otro color"
                 aria-invalid={form.errors.accent ? "true" : undefined}
+                aria-describedby={
+                  form.errors.accent ? "a-accent-error" : "a-accent-hint"
+                }
               />
               <datalist id="a-palette">
                 {palette.map((c) => (
@@ -248,9 +251,11 @@ function EditorForm({ view, action }: { view: EditorView; action: string }) {
               </output>
             </div>
             {form.errors.accent ? (
-              <p class="error">{form.errors.accent}</p>
+              <p class="error" id="a-accent-error">
+                {form.errors.accent}
+              </p>
             ) : (
-              <p class="hint">
+              <p class="hint" id="a-accent-hint">
                 La página entera toma su paleta de este color: fondo, botones y
                 textos secundarios.
               </p>

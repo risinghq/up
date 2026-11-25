@@ -31,11 +31,7 @@ const escape = (s: string) =>
     .replace(/,/g, "\\,")
     .replace(/\n/g, "\\n");
 
-export function ics(
-  event: EventMeta,
-  pageUrl: string,
-  now = new Date().toISOString(),
-): string {
+export function ics(event: EventMeta, pageUrl: string, now: string): string {
   return [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",

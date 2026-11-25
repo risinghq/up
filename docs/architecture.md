@@ -14,29 +14,42 @@ browser's WebAuthn API, and registering needs the Turnstile widget that
    clock.
 2. The route loads the event from D1 with `findEvent` in
    [`src/worker/events.ts`](../src/worker/events.ts). A draft is visible only to
-   a signed-in admin. An ended event answers 410. A filled `website` trap field
-   redirects back to the event and stores nothing.
-3. `parseRegistration` in [`src/worker/form.ts`](../src/worker/form.ts) checks
-   the fields and the event's questions and turns the phone into E.164. A
-   refused form re-renders the event page with its values and messages, as 422.
-   When both Turnstile keys are set, `verifyHuman` in
-   [`src/worker/turnstile.ts`](../src/worker/turnstile.ts) then sends the form's
-   token to siteverify. A missing or refused token re-renders the same way. A
-   siteverify outage lets the registration through.
+   a signed-in admin. An ended event answers 410.
+3. The route hands the form to `signUp` in
+   [`src/worker/signup.ts`](../src/worker/signup.ts), with D1, `fetch` and the
+   clock passed in, and maps its outcome to a response. A filled `website` trap
+   field is `trapped`: the route redirects back and stores nothing.
+   `parseRegistration` in [`src/worker/form.ts`](../src/worker/form.ts) checks
+   the fields and the event's questions and turns the phone into E.164. When the
+   Turnstile secret is set, `verifyHuman` in
+   [`src/worker/turnstile.ts`](../src/worker/turnstile.ts) sends the form's
+   token to siteverify. A refused form or token is `refused`, and the route
+   re-renders the event page with its values and messages, as 422. A siteverify
+   outage lets the registration through.
 4. `register` in [`src/worker/registrations.ts`](../src/worker/registrations.ts)
-   upserts the person by email, then inserts the registration with a fresh
-   ticket token and the next number. Past the event's capacity the status is
-   `waitlist`. An email that already holds a live ticket gets `exists`, and the
-   route answers 409 without the ticket link. `claimResend` lets it email that
-   link to the address once per cooldown.
+   upserts the person by email with `upsertPerson` in
+   [`src/worker/people.ts`](../src/worker/people.ts), then inserts the
+   registration with a fresh ticket token. One `INSERT ... SELECT` takes the
+   next number and decides `going` or `waitlist` against the seats taken, so two
+   registrations at once cannot both take the last seat. An email that already
+   holds a live ticket is `exists`, and the route answers 409 without the ticket
+   link. `claimResend` lets it email that link to the address once per cooldown.
 5. `notifyTickets` in [`src/worker/notify.ts`](../src/worker/notify.ts) emails
    the confirmation through the `EMAIL` binding, then sends the WhatsApp message
    from [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts). `after` in
    [`src/worker/web.tsx`](../src/worker/web.tsx) hands the send to `waitUntil`,
    so the response does not wait for it.
 6. The route redirects with 303 to `/entrada/<token>?nueva`. The ticket route
-   looks the token up with `findTicket` and renders
-   [`src/pages/Ticket.tsx`](../src/pages/Ticket.tsx).
+   looks the token up with `findTicket`, turns the ticket and its event into a
+   `TicketView` with `ticketView` in
+   [`src/worker/views.ts`](../src/worker/views.ts), and renders
+   [`src/pages/Ticket.tsx`](../src/pages/Ticket.tsx). The view model decides
+   what the page shows: its panels in order, the QR, the Meet link, the
+   credential. The component only lays it out.
+
+Every public page follows that shape: the route parses the request, calls the
+domain functions with D1 and the clock, builds a view model with `eventView`,
+`ticketView` or `profileView`, and renders it.
 
 `POST /entrada/<token>/cancelar` calls `cancel`, which marks the registration
 `cancelled` and moves the oldest waitlisted registration to `going` when a seat
@@ -48,16 +61,17 @@ server by `renderSVG` from `uqr`. An admin who opens the URL gets the door
 panel. Its form posts to `/admin/entrada/<token>/ingreso`, under the admin
 guard, and `checkIn` sets `checked_in_at` once.
 
-`POST /entrada/<token>/compartir` calls `shareTicket`, which gives the
-registration a random `share_id` apart from its token. `GET /<slug>/voy/<id>`
-looks it up with `findShare` and renders
-[`src/pages/Voy.tsx`](../src/pages/Voy.tsx) with the holder's first name only.
-Its `og:image` is `GET /<slug>/voy/<id>.png`, which `renderCard` in
-[`src/worker/card.tsx`](../src/worker/card.tsx) draws: satori lays the card out
-as SVG and resvg turns it into a PNG. Cancelling or registering again clears
-`share_id`, so the old link answers 404.
+`POST /entrada/<token>/compartir` calls `shareTicket` in
+[`src/worker/shares.ts`](../src/worker/shares.ts), which gives the registration
+a random `share_id` apart from its token. `GET /<slug>/voy/<id>` looks it up
+with `findShare` and renders [`src/pages/Voy.tsx`](../src/pages/Voy.tsx) with
+the holder's first name only. Its `og:image` is `GET /<slug>/voy/<id>.png`,
+which `renderCard` in [`src/worker/card.tsx`](../src/worker/card.tsx) draws:
+satori lays the card out as SVG and resvg turns it into a PNG. Cancelling or
+registering again clears `share_id`, so the old link answers 404.
 
-`POST /entrada/<token>/perfil` calls `openProfile`, which gives the ticket's
+`POST /entrada/<token>/perfil` calls `openProfile` in
+[`src/worker/profiles.ts`](../src/worker/profiles.ts), which gives the ticket's
 person a random `profile_id` unless they have one. `GET /p/<id>` looks it up
 with `findProfile`, which returns the first name and the slugs of the published
 events where the person checked in, and renders
@@ -158,7 +172,13 @@ are stored as their SHA-256 only.
 | [`src/worker/eventForm.ts`](../src/worker/eventForm.ts)         | The editor's form parsing.                                                  |
 | [`src/worker/questions.ts`](../src/worker/questions.ts)         | The one-per-line question syntax.                                           |
 | [`src/worker/form.ts`](../src/worker/form.ts)                   | Registration parsing and phone normalization.                               |
-| [`src/worker/registrations.ts`](../src/worker/registrations.ts) | People and registration queries.                                            |
+| [`src/worker/signup.ts`](../src/worker/signup.ts)               | A register post, from the bot checks to the stored registration.            |
+| [`src/worker/registrations.ts`](../src/worker/registrations.ts) | Seats, the waitlist, cancelling, check-in and reminders of one ticket.      |
+| [`src/worker/people.ts`](../src/worker/people.ts)               | People by email.                                                            |
+| [`src/worker/registrants.ts`](../src/worker/registrants.ts)     | An event's registrant list and counts, for the admin.                       |
+| [`src/worker/shares.ts`](../src/worker/shares.ts)               | The share link of a ticket.                                                 |
+| [`src/worker/profiles.ts`](../src/worker/profiles.ts)           | Public profiles and the events a person attended or hosted.                 |
+| [`src/worker/views.ts`](../src/worker/views.ts)                 | The view models of the event, ticket and profile pages.                     |
 | [`src/worker/mail.ts`](../src/worker/mail.ts)                   | The emails to ticket holders and their sending.                             |
 | [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts)           | The WhatsApp templates and their sending.                                   |
 | [`src/worker/notify.ts`](../src/worker/notify.ts)               | Sends a ticket's email and WhatsApp message together.                       |
