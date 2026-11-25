@@ -507,3 +507,86 @@ describe("calendar", () => {
     expect(body).toContain("URL:https://up.test/charla\r\n");
   });
 });
+
+describe("turnstile", () => {
+  const calls: URLSearchParams[] = [];
+  const guarded = createApp({
+    now: () => now,
+    fetch: async (url, init) => {
+      expect(url).toBe(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      );
+      const body = new URLSearchParams(String(init.body));
+      calls.push(body);
+      const token = body.get("response");
+      if (token === "caido") return new Response("", { status: 503 });
+      return Response.json({ success: token === "humano" });
+    },
+  });
+  const keyed = () => ({
+    ...env,
+    TURNSTILE_SITE_KEY: "clave-sitio",
+    TURNSTILE_SECRET_KEY: "clave-secreta",
+  });
+  const send = (fields: Record<string, string>) =>
+    guarded.request(
+      "/charla",
+      {
+        method: "POST",
+        body: form(fields),
+        headers: { "CF-Connecting-IP": "203.0.113.7" },
+      },
+      keyed(),
+    );
+  const stored = (email: string) =>
+    DB.prepare("SELECT id FROM people WHERE email = ?").bind(email).first();
+
+  test("the form carries the widget only with both keys", async () => {
+    expect(await (await get("/charla")).text()).not.toContain("turnstile");
+    const html = await (await guarded.request("/charla", {}, keyed())).text();
+    expect(html).toContain(
+      '<div class="turnstile" data-sitekey="clave-sitio">',
+    );
+    expect(html).toContain("<noscript>");
+  });
+
+  test("a post without a token keeps the values and stores nothing", async () => {
+    const res = await send({ email: "sinjs@example.com" });
+    expect(res.status).toBe(422);
+    const html = await res.text();
+    expect(html).toContain("Activa JavaScript o recarga la página.");
+    expect(html).toContain('value="sinjs@example.com"');
+    expect(await stored("sinjs@example.com")).toBeNull();
+  });
+
+  test("a refused token stores nothing", async () => {
+    const res = await send({
+      email: "robot@example.com",
+      "cf-turnstile-response": "robot",
+    });
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain("No pudimos confirmar");
+    expect(await stored("robot@example.com")).toBeNull();
+  });
+
+  test("a person's token registers, with the secret and the IP", async () => {
+    const res = await send({
+      email: "persona@example.com",
+      "cf-turnstile-response": "humano",
+    });
+    expect(res.status).toBe(303);
+    expect(await stored("persona@example.com")).not.toBeNull();
+    const call = calls.find((c) => c.get("response") === "humano");
+    expect(call?.get("secret")).toBe("clave-secreta");
+    expect(call?.get("remoteip")).toBe("203.0.113.7");
+  });
+
+  test("a Turnstile outage lets the post through", async () => {
+    const res = await send({
+      email: "caido@example.com",
+      "cf-turnstile-response": "caido",
+    });
+    expect(res.status).toBe(303);
+    expect(await stored("caido@example.com")).not.toBeNull();
+  });
+});

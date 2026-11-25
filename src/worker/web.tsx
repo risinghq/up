@@ -22,6 +22,9 @@ export type Env = {
   /** The OAuth client that links Google Calendar. Without both, the admin hides it. */
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  /** The Turnstile widget on the register form. Without both, as in tests, no check runs. */
+  TURNSTILE_SITE_KEY?: string;
+  TURNSTILE_SECRET_KEY?: string;
   /** Cloudflare Email Service. Without it, as in tests, no email is sent. */
   EMAIL?: SendEmail;
 };

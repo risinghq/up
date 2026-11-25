@@ -23,8 +23,8 @@ Open the printed invite link, create a passkey, and add an event from
 
 - Upcoming and past events, each with link preview tags for WhatsApp and
   Instagram.
-- A register form that works without JavaScript and asks each event's own
-  questions.
+- A register form that asks each event's own questions and turns bots away with
+  Cloudflare Turnstile.
 - A private ticket page at `/entrada/<token>` with calendar links and
   cancellation.
 - A capacity per event. Registrations past it join a waitlist, and a

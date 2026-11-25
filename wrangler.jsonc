@@ -23,6 +23,7 @@
     "SITE_URL": "https://up.rising.sh",
     "WHATSAPP_COMMUNITY_URL": "",
     "INSTAGRAM_URL": "https://instagram.com/risinghq",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAGSVoPjX6crBh9YA",
   },
   "observability": { "enabled": true },
 }
