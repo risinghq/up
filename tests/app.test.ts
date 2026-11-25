@@ -422,7 +422,8 @@ describe("profile", () => {
     const html = await res.text();
     expect(html).toContain("<h1>Valeria</h1>");
     expect(html).not.toContain("Quispe");
-    expect(html).toContain("1 evento en up.rising.sh");
+    expect(html).toContain("<strong>1</strong> evento</p>");
+    expect(html).toMatch(/En up\.rising\.sh desde \p{L}+ de \d{4}/u);
     expect(html).toContain('href="/charla"');
     expect(html).not.toContain('href="/taller"');
     expect(html).not.toContain(went);

@@ -10,7 +10,8 @@ import { showTurnstile } from "./turnstile";
 // Every page but registration works without this script. It stops a double
 // submit, confirms a cancellation, copies the ticket link, marks a scrolled
 // nav, closes the admin's menu, runs the scheme toggle, renders the register
-// form's Turnstile, draws a venue's map and hangs a ticket's credential.
+// form's Turnstile, draws a venue's map, hangs a ticket's credential, and
+// runs the event editor's color chips and cover drop.
 
 // MapLibre is most of the script's weight, so it loads only when the venue's
 // map nears the viewport.
@@ -36,6 +37,14 @@ if (
   document.createElement("canvas").getContext("webgl2")
 )
   void import("./credential").then((m) => m.showCredential(credential));
+
+const picker = document.querySelector<HTMLElement>(".accent-picker");
+const cover = document.querySelector<HTMLElement>(".cover-drop");
+if (picker || cover)
+  void import("./editor").then((m) => {
+    if (picker) m.showAccentChips(picker);
+    if (cover) m.showCoverDrop(cover);
+  });
 
 const signup = document.querySelector<HTMLDetailsElement>("#inscripcion");
 if (signup) {

@@ -226,6 +226,8 @@ export async function closeProfile(
 
 export type Profile = {
   firstName: string;
+  /** When the person first registered. */
+  since: string;
   /** The slugs of the published events the person checked in at. */
   attended: string[];
 };
@@ -236,9 +238,9 @@ export async function findProfile(
   profileId: string,
 ): Promise<Profile | null> {
   const person = await db
-    .prepare("SELECT id, name FROM people WHERE profile_id = ?")
+    .prepare("SELECT id, name, created_at FROM people WHERE profile_id = ?")
     .bind(profileId)
-    .first<{ id: string; name: string }>();
+    .first<{ id: string; name: string; created_at: string }>();
   if (!person) return null;
 
   const { results } = await db
@@ -252,6 +254,7 @@ export async function findProfile(
     .all<{ slug: string }>();
   return {
     firstName: firstName(person.name),
+    since: person.created_at,
     attended: results.map((r) => r.slug),
   };
 }

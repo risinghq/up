@@ -11,6 +11,10 @@ const parts = (iso: string, options: Intl.DateTimeFormatOptions) =>
 export const longDate = (iso: string) =>
   parts(iso, { weekday: "long", day: "numeric", month: "long" });
 
+/** "diciembre de 2026" */
+export const monthYear = (iso: string) =>
+  parts(iso, { month: "long", year: "numeric" });
+
 /** "12 dic 2026" */
 export const shortDate = (iso: string) =>
   parts(iso, { day: "numeric", month: "short", year: "numeric" }).replace(

@@ -804,24 +804,82 @@ main > .spotlight:first-child {
   height: 100%;
 }
 
-/* A public profile: the person's first name over a grid of badges. */
+/* A public profile: a Luma-style header over a grid of badges. */
 
 .profile {
-  max-width: var(--max-width);
+  max-width: 40rem;
   margin: 0 auto;
-  padding: 2rem 1rem 3rem;
+  padding: 3rem 1rem 3rem;
 }
 
+.profile-head {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid var(--divider-color);
+}
+
+.profile-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 6rem;
+  height: 6rem;
+  border-radius: 50%;
+  background-color: #525252;
+  color: #fff;
+  font-size: 2.5rem;
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+}
+
+.profile-since,
 .profile-count {
   margin-top: 0.25rem;
   color: var(--secondary-color-alpha);
+}
+
+.profile-count strong {
+  color: var(--primary-color);
+  font-weight: var(--font-weight-medium);
+}
+
+.profile-badges {
+  padding-top: 1.75rem;
+}
+
+.profile-badges h2 {
+  font-size: var(--section-title-font-size);
+  font-weight: var(--font-weight-medium);
+}
+
+.profile-empty {
+  margin-top: 0.75rem;
+  color: var(--secondary-color-alpha);
+}
+
+@media (max-width: 480px) {
+  .profile {
+    padding-top: 2rem;
+  }
+
+  .profile-head {
+    gap: 1rem;
+  }
+
+  .profile-avatar {
+    width: 4.5rem;
+    height: 4.5rem;
+    font-size: 1.875rem;
+  }
 }
 
 .badges {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
   gap: 0.75rem;
-  margin: 1.5rem 0 0;
+  margin: 1rem 0 0;
   padding: 0;
   list-style: none;
 }
