@@ -557,6 +557,10 @@ a:hover {
   }
 }
 
+.button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
 .button:disabled {
   opacity: 0.5;
   cursor: default;
@@ -573,6 +577,10 @@ a:hover {
 
 .link-button:hover {
   color: var(--secondary-link-hover-color);
+}
+
+.link-button:active {
+  opacity: 0.7;
 }
 
 .row {
@@ -1245,9 +1253,10 @@ main > .spotlight:first-child {
   padding: 2px 0;
   background-color: var(--opacity-8);
   color: var(--secondary-color-alpha);
-  font-size: 0.5rem;
+  font-size: 0.6875rem;
   font-weight: var(--font-weight-bold);
   line-height: 1;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -1372,7 +1381,6 @@ main > .spotlight:first-child {
 
   .date-tile-month {
     padding: 1px 0;
-    font-size: 0.4375rem;
   }
 
   .date-tile-day {
@@ -1920,7 +1928,8 @@ main > .spotlight:first-child {
 
 .ticket-facts {
   display: flex;
-  gap: 2rem;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
   margin: 0.25rem 0 0;
   padding-top: 0.75rem;
   border-top: 1px solid var(--divider-color);
@@ -1995,22 +2004,15 @@ main > .spotlight:first-child {
   gap: 0.75rem;
 }
 
-.copy-row {
+.notice-fresh {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 0.5rem;
 }
 
-.copy-input {
-  flex: 1;
-  min-width: 0;
-  height: var(--input-height);
-  padding: var(--input-padding);
-  border: var(--input-border-thickness) solid var(--opacity-16);
-  border-radius: var(--border-radius);
-  background-color: var(--primary-bg-color);
-  color: var(--secondary-color-alpha);
-  font: inherit;
-  font-size: var(--font-size-sm);
+.notice-fresh p {
+  margin: 0;
 }
 
 /* A destructive act set as a plain link: the underline marks it as one, and

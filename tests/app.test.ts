@@ -447,6 +447,34 @@ describe("profile", () => {
   });
 });
 
+describe("ticket page", () => {
+  test("the fresh notice copies the ticket's link; the page shows no link box", async () => {
+    const token = await registerAs("charla", { email: "nueva@example.com" });
+    const html = await (await get(`/entrada/${token}?nueva`)).text();
+    expect(html).toContain(`data-copy="https://up.test/entrada/${token}"`);
+    expect(html).not.toContain("<input");
+
+    const later = await (await get(`/entrada/${token}`)).text();
+    expect(later).not.toContain(`https://up.test/entrada/${token}`);
+  });
+
+  test("a check-in drops the calendar and leads with the profile", async () => {
+    const token = await registerAs("charla", { email: "dentro@example.com" });
+    const before = await (await get(`/entrada/${token}`)).text();
+    expect(before).toContain("Agregar a Google Calendar");
+
+    await checkIn(DB, token, now.toISOString());
+    const html = await (await get(`/entrada/${token}`)).text();
+    expect(html).not.toContain("Agregar a Google Calendar");
+    expect(html).toContain(
+      '<button class="button button-primary button-full" type="submit">Crear mi perfil</button>',
+    );
+    expect(html.indexOf("Tus insignias")).toBeLessThan(
+      html.indexOf("Cuéntale a tus amigos"),
+    );
+  });
+});
+
 describe("credential", () => {
   test("only a ticket with a seat carries the credential's data", async () => {
     const token = await registerAs("charla", {
