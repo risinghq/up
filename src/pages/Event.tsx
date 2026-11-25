@@ -21,6 +21,8 @@ export type EventView = {
   calendarUrl: string;
   /** A signed-in admin sees links to edit the event. */
   admin: boolean;
+  /** The Turnstile site key; with it, the form carries the widget. */
+  turnstileKey: string | null;
 };
 
 function Field(props: {
@@ -98,6 +100,27 @@ function QuestionField({ q, form }: { q: Question; form: FormState }) {
         <p class="error" id={`${id}-error`}>
           {error}
         </p>
+      )}
+    </div>
+  );
+}
+
+/** The Turnstile widget's place. main.ts renders it when the form opens. */
+function HumanCheck(props: { siteKey: string; error: string | undefined }) {
+  return (
+    <div class="human-check">
+      <div class="turnstile" data-sitekey={props.siteKey} />
+      {props.error ? (
+        <p class="error" role="alert">
+          {props.error}
+        </p>
+      ) : (
+        <noscript>
+          <p class="hint">
+            Activa JavaScript para inscribirte: lo usamos para frenar a los
+            bots.
+          </p>
+        </noscript>
       )}
     </div>
   );
@@ -261,6 +284,12 @@ function RegisterForm({ view, action }: { view: EventView; action: string }) {
         <label for="f-website">No llenar</label>
         <input id="f-website" name="website" tabIndex={-1} autoComplete="off" />
       </div>
+      {view.turnstileKey && (
+        <HumanCheck
+          siteKey={view.turnstileKey}
+          error={view.form.errors.human}
+        />
+      )}
       <button class="button button-primary button-full" type="submit">
         {action}
       </button>

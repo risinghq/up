@@ -5,10 +5,12 @@ import "@fontsource/instrument-serif/latin-400.css";
 import "./styles.css";
 import "./admin.css";
 import "./scheme";
+import { showTurnstile } from "./turnstile";
 
-// Every page works without this script. It only stops a double submit,
-// confirms a cancellation, copies the ticket link, marks a scrolled nav, runs
-// the scheme toggle, draws a venue's map and hangs a ticket's credential.
+// Every page but registration works without this script. It stops a double
+// submit, confirms a cancellation, copies the ticket link, marks a scrolled
+// nav, runs the scheme toggle, renders the register form's Turnstile, draws a
+// venue's map and hangs a ticket's credential.
 
 // MapLibre is most of the script's weight, so it loads only when the venue's
 // map nears the viewport.
@@ -37,10 +39,15 @@ if (
 
 const signup = document.querySelector<HTMLDetailsElement>("#inscripcion");
 if (signup) {
+  // Turnstile loads only once a visitor opens the form.
+  const human = signup.querySelector<HTMLElement>(".turnstile");
+  if (human && signup.open) showTurnstile(human);
   // A link to #inscripcion, as the home spotlight's, arrives with it open.
   if (location.hash === "#inscripcion") signup.open = true;
   signup.addEventListener("toggle", () => {
-    if (signup.open && !signup.querySelector("[aria-invalid]"))
+    if (!signup.open) return;
+    if (human) showTurnstile(human);
+    if (!signup.querySelector("[aria-invalid]"))
       signup.querySelector<HTMLInputElement>("input")?.focus();
   });
 }

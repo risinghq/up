@@ -15,7 +15,7 @@ export type FormState = {
 };
 
 export type Parsed =
-  | { ok: true; value: Registration }
+  | ({ ok: true; value: Registration } & FormState)
   | ({ ok: false } & FormState);
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -78,5 +78,7 @@ export function parseRegistration(form: FormData, event: EventMeta): Parsed {
       newsOptIn: news === "on",
       answers,
     },
+    values,
+    errors,
   };
 }

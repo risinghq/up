@@ -15,6 +15,7 @@ import { coverUrl, findEvent, listEvents, type EventMeta } from "./events";
 import { parseRegistration, type FormState } from "./form";
 import type { Fetch } from "./google";
 import { mailTickets } from "./mail";
+import { TOKEN_FIELD, verifyHuman } from "./turnstile";
 import {
   cancel,
   claimResend,
@@ -41,7 +42,7 @@ export type { Env } from "./web";
 
 export type AppOptions = {
   now?: () => Date;
-  /** Carries the calls to Google. */
+  /** Carries the calls to Google and Turnstile. */
   fetch?: Fetch;
   /** Draws the share card; without it the card's URL answers 404. */
   card?: CardAssets;
@@ -49,11 +50,25 @@ export type AppOptions = {
 
 const emptyForm: FormState = { values: {}, errors: {} };
 
+const humanErrors = {
+  missing:
+    "No pudimos confirmar que eres una persona. Activa JavaScript o recarga la página.",
+  refused: "No pudimos confirmar que eres una persona. Inténtalo otra vez.",
+};
+
+/** The register form's Turnstile keys, when both are set. */
+function humanCheck(c: Ctx) {
+  const siteKey = c.env.TURNSTILE_SITE_KEY;
+  const secret = c.env.TURNSTILE_SECRET_KEY;
+  return siteKey && secret ? { siteKey, secret } : null;
+}
+
 /** A repeat registration resends the ticket link at most this often. */
 const RESEND_COOLDOWN = 15 * 60 * 1000;
 
 export function createApp(options: AppOptions = {}) {
   const now = options.now ?? (() => new Date());
+  const fetcher = options.fetch ?? ((input, init) => fetch(input, init));
   const app = new Hono<AppEnv>();
 
   const ended = (event: EventMeta) => new Date(event.end) <= now();
@@ -84,6 +99,7 @@ export function createApp(options: AppOptions = {}) {
       notice,
       calendarUrl: googleCalendarUrl(event, url),
       admin: Boolean(c.get("admin")),
+      turnstileKey: humanCheck(c)?.siteKey ?? null,
     };
     if (view.admin || event.status === "draft")
       c.header("Cache-Control", "no-store");
@@ -114,10 +130,7 @@ export function createApp(options: AppOptions = {}) {
     c.header("Referrer-Policy", "strict-origin");
   });
 
-  app.route(
-    "/admin",
-    adminRoutes(now, options.fetch ?? ((input, init) => fetch(input, init))),
-  );
+  app.route("/admin", adminRoutes(now, fetcher));
 
   app.get("/", async (c) => {
     const tab: Tab = c.req.query("ver") === "pasados" ? "pasados" : "proximos";
@@ -343,6 +356,26 @@ export function createApp(options: AppOptions = {}) {
 
     const parsed = parseRegistration(form, event);
     if (!parsed.ok) return eventPage(c, event, parsed, null, 422);
+
+    const check = humanCheck(c);
+    if (check) {
+      const verdict = await verifyHuman(
+        fetcher,
+        check.secret,
+        String(form.get(TOKEN_FIELD) ?? ""),
+        c.req.header("CF-Connecting-IP") ?? null,
+      );
+      if (verdict !== "human") {
+        const errors = { human: humanErrors[verdict] };
+        return eventPage(
+          c,
+          event,
+          { values: parsed.values, errors },
+          null,
+          422,
+        );
+      }
+    }
 
     const result = await register(
       c.env.DB,

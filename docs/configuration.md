@@ -3,11 +3,12 @@
 The variables live under `vars` in [`wrangler.jsonc`](../wrangler.jsonc), with
 the production values. [`.dev.vars`](../.dev.vars) overrides them locally.
 
-| Variable                 | Meaning                                                                                                                         |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `SITE_URL`               | The origin in canonical links, link previews, calendar entries, ticket links and admin invites. Passkeys are bound to its host. |
-| `WHATSAPP_COMMUNITY_URL` | The WhatsApp Community invite. When set, the header, the home page and the ticket link to it.                                   |
-| `INSTAGRAM_URL`          | The Instagram profile. When set, the header and the home page link to it.                                                       |
+| Variable                 | Meaning                                                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `SITE_URL`               | The origin in canonical links, link previews, calendar entries, ticket links and admin invites. Passkeys are bound to its host.  |
+| `WHATSAPP_COMMUNITY_URL` | The WhatsApp Community invite. When set, the header, the home page and the ticket link to it.                                    |
+| `INSTAGRAM_URL`          | The Instagram profile. When set, the header and the home page link to it.                                                        |
+| `TURNSTILE_SITE_KEY`     | The site key of the Turnstile widget `up`. With `TURNSTILE_SECRET_KEY`, the register form asks Turnstile whether it is a person. |
 
 ## Secrets
 
@@ -18,6 +19,7 @@ them.
 | ---------------------- | -------------------------------------------------------------------------------------------------------------- |
 | `GOOGLE_CLIENT_ID`     | The OAuth client for [Google Calendar and Meet](google-calendar.md). Without both secrets, the admin hides it. |
 | `GOOGLE_CLIENT_SECRET` | That client's secret.                                                                                          |
+| `TURNSTILE_SECRET_KEY` | The Turnstile widget's secret, sent to siteverify. Without it, the register form runs no check.                |
 
 ## Bindings
 

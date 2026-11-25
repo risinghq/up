@@ -2,8 +2,9 @@
 
 up is one Cloudflare Worker. It renders every page with Preact on the server and
 answers every form with a redirect or a re-rendered page, so the site works
-without JavaScript. The one exception is the admin passkey ceremony, which needs
-the browser's WebAuthn API.
+without JavaScript. Two exceptions: the admin passkey ceremony needs the
+browser's WebAuthn API, and registering needs the Turnstile widget that
+[`src/client/turnstile.ts`](../src/client/turnstile.ts) renders.
 
 ## A registration, from form to ticket
 
@@ -18,6 +19,10 @@ the browser's WebAuthn API.
 3. `parseRegistration` in [`src/worker/form.ts`](../src/worker/form.ts) checks
    the fields and the event's questions and turns the phone into E.164. A
    refused form re-renders the event page with its values and messages, as 422.
+   When both Turnstile keys are set, `verifyHuman` in
+   [`src/worker/turnstile.ts`](../src/worker/turnstile.ts) then sends the form's
+   token to siteverify. A missing or refused token re-renders the same way. A
+   siteverify outage lets the registration through.
 4. `register` in [`src/worker/registrations.ts`](../src/worker/registrations.ts)
    upserts the person by email, then inserts the registration with a fresh
    ticket token and the next number. Past the event's capacity the status is
