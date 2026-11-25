@@ -62,6 +62,21 @@ function bunReadable(bucket: R2Bucket): R2Bucket {
   });
 }
 
+/** An EMAIL binding that keeps what it is asked to send. */
+export function outbox() {
+  const sent: EmailMessageBuilder[] = [];
+  const binding = {
+    send: async (message: EmailMessageBuilder) => {
+      sent.push(message);
+      return { messageId: `m${sent.length}` };
+    },
+  } as unknown as SendEmail;
+  /** The subjects sent to one address, oldest first. */
+  const subjects = (to: string) =>
+    sent.filter((m) => m.to === to).map((m) => m.subject);
+  return { sent, binding, subjects };
+}
+
 export function testEnv(
   DB: D1Database,
   MEDIA: R2Bucket,

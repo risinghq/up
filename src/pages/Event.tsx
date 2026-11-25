@@ -196,8 +196,8 @@ function RegisterCard(view: EventView) {
         </p>
         {view.notice === "exists" && (
           <p class="notice" role="status">
-            Este correo ya está inscrito. Abre el enlace de tu entrada que
-            guardaste al inscribirte.
+            Este correo ya está inscrito. Te enviamos el enlace de tu entrada a
+            ese correo.
           </p>
         )}
         {hasErrors && (

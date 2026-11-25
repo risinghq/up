@@ -29,6 +29,8 @@ Open the printed invite link, create a passkey, and add an event from
   cancellation.
 - A capacity per event. Registrations past it join a waitlist, and a
   cancellation gives the seat to the oldest waitlisted person.
+- Email to registrants: a confirmation with the ticket link, a notice when a
+  waitlisted person gets a seat, and a reminder the day before.
 - A map of the venue on the event page, from coordinates or a Google Maps link.
 - Google Calendar links and an `.ics` file per event, in Lima time.
 - An optional Google Calendar connection that creates each event with a Google
