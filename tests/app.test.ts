@@ -127,6 +127,13 @@ describe("event page", () => {
     expect(res.status).toBe(410);
   });
 
+  test("keeps its nav in place, where the home nav sticks", async () => {
+    const home = await (await get("/")).text();
+    expect(home).toContain('<header class="site-nav sticky">');
+    const page = await (await get("/charla")).text();
+    expect(page).toContain('<header class="site-nav">');
+  });
+
   test("shows the kind only when the title does not name it", async () => {
     const named = await (await get("/taller")).text();
     expect(named).not.toContain('class="category"');
