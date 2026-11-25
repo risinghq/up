@@ -30,7 +30,7 @@ the form with a message per field when one is wrong.
 | Descripción         | Markdown, shown under "Sobre el evento". Raw HTML is escaped.                                                                                                                             |
 | Inicio, Fin         | Lima time. Once the end passes, the event moves to the past tab and its form closes.                                                                                                      |
 | Lugar               | A venue with a name, an address and an optional map, or online with a platform name. See [Map](#map).                                                                                     |
-| Organizan           | Names separated by commas.                                                                                                                                                                |
+| Organizan           | Names separated by commas. `Ana Quispe <ana@correo.com>` adds the event to that host's profile; see [Hosts](profile.md#hosts).                                                            |
 | Cupos               | Seats. Empty takes any number. Past the limit, people join the waitlist. Raising it seats the waitlist on save.                                                                           |
 | Preguntas extra     | One question per line, up to 20. See [Questions](#questions).                                                                                                                             |
 | Tipo                | Hackathon, taller, charla or meetup. It labels the card and the page, unless the title already names it.                                                                                  |

@@ -23,6 +23,8 @@ export type TicketView = {
   shareUrl?: string;
   /** The holder's public profile, once they opened it. */
   profileUrl?: string;
+  /** True when a published event lists the holder as a host. */
+  hosts: boolean;
 };
 
 const statusText = {
@@ -138,6 +140,7 @@ function ProfilePanel(props: {
   token: string;
   url?: string;
   primary: boolean;
+  hosts: boolean;
 }) {
   const action = `/entrada/${props.token}/perfil`;
   const weight = props.primary ? "button-primary" : "button-light";
@@ -160,8 +163,9 @@ function ProfilePanel(props: {
       ) : (
         <form method="post" action={action} class="ticket-actions">
           <p class="ticket-note">
-            Cada evento al que entras te da una insignia. Crea una página
-            pública con tu nombre y tus insignias.
+            {props.hosts
+              ? "Crea una página pública con tu nombre, los eventos que organizas y una insignia por cada evento al que entras."
+              : "Cada evento al que entras te da una insignia. Crea una página pública con tu nombre y tus insignias."}
           </p>
           <button class={`button ${weight} button-full`} type="submit">
             Crear mi perfil
@@ -249,11 +253,12 @@ export function TicketPage(view: TicketView) {
   const share = live && (
     <SharePanel token={ticket.token} title={event.title} url={view.shareUrl} />
   );
-  const profile = (checkedIn || view.profileUrl) && (
+  const profile = (checkedIn || view.profileUrl || view.hosts) && (
     <ProfilePanel
       token={ticket.token}
       url={view.profileUrl}
       primary={checkedIn}
+      hosts={view.hosts}
     />
   );
 

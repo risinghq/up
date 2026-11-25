@@ -5,10 +5,11 @@ import {
   type Backdrop,
   type EventMeta,
   type Font,
+  type Host,
   type Kind,
   type Place,
 } from "./events";
-import type { FormState } from "./form";
+import { emailPattern, type FormState } from "./form";
 import { parsePoint } from "./geo";
 import { formatQuestions, parseQuestions } from "./questions";
 
@@ -20,6 +21,19 @@ const reservedSlugs = new Set([
   "media",
   "assets",
 ]);
+
+/** "Ana Quispe <ana@correo.com>, Pedro" in the form, one host per comma. */
+const formatHosts = (hosts: Host[]) =>
+  hosts.map((h) => (h.email ? `${h.name} <${h.email}>` : h.name)).join(", ");
+
+function parseHost(text: string): Host | null {
+  const match = /^(.*?)\s*<([^>]*)>$/.exec(text);
+  if (!match) return { name: text };
+
+  const name = match[1]!.trim();
+  const email = match[2]!.trim().toLowerCase();
+  return name && emailPattern.test(email) ? { name, email } : null;
+}
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const accentPattern = /^#[0-9a-f]{6}$/;
@@ -60,7 +74,7 @@ export function eventValues(event: EventMeta): Record<string, string> {
     place_name: place.kind === "venue" ? place.name : place.platform,
     place_address: place.kind === "venue" ? place.address : "",
     map_url: place.kind === "venue" ? mapValue(place) : "",
-    hosts: event.hosts.join(", "),
+    hosts: formatHosts(event.hosts),
     capacity: event.capacity === undefined ? "" : String(event.capacity),
     questions: formatQuestions(event.questions),
     status: event.status,
@@ -148,11 +162,14 @@ export function parseEventForm(
     errors.map_url =
       "Pega un enlace de Google Maps o coordenadas como -12.0599, -77.0817.";
 
-  const hosts = values.hosts
+  const hostTexts = values.hosts
     .split(",")
     .map((h) => h.trim())
     .filter(Boolean);
-  if (!hosts.length) errors.hosts = "Escribe al menos un organizador.";
+  const hosts = hostTexts.map(parseHost).filter((h) => h !== null);
+  if (!hostTexts.length) errors.hosts = "Escribe al menos un organizador.";
+  else if (hosts.length < hostTexts.length)
+    errors.hosts = "Escribe cada correo así: Ana Quispe <ana@correo.com>.";
 
   let capacity: number | undefined;
   if (values.capacity) {
