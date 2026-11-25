@@ -14,7 +14,7 @@ import { renderCard, type CardAssets } from "./card";
 import { coverUrl, findEvent, listEvents, type EventMeta } from "./events";
 import { parseRegistration, type FormState } from "./form";
 import type { Fetch } from "./google";
-import { mailTickets } from "./mail";
+import { notifyTickets } from "./notify";
 import { TOKEN_FIELD, verifyHuman } from "./turnstile";
 import {
   cancel,
@@ -275,7 +275,7 @@ export function createApp(options: AppOptions = {}) {
     if (!ticket || !event) return notFound(c, "ticket");
     if (!ended(event)) {
       const seated = await cancel(c.env.DB, event, token, now().toISOString());
-      await after(c, mailTickets(c.env, "promoted", event, seated));
+      await after(c, notifyTickets(c.env, fetcher, "promoted", event, seated));
     }
     return c.redirect(`/entrada/${token}`, 303);
   });
@@ -385,10 +385,16 @@ export function createApp(options: AppOptions = {}) {
     );
     if (result.kind === "exists") {
       if (await claimResend(c.env.DB, result.token, now(), RESEND_COOLDOWN))
-        await after(c, mailTickets(c.env, "again", event, [result.token]));
+        await after(
+          c,
+          notifyTickets(c.env, fetcher, "again", event, [result.token]),
+        );
       return eventPage(c, event, emptyForm, "exists", 409);
     }
-    await after(c, mailTickets(c.env, result.status, event, [result.token]));
+    await after(
+      c,
+      notifyTickets(c.env, fetcher, result.status, event, [result.token]),
+    );
     return c.redirect(`/entrada/${result.token}?nueva`, 303);
   });
 

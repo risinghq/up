@@ -8,6 +8,7 @@ import {
 } from "bun:test";
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
+import type { Fetch } from "../src/worker/google";
 import { checkIn } from "../src/worker/registrations";
 import { sendReminders } from "../src/worker/reminders";
 import {
@@ -63,6 +64,11 @@ beforeAll(async () => {
 });
 
 afterAll(() => mf.dispose());
+
+/** No WhatsApp phone number id is set here, so nothing may reach the network. */
+const noFetch: Fetch = async () => {
+  throw new Error("unexpected fetch");
+};
 
 const get = (path: string, headers: Record<string, string> = {}) =>
   app.request(path, { headers }, env);
@@ -457,7 +463,7 @@ describe("reminders", () => {
   test("a day before, each seated ticket gets one reminder", async () => {
     // Every event in this file starts 2026-12-12 at 15:00 Lima.
     expect(
-      await sendReminders(env, new Date("2026-12-11T14:00:00-05:00")),
+      await sendReminders(env, noFetch, new Date("2026-12-11T14:00:00-05:00")),
     ).toBe(0);
 
     // A ticket taken inside the last day already got its confirmation.
@@ -472,6 +478,7 @@ describe("reminders", () => {
 
     const sent = await sendReminders(
       env,
+      noFetch,
       new Date("2026-12-11T16:00:00-05:00"),
     );
     expect(sent).toBeGreaterThan(0);
@@ -490,7 +497,7 @@ describe("reminders", () => {
     );
 
     expect(
-      await sendReminders(env, new Date("2026-12-11T17:00:00-05:00")),
+      await sendReminders(env, noFetch, new Date("2026-12-11T17:00:00-05:00")),
     ).toBe(0);
   });
 });
@@ -588,5 +595,108 @@ describe("turnstile", () => {
     });
     expect(res.status).toBe(303);
     expect(await stored("caido@example.com")).not.toBeNull();
+  });
+});
+
+describe("whatsapp", () => {
+  const calls: { url: string; init: RequestInit }[] = [];
+  const state = { status: 200 };
+  const cloud = createApp({
+    now: () => now,
+    fetch: async (url, init) => {
+      calls.push({ url: String(url), init });
+      return new Response("{}", { status: state.status });
+    },
+  });
+  const live = () => ({
+    ...env,
+    WHATSAPP_PHONE_NUMBER_ID: "1234567890",
+    WHATSAPP_TOKEN: "token-de-prueba",
+  });
+  const send = (fields: Record<string, string>) =>
+    cloud.request("/charla", { method: "POST", body: form(fields) }, live());
+
+  test("a registration sends the confirmation template", async () => {
+    calls.length = 0;
+    const res = await send({
+      email: "wa@example.com",
+      name: "Lucía Quispe",
+      phone: "912 345 678",
+    });
+    expect(res.status).toBe(303);
+    const token = (res.headers.get("location") ?? "").split(/[/?]/)[2];
+
+    expect(calls).toHaveLength(1);
+    const [call] = calls;
+    expect(call?.url).toBe(
+      "https://graph.facebook.com/v25.0/1234567890/messages",
+    );
+    const headers = new Headers(call?.init.headers);
+    expect(headers.get("authorization")).toBe("Bearer token-de-prueba");
+    const body = JSON.parse(String(call?.init.body));
+    expect(body.to).toBe("51912345678");
+    expect(body.template.name).toBe("up_inscrito");
+    expect(body.template.components[0].parameters[0].text).toBe("Lucía");
+    expect(body.template.components[0].parameters[1].text).toBe(
+      "Charla abierta",
+    );
+    expect(body.template.components[1].parameters[0].text).toBe(token);
+  });
+
+  test("a repeat registration goes by email only", async () => {
+    calls.length = 0;
+    const res = await send({ email: "wa@example.com", phone: "912 345 678" });
+    expect(res.status).toBe(409);
+    expect(calls).toHaveLength(0);
+  });
+
+  test("a Cloud API error does not fail the registration", async () => {
+    calls.length = 0;
+    state.status = 500;
+    const res = await send({ email: "wa-error@example.com" });
+    state.status = 200;
+    expect(res.status).toBe(303);
+    expect(calls).toHaveLength(1);
+    expect(mail.subjects("wa-error@example.com")).toEqual([
+      "Estás inscrito: Charla abierta",
+    ]);
+  });
+
+  test("the mock id logs the message and calls nothing", async () => {
+    calls.length = 0;
+    const logs: string[] = [];
+    const log = console.log;
+    console.log = (line: string) => logs.push(line);
+    try {
+      const res = await cloud.request(
+        "/charla",
+        { method: "POST", body: form({ email: "wa-mock@example.com" }) },
+        { ...env, WHATSAPP_PHONE_NUMBER_ID: "mock" },
+      );
+      expect(res.status).toBe(303);
+    } finally {
+      console.log = log;
+    }
+    expect(calls).toHaveLength(0);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toStartWith("whatsapp mock: up_inscrito to +51…321\n");
+    expect(logs[0]).toContain("Hola, Ana. Tu cupo en Charla abierta");
+  });
+
+  test("the settings say which mode runs", async () => {
+    const cookie = await adminCookie(DB, now);
+    const settings = async (vars: Partial<Env>) =>
+      (
+        await app.request(
+          "/admin/ajustes",
+          { headers: { cookie } },
+          { ...env, ...vars },
+        )
+      ).text();
+    expect(await settings({})).toContain("Desactivado.");
+    expect(await settings({ WHATSAPP_PHONE_NUMBER_ID: "mock" })).toContain(
+      "Simulado.",
+    );
+    expect(await settings(live())).toContain("Conectado.");
   });
 });

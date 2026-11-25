@@ -1,4 +1,5 @@
 import type { Admin } from "../../worker/auth";
+import type { WhatsAppMode } from "../../worker/whatsapp";
 
 export type NewInvite = { name: string; url: string };
 
@@ -57,6 +58,29 @@ function GoogleSection({ google }: { google: GooglePanel }) {
             </a>
           </div>
         )}
+      </div>
+    </section>
+  );
+}
+
+const whatsappStatus = {
+  live: "Conectado. Cada inscrito recibe su entrada y el recordatorio por WhatsApp.",
+  mock: "Simulado. Los mensajes quedan en el registro del sitio y no llegan a nadie.",
+  off: "Desactivado. Los avisos salen solo por correo.",
+} as const;
+
+function WhatsAppSection({ mode }: { mode: WhatsAppMode }) {
+  return (
+    <section class="settings-section" aria-labelledby="whatsapp-title">
+      <div class="settings-label">
+        <h2 id="whatsapp-title">Avisos por WhatsApp</h2>
+        <p class="hint">
+          La confirmación, el cupo liberado y el recordatorio salen también al
+          número que dejó cada inscrito.
+        </p>
+      </div>
+      <div class="manage-card">
+        <p>{whatsappStatus[mode]}</p>
       </div>
     </section>
   );
@@ -131,6 +155,7 @@ function AdminsSection(props: {
 export function Settings(props: {
   admins: Admin[];
   google?: GooglePanel;
+  whatsapp: WhatsAppMode;
   invite?: NewInvite;
   inviteError?: string;
 }) {
@@ -140,6 +165,7 @@ export function Settings(props: {
         <h1>Ajustes</h1>
       </div>
       {props.google && <GoogleSection google={props.google} />}
+      <WhatsAppSection mode={props.whatsapp} />
       <AdminsSection
         admins={props.admins}
         invite={props.invite}

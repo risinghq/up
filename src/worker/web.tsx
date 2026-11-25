@@ -9,6 +9,7 @@ import {
 } from "../pages/Layout";
 import { NotFound } from "../pages/NotFound";
 import type { Admin } from "./auth";
+import type { WhatsAppEnv } from "./whatsapp";
 
 export type Env = {
   DB: D1Database;
@@ -27,7 +28,7 @@ export type Env = {
   TURNSTILE_SECRET_KEY?: string;
   /** Cloudflare Email Service. Without it, as in tests, no email is sent. */
   EMAIL?: SendEmail;
-};
+} & WhatsAppEnv;
 
 export type AppEnv = {
   Bindings: Env;

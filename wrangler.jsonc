@@ -24,6 +24,7 @@
     "WHATSAPP_COMMUNITY_URL": "",
     "INSTAGRAM_URL": "https://instagram.com/risinghq",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAGSVoPjX6crBh9YA",
+    "WHATSAPP_PHONE_NUMBER_ID": "mock",
   },
   "observability": { "enabled": true },
 }
