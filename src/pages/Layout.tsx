@@ -37,15 +37,18 @@ const neutralBg = { light: "#f2f2f2", dark: "#141414" };
  */
 const schemeScript = `(function(){var s;try{s=localStorage.getItem("theme")}catch(e){}var d=s?s==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d);if(s)document.querySelectorAll("meta[name=theme-color]").forEach(function(m){m.media=m.dataset.scheme===s?"all":"not all"})})()`;
 
-/** Switches the scheme; src/client/scheme.ts shows it and wires it. */
-const SchemeToggle = () => (
+/** Switches the scheme; src/client/scheme.ts shows it and wires it. The
+    labeled form is a full-width row in the admin's phone menu. */
+const SchemeToggle = ({ labeled = false }: { labeled?: boolean }) => (
   <button
-    class="theme-toggle"
+    class={labeled ? "theme-toggle theme-toggle-row" : "theme-toggle"}
     type="button"
-    aria-label="Modo oscuro"
-    aria-pressed="false"
+    aria-label={labeled ? undefined : "Modo oscuro"}
+    aria-pressed={labeled ? undefined : "false"}
     hidden
   >
+    {labeled && <span class="label-dark">Modo oscuro</span>}
+    {labeled && <span class="label-light">Modo claro</span>}
     <svg
       class="icon-moon"
       viewBox="0 0 24 24"
@@ -124,9 +127,44 @@ function SiteHeader(props: {
   );
 }
 
+const current = (shell: AdminShell, section: AdminShell["section"]) =>
+  shell.section === section ? ("page" as const) : undefined;
+
+/** The phone's admin menu: what the wide header shows inline. A <details>
+    opens it without script. */
+function AdminMenu({ shell }: { shell: AdminShell }) {
+  return (
+    <details class="admin-menu">
+      <summary aria-label="Menú">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          aria-hidden="true"
+        >
+          <path d="M4 7h16M4 12h16M4 17h16" />
+        </svg>
+      </summary>
+      <nav aria-label="Admin">
+        <a href="/admin" aria-current={current(shell, "eventos")}>
+          Eventos
+        </a>
+        <a href="/admin/ajustes" aria-current={current(shell, "ajustes")}>
+          Ajustes
+        </a>
+        <a href="/">Ver sitio</a>
+        <SchemeToggle labeled />
+        <form method="post" action="/admin/salir">
+          <button type="submit">Salir ({shell.name})</button>
+        </form>
+      </nav>
+    </details>
+  );
+}
+
 function AdminHeader({ shell }: { shell: AdminShell }) {
-  const current = (section: AdminShell["section"]) =>
-    shell.section === section ? ("page" as const) : undefined;
   return (
     <header class="site-nav sticky admin-nav">
       <a
@@ -140,28 +178,35 @@ function AdminHeader({ shell }: { shell: AdminShell }) {
       {shell.name ? (
         <>
           <nav class="admin-sections" aria-label="Admin">
-            <a href="/admin" aria-current={current("eventos")}>
+            <a href="/admin" aria-current={current(shell, "eventos")}>
               Eventos
             </a>
-            <a href="/admin/ajustes" aria-current={current("ajustes")}>
+            <a href="/admin/ajustes" aria-current={current(shell, "ajustes")}>
               Ajustes
             </a>
           </nav>
           <div class="site-links">
-            <a href="/">Ver sitio</a>
+            <a class="admin-wide" href="/">
+              Ver sitio
+            </a>
             <SchemeToggle />
             <a
               class="button button-light button-small button-round"
               href="/admin/eventos/nuevo"
             >
-              Crear evento
+              Crear<span class="admin-wide"> evento</span>
             </a>
-            <form method="post" action="/admin/salir" class="admin-who">
+            <form
+              method="post"
+              action="/admin/salir"
+              class="admin-who admin-wide"
+            >
               <span>{shell.name}</span>
               <button class="link-button" type="submit">
                 Salir
               </button>
             </form>
+            <AdminMenu shell={shell} />
           </div>
         </>
       ) : (

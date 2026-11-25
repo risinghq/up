@@ -121,7 +121,7 @@ export function PlaceRow({ event }: { event: EventMeta }) {
 export function Cover({ event }: { event: EventMeta }) {
   const cover = coverUrl(event);
   return (
-    <div class="cover">
+    <div class="cover" style={{ viewTransitionName: `cover-${event.slug}` }}>
       {cover && (
         <div class="cover-under" aria-hidden="true">
           <img src={cover} alt="" width={1080} height={1080} />
