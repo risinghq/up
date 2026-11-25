@@ -5,9 +5,11 @@ import { EventPage, type EventView } from "../pages/Event";
 import { Home, type Tab } from "../pages/Home";
 import { Privacy } from "../pages/Privacy";
 import { TicketPage } from "../pages/Ticket";
+import { Voy } from "../pages/Voy";
 import { adminRoutes, SESSION_COOKIE } from "./admin";
 import { sessionAdmin } from "./auth";
 import { googleCalendarUrl, ics } from "./calendar";
+import { renderCard, type CardAssets } from "./card";
 import { coverUrl, findEvent, listEvents, type EventMeta } from "./events";
 import { parseRegistration, type FormState } from "./form";
 import type { Fetch } from "./google";
@@ -15,9 +17,11 @@ import { mailTickets } from "./mail";
 import {
   cancel,
   claimResend,
+  findShare,
   findTicket,
   goingCount,
   register,
+  shareTicket,
 } from "./registrations";
 import {
   after,
@@ -35,6 +39,8 @@ export type AppOptions = {
   now?: () => Date;
   /** Carries the calls to Google. */
   fetch?: Fetch;
+  /** Draws the share card; without it the card's URL answers 404. */
+  card?: CardAssets;
 };
 
 const emptyForm: FormState = { values: {}, errors: {} };
@@ -191,8 +197,19 @@ export function createApp(options: AppOptions = {}) {
             : undefined
         }
         door={Boolean(c.get("admin"))}
+        shareUrl={
+          ticket.shareId ? `${eventUrl}/voy/${ticket.shareId}` : undefined
+        }
       />,
     );
+  });
+
+  app.post("/entrada/:token/compartir", async (c) => {
+    const token = c.req.param("token");
+    const ticket = await findTicket(c.env.DB, token);
+    if (!ticket) return notFound(c, "ticket");
+    await shareTicket(c.env.DB, token);
+    return c.redirect(`/entrada/${token}#compartir`, 303);
   });
 
   app.post("/entrada/:token/cancelar", async (c) => {
@@ -205,6 +222,54 @@ export function createApp(options: AppOptions = {}) {
       await after(c, mailTickets(c.env, "promoted", event, seated));
     }
     return c.redirect(`/entrada/${token}`, 303);
+  });
+
+  /** A share link's event, when the link is live and the event visible. */
+  const sharedEvent = async (c: Ctx, slug: string, shareId: string) => {
+    const share = await findShare(c.env.DB, shareId);
+    const event = share?.eventSlug === slug && (await visibleEvent(c, slug));
+    return share && event ? { share, event } : null;
+  };
+
+  app.get("/:slug/voy/:file{[A-Za-z0-9_-]+\\.png}", async (c) => {
+    const shareId = c.req.param("file").slice(0, -".png".length);
+    const found = await sharedEvent(c, c.req.param("slug"), shareId);
+    if (!found || !options.card) return notFound(c);
+    const png = await renderCard(
+      options.card,
+      found.share.firstName,
+      found.event,
+      ended(found.event),
+    );
+    return c.body(new Uint8Array(png), 200, {
+      "Content-Type": "image/png",
+      // The title or date may change, so a crawler refetches within the hour.
+      "Cache-Control": "public, max-age=3600",
+    });
+  });
+
+  app.get("/:slug/voy/:shareId", async (c) => {
+    const found = await sharedEvent(
+      c,
+      c.req.param("slug"),
+      c.req.param("shareId"),
+    );
+    if (!found) return notFound(c);
+    const { share, event } = found;
+    const url = `${site(c)}/${event.slug}/voy/${c.req.param("shareId")}`;
+    const verb = ended(event) ? "fue a" : "va a";
+    return page(
+      c,
+      {
+        title: `${share.firstName} ${verb} ${event.title}`,
+        description: event.summary,
+        url,
+        image: options.card && `${url}.png`,
+        noindex: true,
+        theme: event.theme,
+      },
+      <Voy firstName={share.firstName} event={event} ended={ended(event)} />,
+    );
   });
 
   app.get("/:slug/calendario.ics", async (c) => {

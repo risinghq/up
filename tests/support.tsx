@@ -3,6 +3,7 @@ import { Miniflare } from "miniflare";
 import { createSession } from "../src/worker/auth";
 import { saveEvent, type EventMeta } from "../src/worker/events";
 import type { Env } from "../src/worker/app";
+import type { CardAssets } from "../src/worker/card";
 
 // Every D1 call crosses into Miniflare's worker process, so a test of a few
 // dozen requests outgrows bun's 5 s default on a loaded host. Bun resets the
@@ -60,6 +61,28 @@ function bunReadable(bucket: R2Bucket): R2Bucket {
       };
     },
   });
+}
+
+const packageFile = (specifier: string) =>
+  readFileSync(new URL(import.meta.resolve(specifier)));
+
+/**
+ * The share card's assets read from node_modules, as the Worker build
+ * bundles them in src/worker/cardAssets.ts.
+ */
+export function cardAssets(): CardAssets {
+  const font = (weight: number) =>
+    readFileSync(
+      new URL(`../src/worker/fonts/geist-${weight}.woff`, import.meta.url),
+    ).buffer as ArrayBuffer;
+  return {
+    layout: new WebAssembly.Module(packageFile("satori/yoga.wasm")),
+    resvg: new WebAssembly.Module(
+      packageFile("@resvg/resvg-wasm/index_bg.wasm"),
+    ),
+    geist400: font(400),
+    geist600: font(600),
+  };
 }
 
 /** An EMAIL binding that keeps what it is asked to send. */

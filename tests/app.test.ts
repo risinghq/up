@@ -10,6 +10,7 @@ import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
 import {
   adminCookie,
+  cardAssets,
   event,
   form,
   HOST_TIMEOUT,
@@ -46,7 +47,7 @@ const events = [
   event({ slug: "borrador", title: "Evento en borrador", status: "draft" }),
 ];
 
-const app = createApp({ now: () => now });
+const app = createApp({ now: () => now, card: cardAssets() });
 
 let mf: Miniflare;
 let DB: D1Database;
@@ -318,6 +319,63 @@ describe("capacity and cancellation", () => {
     const res = await get("/entrada/AAAAAAAAAAAAAAAAAAAAAA");
     expect(res.status).toBe(404);
     expect(await res.text()).toContain("No encontramos esa entrada");
+  });
+});
+
+describe("share link", () => {
+  /** Shares the ticket and returns the public link's path. */
+  async function share(token: string) {
+    const res = await post(`/entrada/${token}/compartir`, new FormData());
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe(`/entrada/${token}#compartir`);
+    const html = await (await get(`/entrada/${token}`)).text();
+    const url = html.match(/https:\/\/up\.test(\/charla\/voy\/[\w-]{22})/);
+    expect(url).not.toBeNull();
+    return url?.[1] ?? "";
+  }
+
+  test("a ticket offers the share button until it has a link", async () => {
+    const token = await registerAs("charla", { email: "sofia@example.com" });
+    const before = await (await get(`/entrada/${token}`)).text();
+    expect(before).toContain("Compartir que voy");
+    const path = await share(token);
+    expect(await share(token)).toBe(path);
+  });
+
+  test("the public page names the first name only, and draws the card", async () => {
+    const token = await registerAs("charla", {
+      email: "rosa@example.com",
+      name: "Rosa María Huamán",
+    });
+    const path = await share(token);
+
+    const res = await get(path);
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain("Rosa va a");
+    expect(html).not.toContain("Huamán");
+    expect(html).not.toContain(token);
+    expect(html).toContain(
+      `<meta property="og:image" content="https://up.test${path}.png"/>`,
+    );
+
+    const png = await get(`${path}.png`);
+    expect(png.status).toBe(200);
+    expect(png.headers.get("content-type")).toBe("image/png");
+    const bytes = new Uint8Array(await png.arrayBuffer());
+    // The PNG signature, then a 1200×630 IHDR.
+    expect(bytes.slice(1, 4)).toEqual(new Uint8Array([0x50, 0x4e, 0x47]));
+    const ihdr = new DataView(bytes.buffer, 16, 8);
+    expect([ihdr.getUint32(0), ihdr.getUint32(4)]).toEqual([1200, 630]);
+  });
+
+  test("cancelling kills the link, and another slug does not serve it", async () => {
+    const token = await registerAs("charla", { email: "pedro@example.com" });
+    const path = await share(token);
+    expect((await get(path.replace("/charla/", "/taller/"))).status).toBe(404);
+    await post(`/entrada/${token}/cancelar`, new FormData());
+    expect((await get(path)).status).toBe(404);
+    expect((await get(`${path}.png`)).status).toBe(404);
   });
 });
 

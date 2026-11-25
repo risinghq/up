@@ -42,6 +42,22 @@ server by `renderSVG` from `uqr`. An admin who opens the URL gets the door
 panel. Its form posts to `/admin/entrada/<token>/ingreso`, under the admin
 guard, and `checkIn` sets `checked_in_at` once.
 
+`POST /entrada/<token>/compartir` calls `shareTicket`, which gives the
+registration a random `share_id` apart from its token. `GET /<slug>/voy/<id>`
+looks it up with `findShare` and renders
+[`src/pages/Voy.tsx`](../src/pages/Voy.tsx) with the holder's first name only.
+Its `og:image` is `GET /<slug>/voy/<id>.png`, which `renderCard` in
+[`src/worker/card.tsx`](../src/worker/card.tsx) draws: satori lays the card out
+as SVG and resvg turns it into a PNG. Cancelling or registering again clears
+`share_id`, so the old link answers 404.
+
+satori is pinned to 0.32.0. Later releases bundle a HarfBuzz module that reads
+`self.location` and compiles WebAssembly at run time, and workerd allows
+neither. 0.32.0 measures text without kerning but draws it with kerning, so the
+card draws with Geist fonts that
+[`scripts/card-fonts.sh`](../scripts/card-fonts.sh) writes with the kerning
+tables removed.
+
 The Worker's `scheduled` handler in
 [`src/worker/index.tsx`](../src/worker/index.tsx) runs every hour.
 `sendReminders` in [`src/worker/reminders.ts`](../src/worker/reminders.ts)
@@ -92,17 +108,17 @@ routes store the entry's id, its link and the Meet link on the event row;
 D1 holds everything but the covers; [`migrations/`](../migrations/) holds the
 schema.
 
-| Table            | Row                                                                                                |
-| ---------------- | -------------------------------------------------------------------------------------------------- |
-| `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.    |
-| `people`         | One email, with the latest name and phone, and the consent dates.                                  |
-| `registrations`  | One person at one event: the ticket token as `id`, the number, the status and the answers as JSON. |
-| `admins`         | One admin's name.                                                                                  |
-| `credentials`    | One passkey of one admin.                                                                          |
-| `invites`        | One admin invite, by token hash, until it is used or expires.                                      |
-| `sessions`       | One signed-in browser, by token hash.                                                              |
-| `challenges`     | One WebAuthn challenge between its options request and its verification.                           |
-| `google_account` | The one connected Google account: its email and refresh token.                                     |
+| Table            | Row                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.                                 |
+| `people`         | One email, with the latest name and phone, and the consent dates.                                                               |
+| `registrations`  | One person at one event: the ticket token as `id`, the number, the status, the answers as JSON and the share link's `share_id`. |
+| `admins`         | One admin's name.                                                                                                               |
+| `credentials`    | One passkey of one admin.                                                                                                       |
+| `invites`        | One admin invite, by token hash, until it is used or expires.                                                                   |
+| `sessions`       | One signed-in browser, by token hash.                                                                                           |
+| `challenges`     | One WebAuthn challenge between its options request and its verification.                                                        |
+| `google_account` | The one connected Google account: its email and refresh token.                                                                  |
 
 The ticket token is the registrant's only key. Anyone with the link can see and
 cancel the ticket, and registrants have no accounts. Invite and session tokens
@@ -130,6 +146,10 @@ are stored as their SHA-256 only.
 | [`src/worker/calendar.ts`](../src/worker/calendar.ts)           | Google Calendar links and `.ics` files.                                     |
 | [`src/worker/geo.ts`](../src/worker/geo.ts)                     | Venue points from coordinates and map links.                                |
 | [`src/worker/time.ts`](../src/worker/time.ts)                   | Dates in Lima time, es-PE.                                                  |
+| [`src/worker/card.tsx`](../src/worker/card.tsx)                 | The share card and its PNG rendering.                                       |
+| [`src/worker/cardAssets.ts`](../src/worker/cardAssets.ts)       | The card's WebAssembly modules and fonts, bundled into the Worker.          |
+| [`src/worker/fonts/`](../src/worker/fonts/)                     | The card's Geist fonts without kerning.                                     |
+| [`scripts/card-fonts.sh`](../scripts/card-fonts.sh)             | Writes those fonts from `@fontsource/geist`.                                |
 | [`src/pages/`](../src/pages/)                                   | The page components; [`admin/`](../src/pages/admin/) holds the admin pages. |
 | [`src/client/`](../src/client/)                                 | The stylesheets and the client scripts.                                     |
 | [`scripts/admin-invite.ts`](../scripts/admin-invite.ts)         | The first-admin invite.                                                     |
