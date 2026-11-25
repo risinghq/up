@@ -1645,11 +1645,22 @@ main > .spotlight:first-child {
   list-style: none;
 }
 
-.host {
+.host,
+.host-link {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   font-weight: var(--font-weight-medium);
+}
+
+.host-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.host-link:hover .host-name {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
 .avatar {

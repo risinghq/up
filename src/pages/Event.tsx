@@ -7,8 +7,12 @@ import { ArrowIcon, Cover, DateRow, PlaceRow, VenueCard } from "./EventCard";
 /** Why the register card shows what it shows. */
 export type Notice = "exists" | null;
 
+/** A host as the page shows it: the name, linked to a public profile. */
+export type HostLink = { name: string; url?: string };
+
 export type EventView = {
   event: EventMeta;
+  hosts: HostLink[];
   going: number;
   ended: boolean;
   form: FormState;
@@ -364,20 +368,33 @@ function RegisterForm({
 }
 
 /** Hosts and the event's kind: the left column on desktop, last on mobile. */
-function Sidebar({ event, only }: { event: EventMeta; only: string }) {
-  const kind = kindTag(event);
+function Sidebar(props: { event: EventMeta; hosts: HostLink[]; only: string }) {
+  const kind = kindTag(props.event);
   return (
-    <div class={`sidebar ${only}`}>
-      <Card label="Organizan" id={`hosts-${only}`}>
+    <div class={`sidebar ${props.only}`}>
+      <Card label="Organizan" id={`hosts-${props.only}`}>
         <ul class="hosts">
-          {event.hosts.map((host) => (
-            <li key={host} class="host">
-              <span class="avatar" aria-hidden="true">
-                {host.slice(0, 1)}
-              </span>
-              {host}
-            </li>
-          ))}
+          {props.hosts.map((host) => {
+            const body = (
+              <>
+                <span class="avatar" aria-hidden="true">
+                  {host.name.slice(0, 1)}
+                </span>
+                <span class="host-name">{host.name}</span>
+              </>
+            );
+            return (
+              <li key={host.name} class="host">
+                {host.url ? (
+                  <a class="host-link" href={host.url}>
+                    {body}
+                  </a>
+                ) : (
+                  body
+                )}
+              </li>
+            );
+          })}
         </ul>
       </Card>
       {kind && (
@@ -399,7 +416,7 @@ export function EventPage(view: EventView) {
       <div class="event-content">
         <div class="event-left">
           <Cover event={meta} />
-          <Sidebar event={meta} only="desktop-only" />
+          <Sidebar event={meta} hosts={view.hosts} only="desktop-only" />
         </div>
         <div class="event-right">
           <header class="top">
@@ -449,7 +466,7 @@ export function EventPage(view: EventView) {
 
           <VenueCard event={meta} />
 
-          <Sidebar event={meta} only="mobile-only" />
+          <Sidebar event={meta} hosts={view.hosts} only="mobile-only" />
         </div>
       </div>
     </article>

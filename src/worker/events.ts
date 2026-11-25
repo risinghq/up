@@ -53,6 +53,9 @@ export type CalendarLink = {
   meetUrl?: string;
 };
 
+/** The email ties the event to the host's profile; pages never show it. */
+export type Host = { name: string; email?: string };
+
 export type EventMeta = {
   slug: string;
   title: string;
@@ -64,7 +67,7 @@ export type EventMeta = {
   start: string;
   end: string;
   place: Place;
-  hosts: string[];
+  hosts: Host[];
   /** Registrations past this go to the waitlist. Absent means no limit. */
   capacity?: number;
   /** An R2 key under MEDIA, served at /media/<key>. */

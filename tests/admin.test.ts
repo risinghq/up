@@ -150,7 +150,7 @@ describe("events", () => {
     const saved = await findEvent(DB, "taller-qiskit");
     expect(saved).toMatchObject({
       start: "2027-01-16T10:00:00-05:00",
-      hosts: ["David", "Pedro"],
+      hosts: [{ name: "David" }, { name: "Pedro" }],
       capacity: 30,
       questions: [
         { id: "carrera", label: "Carrera", required: true },
@@ -204,6 +204,32 @@ describe("events", () => {
     );
     expect(res.status).toBe(409);
     expect(await res.text()).toContain("Ya hay un evento con esta dirección.");
+  });
+
+  test("a host's email is kept apart from the name", async () => {
+    const res = await post(
+      "/admin/eventos/vacio/editar",
+      eventForm({ slug: "vacio", hosts: "Ana Quispe <Ana@Correo.com>, Pedro" }),
+    );
+    expect(res.status).toBe(303);
+    expect((await findEvent(DB, "vacio"))?.hosts).toEqual([
+      { name: "Ana Quispe", email: "ana@correo.com" },
+      { name: "Pedro" },
+    ]);
+
+    const editor = await (await get("/admin/eventos/vacio/editar")).text();
+    expect(editor).toContain('value="Ana Quispe &lt;ana@correo.com>, Pedro"');
+  });
+
+  test("a host with a broken email is refused", async () => {
+    const res = await post(
+      "/admin/eventos/vacio/editar",
+      eventForm({ slug: "vacio", hosts: "Ana <ana@>" }),
+    );
+    expect(res.status).toBe(422);
+    expect(await res.text()).toContain(
+      "Escribe cada correo así: Ana Quispe &lt;ana@correo.com>.",
+    );
   });
 
   test("renames an event without registrations and replaces its cover", async () => {

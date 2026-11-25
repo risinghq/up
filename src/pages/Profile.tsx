@@ -26,15 +26,18 @@ function Badge({ event }: { event: EventMeta }) {
 
 /**
  * A person's public page, after Luma's profile: a header with an initial,
- * the name, since when and how many events, then the badges, newest first.
+ * the name, since when and how many events, then the events they host and
+ * the badges, newest first.
  */
 export function ProfilePage(props: {
   firstName: string;
   since: string;
   events: EventMeta[];
+  hosted: EventMeta[];
 }) {
   const count = props.events.length;
-  const latest = props.events[0];
+  const hosted = props.hosted.length;
+  const latest = props.hosted[0] ?? props.events[0];
 
   return (
     <article class="profile">
@@ -53,9 +56,27 @@ export function ProfilePage(props: {
           </p>
           <p class="profile-count">
             <strong>{count}</strong> {count === 1 ? "evento" : "eventos"}
+            {hosted > 0 && (
+              <>
+                {" · "}
+                <strong>{hosted}</strong>{" "}
+                {hosted === 1 ? "organizado" : "organizados"}
+              </>
+            )}
           </p>
         </div>
       </header>
+
+      {hosted > 0 && (
+        <section class="profile-badges" aria-labelledby="organiza">
+          <h2 id="organiza">Organiza</h2>
+          <ul class="badges">
+            {props.hosted.map((event) => (
+              <Badge event={event} key={event.slug} />
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section class="profile-badges" aria-labelledby="insignias">
         <h2 id="insignias">Insignias</h2>

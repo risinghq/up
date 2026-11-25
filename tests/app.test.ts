@@ -47,6 +47,16 @@ const events = [
     recordingUrl: "https://youtu.be/test",
   }),
   event({ slug: "borrador", title: "Evento en borrador", status: "draft" }),
+  event({
+    slug: "organizado",
+    title: "Meetup organizado",
+    start: "2026-11-08T15:00:00-05:00",
+    end: "2026-11-08T19:00:00-05:00",
+    hosts: [
+      { name: "Ana Quispe", email: "ana@example.com" },
+      { name: "Pedro" },
+    ],
+  }),
 ];
 
 const app = createApp({ now: () => now, card: cardAssets() });
@@ -444,6 +454,28 @@ describe("profile", () => {
     expect(await (await get(`/entrada/${token}`)).text()).toContain(
       "Crear mi perfil",
     );
+  });
+
+  test("a host opens a profile before any check-in; the event links to it", async () => {
+    const token = await registerAs("charla", {
+      email: "ana@example.com",
+      name: "Ana Quispe",
+    });
+    expect(await (await get(`/entrada/${token}`)).text()).toContain(
+      "los eventos que organizas",
+    );
+
+    const path = await openProfile(token);
+    const html = await (await get(path)).text();
+    expect(html).toContain("<strong>1</strong> organizado");
+    expect(html).toContain('<h2 id="organiza">Organiza</h2>');
+    expect(html).toContain('href="/organizado"');
+    expect(html).not.toContain("ana@example.com");
+
+    const page = await (await get("/organizado")).text();
+    expect(page).toContain(`<a class="host-link" href="${path}">`);
+    expect(page).not.toContain("ana@example.com");
+    expect(page.match(/class="host-link"/g)).toHaveLength(2);
   });
 });
 

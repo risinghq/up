@@ -24,7 +24,9 @@ import {
   findShare,
   findTicket,
   goingCount,
+  hostedSlugs,
   openProfile,
+  profilesByEmail,
   register,
   shareTicket,
 } from "./registrations";
@@ -89,10 +91,18 @@ export function createApp(options: AppOptions = {}) {
     status = 200,
   ) => {
     const going = await goingCount(c.env.DB, event.slug);
+    const profiles = await profilesByEmail(
+      c.env.DB,
+      event.hosts.flatMap((h) => (h.email ? [h.email] : [])),
+    );
     const url = `${site(c)}/${event.slug}`;
     const cover = coverUrl(event);
     const view: EventView = {
       event,
+      hosts: event.hosts.map((h) => {
+        const profileId = h.email && profiles.get(h.email);
+        return { name: h.name, ...(profileId && { url: `/p/${profileId}` }) };
+      }),
       going,
       ended: ended(event),
       form,
@@ -220,6 +230,7 @@ export function createApp(options: AppOptions = {}) {
         profileUrl={
           ticket.profileId ? `${site(c)}/p/${ticket.profileId}` : undefined
         }
+        hosts={(await hostedSlugs(c.env.DB, ticket.email)).length > 0}
       />,
     );
   });
@@ -243,23 +254,29 @@ export function createApp(options: AppOptions = {}) {
   app.get("/p/:profileId", async (c) => {
     const profile = await findProfile(c.env.DB, c.req.param("profileId"));
     if (!profile) return notFound(c);
-    const attended = new Set(profile.attended);
-    const events = (await listEvents(c.env.DB))
-      .filter((e) => attended.has(e.slug))
-      .sort((a, b) => b.start.localeCompare(a.start));
+    const newest = (await listEvents(c.env.DB)).sort((a, b) =>
+      b.start.localeCompare(a.start),
+    );
+    const among = (slugs: string[]) =>
+      newest.filter((e) => slugs.includes(e.slug));
+    const hosted = among(profile.hosted);
+
     c.header("Cache-Control", "no-store");
     return page(
       c,
       {
         title: `${profile.firstName} en up.rising.sh`,
-        description: `Los eventos a los que fue ${profile.firstName}.`,
+        description: hosted.length
+          ? `Los eventos que organiza ${profile.firstName} y a los que fue.`
+          : `Los eventos a los que fue ${profile.firstName}.`,
         url: `${site(c)}/p/${c.req.param("profileId")}`,
         noindex: true,
       },
       <ProfilePage
         firstName={profile.firstName}
         since={profile.since}
-        events={events}
+        events={among(profile.attended)}
+        hosted={hosted}
       />,
     );
   });

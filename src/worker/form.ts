@@ -18,7 +18,7 @@ export type Parsed =
   | ({ ok: true; value: Registration } & FormState)
   | ({ ok: false } & FormState);
 
-const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+export const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Turns what a person typed into E.164. A bare nine-digit number starting
