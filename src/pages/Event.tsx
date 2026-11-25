@@ -1,13 +1,8 @@
 import { micromark } from "micromark";
 import type { ComponentChildren } from "preact";
-import {
-  kindTag,
-  mapLink,
-  type EventMeta,
-  type Question,
-} from "../worker/events";
+import { kindTag, type EventMeta, type Question } from "../worker/events";
 import type { FormState } from "../worker/form";
-import { ArrowIcon, Cover, DateRow, PlaceRow } from "./EventCard";
+import { ArrowIcon, Cover, DateRow, PlaceRow, VenueCard } from "./EventCard";
 
 /** Why the register card shows what it shows. */
 export type Notice = "exists" | null;
@@ -399,7 +394,6 @@ function Sidebar({ event, only }: { event: EventMeta; only: string }) {
 
 export function EventPage(view: EventView) {
   const meta = view.event;
-  const place = meta.place;
   return (
     <article class="event">
       <div class="event-content">
@@ -453,34 +447,7 @@ export function EventPage(view: EventView) {
             </Card>
           )}
 
-          {place.kind === "venue" && (
-            <Card label="Lugar" id="place-title">
-              <p class="place">{place.name}</p>
-              <p class="street">{place.address}</p>
-              {place.point ? (
-                <div
-                  class="venue-map"
-                  data-lat={place.point.lat}
-                  data-lng={place.point.lng}
-                >
-                  <a
-                    class="venue-map-link"
-                    href={mapLink(place)}
-                    rel="noopener"
-                    aria-label="Ver en el mapa"
-                  />
-                </div>
-              ) : (
-                place.mapUrl && (
-                  <p class="place-map">
-                    <a href={place.mapUrl} rel="noopener">
-                      Ver en el mapa
-                    </a>
-                  </p>
-                )
-              )}
-            </Card>
-          )}
+          <VenueCard event={meta} />
 
           <Sidebar event={meta} only="mobile-only" />
         </div>
