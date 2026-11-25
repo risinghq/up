@@ -1244,6 +1244,7 @@ main > .spotlight:first-child {
 .date-tile-month {
   padding: 2px 0;
   background-color: var(--opacity-8);
+  color: var(--secondary-color-alpha);
   font-size: 0.5rem;
   font-weight: var(--font-weight-bold);
   line-height: 1;
