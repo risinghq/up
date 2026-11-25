@@ -340,6 +340,95 @@ describe("registrants", () => {
   });
 });
 
+describe("check-in", () => {
+  beforeAll(() => seed(DB, [event({ slug: "puerta" })]));
+
+  /** Registers `email` for the door's event and returns the ticket's token. */
+  const register = async (email: string) => {
+    const res = await app.request(
+      "/puerta",
+      { method: "POST", body: form({ email }) },
+      env,
+    );
+    return (res.headers.get("location") ?? "").match(
+      /\/entrada\/([\w-]+)/,
+    )?.[1] as string;
+  };
+  const volver = (to = "") => {
+    const data = new FormData();
+    if (to) data.set("volver", to);
+    return data;
+  };
+
+  test("a visitor sees the QR; an admin sees the door", async () => {
+    const token = await register("puerta@example.com");
+    const visitor = await (await get(`/entrada/${token}`, {})).text();
+    expect(visitor).toContain("<svg");
+    expect(visitor).toContain("Muestra este código en la entrada");
+    expect(visitor).not.toContain("Registrar ingreso");
+
+    const door = await (await get(`/entrada/${token}`)).text();
+    expect(door).toContain(`action="/admin/entrada/${token}/ingreso"`);
+    expect(door).toContain("Tiene cupo");
+  });
+
+  test("only an admin checks a ticket in", async () => {
+    const token = await register("intruso@example.com");
+    const refused = await post(`/admin/entrada/${token}/ingreso`, volver(), {
+      origin: ORIGIN,
+    });
+    expect(refused.status).toBe(403);
+    const html = await (await get(`/entrada/${token}`, {})).text();
+    expect(html).not.toContain("Ingresaste");
+  });
+
+  test("a check-in shows on the ticket and keeps the seat", async () => {
+    const token = await register("llego@example.com");
+    const res = await post(`/admin/entrada/${token}/ingreso`, volver());
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toBe(`/entrada/${token}`);
+
+    const html = await (await get(`/entrada/${token}`, {})).text();
+    expect(html).toContain("Ingresaste a las 12:00 p.");
+    expect(html).not.toContain("Muestra este código");
+    expect(html).not.toContain("/cancelar");
+
+    // A late cancel does not erase the attendance.
+    await post(`/entrada/${token}/cancelar`, new FormData(), {});
+    expect(await (await get(`/entrada/${token}`, {})).text()).toContain(
+      "Tienes un cupo",
+    );
+  });
+
+  test("the list checks a ticket in and counts it", async () => {
+    const token = await register("lista@example.com");
+    const res = await post(
+      `/admin/entrada/${token}/ingreso`,
+      volver("inscritos"),
+    );
+    expect(res.headers.get("location")).toMatch(
+      /^\/admin\/eventos\/puerta\/inscritos#n\d+$/,
+    );
+    const html = await (await get("/admin/eventos/puerta/inscritos")).text();
+    expect(html).toMatch(/[1-9]\d* ingresaron/);
+    expect(html).toContain("12:00 p.");
+
+    await post(`/admin/entrada/${token}/ingreso/deshacer`, volver());
+    const after = await (await get(`/entrada/${token}`)).text();
+    expect(after).toContain(`action="/admin/entrada/${token}/ingreso"`);
+  });
+
+  test("a cancelled ticket cannot check in", async () => {
+    const token = await register("cancelo@example.com");
+    await post(`/entrada/${token}/cancelar`, new FormData(), {});
+    await post(`/admin/entrada/${token}/ingreso`, volver());
+    const html = await (await get(`/entrada/${token}`)).text();
+    expect(html).toContain("Canceló su inscripción");
+    expect(html).not.toContain("Ingresó a las");
+    expect(html).not.toContain(`action="/admin/entrada/${token}/ingreso"`);
+  });
+});
+
 describe("passkeys", () => {
   test("an invite makes an admin who then signs in", async () => {
     const page = await post("/admin/invitaciones", new FormData());

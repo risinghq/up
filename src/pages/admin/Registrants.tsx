@@ -1,6 +1,20 @@
 import type { EventMeta } from "../../worker/events";
 import type { Registrant, Status } from "../../worker/registrations";
+import { clock } from "../../worker/time";
 import { ManageFrame } from "./Manage";
+
+function CheckIn({ registrant: r }: { registrant: Registrant }) {
+  if (r.checkedInAt) return <>{clock(r.checkedInAt)}</>;
+  if (r.status === "cancelled") return null;
+  return (
+    <form method="post" action={`/admin/entrada/${r.token}/ingreso`}>
+      <input type="hidden" name="volver" value="inscritos" />
+      <button class="button button-light button-small" type="submit">
+        Registrar
+      </button>
+    </form>
+  );
+}
 
 const statusLabel: Record<Status, string> = {
   going: "Con cupo",
@@ -20,7 +34,8 @@ export function Registrants(props: {
         <p>
           {count("going")} con cupo
           {event.capacity !== undefined && ` de ${event.capacity}`} ·{" "}
-          {count("waitlist")} en espera · {count("cancelled")} cancelaron
+          {count("waitlist")} en espera · {count("cancelled")} cancelaron ·{" "}
+          {registrants.filter((r) => r.checkedInAt).length} ingresaron
         </p>
         <a
           class="button button-light button-small"
@@ -39,6 +54,7 @@ export function Registrants(props: {
                 <th scope="col">WhatsApp</th>
                 <th scope="col">Correo</th>
                 <th scope="col">Estado</th>
+                <th scope="col">Ingreso</th>
                 {event.questions.map((q) => (
                   <th key={q.id} scope="col">
                     {q.label}
@@ -49,7 +65,11 @@ export function Registrants(props: {
             </thead>
             <tbody>
               {registrants.map((r) => (
-                <tr key={r.number} class={`status-${r.status}`}>
+                <tr
+                  key={r.number}
+                  id={`n${r.number}`}
+                  class={`status-${r.status}`}
+                >
                   <td>{r.number}</td>
                   <td>{r.name}</td>
                   <td>
@@ -57,6 +77,9 @@ export function Registrants(props: {
                   </td>
                   <td class="registrant-email">{r.email}</td>
                   <td data-label="Estado">{statusLabel[r.status]}</td>
+                  <td data-label="Ingreso">
+                    <CheckIn registrant={r} />
+                  </td>
                   {event.questions.map((q) => (
                     <td key={q.id} data-label={q.label}>
                       {r.answers[q.id] ?? ""}

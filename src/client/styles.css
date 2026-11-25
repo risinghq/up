@@ -1757,6 +1757,50 @@ a:hover {
   color: var(--tertiary-color-alpha);
 }
 
+.ticket-checked {
+  color: var(--ok);
+  font-weight: var(--font-weight-medium);
+}
+
+/* The QR keeps its white ground in a dark theme: a scanner needs the
+   contrast. */
+.ticket-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+}
+
+.ticket-qr > div {
+  width: min(100%, 220px);
+  line-height: 0;
+}
+
+.ticket-qr svg {
+  width: 100%;
+  height: auto;
+  border-radius: var(--border-radius);
+}
+
+.ticket-qr figcaption {
+  color: var(--secondary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
+.door-who {
+  margin-bottom: 0.75rem;
+  font-weight: var(--font-weight-medium);
+}
+
+.door-done {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--ok);
+}
+
 .ticket-actions {
   display: flex;
   flex-direction: column;

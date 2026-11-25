@@ -778,6 +778,10 @@
   color: var(--ink-3);
 }
 
+.registrants form {
+  display: inline;
+}
+
 /* A phone shows each registrant as a stacked row: the number beside the name,
    the rest under the name, each answer after its question. */
 @media (max-width: 650px) {

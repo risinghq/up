@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
+import { renderSVG } from "uqr";
 import { EventPage, type EventView } from "../pages/Event";
 import { Home, type Tab } from "../pages/Home";
 import { Privacy } from "../pages/Privacy";
@@ -163,6 +164,7 @@ export function createApp(options: AppOptions = {}) {
     if (!ticket || !event) return notFound(c, "ticket");
     c.header("Cache-Control", "no-store");
     const eventUrl = `${site(c)}/${event.slug}`;
+    const ticketUrl = `${site(c)}/entrada/${ticket.token}`;
     return page(
       c,
       {
@@ -177,12 +179,18 @@ export function createApp(options: AppOptions = {}) {
         event={event}
         ended={ended(event)}
         fresh={c.req.query("nueva") !== undefined}
-        ticketUrl={`${site(c)}/entrada/${ticket.token}`}
+        ticketUrl={ticketUrl}
         calendarUrl={googleCalendarUrl(event, eventUrl)}
         meetUrl={
           ticket.status === "going" ? event.calendar?.meetUrl : undefined
         }
         whatsapp={c.env.WHATSAPP_COMMUNITY_URL}
+        qr={
+          event.place.kind === "venue"
+            ? renderSVG(ticketUrl, { border: 2 })
+            : undefined
+        }
+        door={Boolean(c.get("admin"))}
       />,
     );
   });
