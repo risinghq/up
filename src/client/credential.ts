@@ -353,7 +353,7 @@ export async function showCredential(box: HTMLElement) {
   let spin = 7;
 
   const resize = () => {
-    const { clientWidth: w, clientHeight: h } = box;
+    const { clientWidth: w, clientHeight: h } = canvas;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
@@ -494,6 +494,9 @@ export async function showCredential(box: HTMLElement) {
     return ray.intersectObject(card, true).length > 0;
   };
   const reach = ROPE_LENGTH + HANG;
+  // The canvas ends at the box's top, so a lifted card stops a half-diagonal
+  // below it, whatever its tilt.
+  const ceiling = top - Math.hypot(W / 2, H / 2);
   const follow = () => {
     let x = hitPoint.x + (grab?.x ?? 0);
     let y = hitPoint.y + (grab?.y ?? 0);
@@ -502,7 +505,8 @@ export async function showCredential(box: HTMLElement) {
       x = anchor.x + ((x - anchor.x) * reach) / d;
       y = anchor.y + ((y - anchor.y) * reach) / d;
     }
-    target = { x, y };
+
+    target = { x, y: Math.min(y, ceiling) };
   };
 
   canvas.addEventListener("pointerdown", (e) => {
@@ -542,7 +546,7 @@ export async function showCredential(box: HTMLElement) {
     resize();
     if (!frame) draw();
     wake();
-  }).observe(box);
+  }).observe(canvas);
 }
 
 /** The item at `i`, clamped to the list's ends. */
