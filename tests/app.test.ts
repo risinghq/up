@@ -227,6 +227,10 @@ describe("registration", () => {
     expect(html).toContain("Necesitamos tu aceptación");
     expect(html).toContain("Responde esta pregunta."); // carrera
     expect(html).toContain("Elige una de las opciones."); // nivel
+
+    // The page reloads at the top; focus takes it to the first error.
+    expect(html.match(/autofocus/g)).toHaveLength(1);
+    expect(html).toMatch(/<input id="f-email"[^>]*autofocus/);
   });
 
   test("a registration emails the ticket link", async () => {
@@ -245,6 +249,7 @@ describe("registration", () => {
     expect(res.headers.get("location")).toBeNull();
     const html = await res.text();
     expect(html).toContain("Este correo ya está inscrito");
+    expect(html).toMatch(/<p class="notice"[^>]*autofocus/);
     expect(html).not.toContain("/entrada/");
 
     // A third post inside the cooldown sends nothing more.
@@ -563,6 +568,7 @@ describe("turnstile", () => {
     expect(res.status).toBe(422);
     const html = await res.text();
     expect(html).toContain("Activa JavaScript o recarga la página.");
+    expect(html).toMatch(/<p class="error" role="alert"[^>]*autofocus/);
     expect(html).toContain('value="sinjs@example.com"');
     expect(await stored("sinjs@example.com")).toBeNull();
   });

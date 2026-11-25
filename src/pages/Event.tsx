@@ -34,6 +34,7 @@ function Field(props: {
   inputMode?: "tel" | "email" | "text";
   hint?: string;
   required?: boolean;
+  focus?: boolean;
 }) {
   const error = props.form.errors[props.name];
   const id = `f-${props.name}`;
@@ -48,6 +49,7 @@ function Field(props: {
         autoComplete={props.autocomplete}
         inputMode={props.inputMode}
         required={props.required ?? true}
+        autoFocus={props.focus}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={
           error ? `${id}-error` : props.hint ? `${id}-hint` : undefined
@@ -67,11 +69,25 @@ function Field(props: {
   );
 }
 
-function QuestionField({ q, form }: { q: Question; form: FormState }) {
+function QuestionField({
+  q,
+  form,
+  focus,
+}: {
+  q: Question;
+  form: FormState;
+  focus: boolean;
+}) {
   const name = `q_${q.id}`;
   if (!q.options)
     return (
-      <Field name={name} label={q.label} form={form} required={q.required} />
+      <Field
+        name={name}
+        label={q.label}
+        form={form}
+        required={q.required}
+        focus={focus}
+      />
     );
   const error = form.errors[name];
   const id = `f-${name}`;
@@ -82,6 +98,7 @@ function QuestionField({ q, form }: { q: Question; form: FormState }) {
         id={id}
         name={name}
         required={q.required}
+        autoFocus={focus}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={error ? `${id}-error` : undefined}
       >
@@ -106,12 +123,21 @@ function QuestionField({ q, form }: { q: Question; form: FormState }) {
 }
 
 /** The Turnstile widget's place. main.ts renders it when the form opens. */
-function HumanCheck(props: { siteKey: string; error: string | undefined }) {
+function HumanCheck(props: {
+  siteKey: string;
+  error: string | undefined;
+  focus: boolean;
+}) {
   return (
     <div class="human-check">
       <div class="turnstile" data-sitekey={props.siteKey} />
       {props.error ? (
-        <p class="error" role="alert">
+        <p
+          class="error"
+          role="alert"
+          tabIndex={props.focus ? -1 : undefined}
+          autoFocus={props.focus}
+        >
           {props.error}
         </p>
       ) : (
@@ -130,6 +156,7 @@ function Check(props: {
   name: string;
   form: FormState;
   children: ComponentChildren;
+  focus?: boolean;
 }) {
   const error = props.form.errors[props.name];
   const id = `f-${props.name}`;
@@ -140,6 +167,7 @@ function Check(props: {
         name={props.name}
         type="checkbox"
         checked={props.form.values[props.name] === "on"}
+        autoFocus={props.focus}
         aria-invalid={error ? "true" : undefined}
         aria-describedby={error ? `${id}-error` : undefined}
       />
@@ -203,6 +231,7 @@ function RegisterCard(view: EventView) {
       : null;
   const hasErrors = Object.keys(view.form.errors).length > 0;
   const action = full ? "Unirme a la lista de espera" : "Inscribirme";
+  const focus = focusTarget(view);
 
   return (
     <section class="register" aria-labelledby="register-title">
@@ -218,7 +247,12 @@ function RegisterCard(view: EventView) {
               : "¡Bienvenido! Para unirte al evento, inscríbete. Es gratis."}
         </p>
         {view.notice === "exists" && (
-          <p class="notice" role="status">
+          <p
+            class="notice"
+            role="status"
+            tabIndex={-1}
+            autoFocus={focus === "notice"}
+          >
             Este correo ya está inscrito. Te enviamos el enlace de tu entrada a
             ese correo.
           </p>
@@ -236,14 +270,42 @@ function RegisterCard(view: EventView) {
           open={hasErrors || view.notice !== null}
         >
           <summary class="button button-primary button-full">{action}</summary>
-          <RegisterForm view={view} action={action} />
+          <RegisterForm view={view} action={action} focus={focus} />
         </details>
       </div>
     </section>
   );
 }
 
-function RegisterForm({ view, action }: { view: EventView; action: string }) {
+/**
+ * What a re-rendered post focuses: the first field in error, in the form's
+ * order, or else the notice. Focus scrolls it into view; on a phone the
+ * form starts below the fold, and the page reloads at the top.
+ */
+function focusTarget(view: EventView) {
+  const order = [
+    "name",
+    "email",
+    "phone",
+    ...view.event.questions.map((q) => `q_${q.id}`),
+    "privacy",
+    "human",
+  ];
+  return (
+    order.find((name) => view.form.errors[name]) ??
+    (view.notice ? "notice" : null)
+  );
+}
+
+function RegisterForm({
+  view,
+  action,
+  focus,
+}: {
+  view: EventView;
+  action: string;
+  focus: string | null;
+}) {
   const meta = view.event;
   return (
     <form method="post" action={`/${meta.slug}`} novalidate>
@@ -252,6 +314,7 @@ function RegisterForm({ view, action }: { view: EventView; action: string }) {
         label="Nombre y apellido"
         form={view.form}
         autocomplete="name"
+        focus={focus === "name"}
       />
       <Field
         name="email"
@@ -260,6 +323,7 @@ function RegisterForm({ view, action }: { view: EventView; action: string }) {
         inputMode="email"
         form={view.form}
         autocomplete="email"
+        focus={focus === "email"}
       />
       <Field
         name="phone"
@@ -269,14 +333,20 @@ function RegisterForm({ view, action }: { view: EventView; action: string }) {
         form={view.form}
         autocomplete="tel"
         hint="Te escribimos solo sobre este evento. Fuera del Perú, empieza con +código."
+        focus={focus === "phone"}
       />
       {meta.questions.map((q) => (
-        <QuestionField key={q.id} q={q} form={view.form} />
+        <QuestionField
+          key={q.id}
+          q={q}
+          form={view.form}
+          focus={focus === `q_${q.id}`}
+        />
       ))}
       <Check name="news" form={view.form}>
         Avísenme por WhatsApp de los próximos eventos.
       </Check>
-      <Check name="privacy" form={view.form}>
+      <Check name="privacy" form={view.form} focus={focus === "privacy"}>
         Acepto la <a href="/privacidad">política de privacidad</a>.
       </Check>
       {/* A field people never see; a bot that fills it is refused. */}
@@ -288,6 +358,7 @@ function RegisterForm({ view, action }: { view: EventView; action: string }) {
         <HumanCheck
           siteKey={view.turnstileKey}
           error={view.form.errors.human}
+          focus={focus === "human"}
         />
       )}
       <button class="button button-primary button-full" type="submit">
