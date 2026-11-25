@@ -213,10 +213,9 @@ function AdminHeader({ shell }: { shell: AdminShell }) {
       <a
         class="site-logo"
         href={shell.name ? "/admin" : "/"}
-        aria-label="Admin de up.rising.sh"
+        aria-label="up.rising.sh admin, inicio"
       >
-        <Lockup />
-        <span class="admin-badge">admin</span>
+        <Lockup /> <span class="admin-badge">admin</span>
       </a>
       {shell.name ? (
         <>
