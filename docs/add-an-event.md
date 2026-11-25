@@ -29,7 +29,7 @@ the form with a message per field when one is wrong.
 | Resumen             | The line in the list, link previews and calendar entries. Up to 300 characters.                                                                                                           |
 | Descripción         | Markdown, shown under "Sobre el evento". Raw HTML is escaped.                                                                                                                             |
 | Inicio, Fin         | Lima time. Once the end passes, the event moves to the past tab and its form closes.                                                                                                      |
-| Lugar               | A venue with a name, an address and an optional map link, or online with a platform name.                                                                                                 |
+| Lugar               | A venue with a name, an address and an optional map, or online with a platform name. See [Map](#map).                                                                                     |
 | Organizan           | Names separated by commas.                                                                                                                                                                |
 | Cupos               | Seats. Empty takes any number. Past the limit, people join the waitlist. Raising it seats the waitlist on save.                                                                           |
 | Preguntas extra     | One question per line, up to 20. See [Questions](#questions).                                                                                                                             |
@@ -51,6 +51,18 @@ Carrera*
 A trailing `*` makes a question required. `Label: A | B | C` makes it a choice.
 The answer is stored under the slugified label, so renaming a question starts a
 new column in the registrants export.
+
+## Map
+
+```text
+-12.0598607, -77.0817416
+```
+
+The **Mapa** field takes the coordinates Google Maps copies on a right click, or
+a Google Maps link. A link that carries a point, a long one with the pin or a
+short `maps.app.goo.gl` one, gives the place the same map. The page draws the
+map under **Lugar** and links it to Google Maps. A search link carries no point:
+the page shows a **Ver en el mapa** link instead.
 
 ## Registrants
 

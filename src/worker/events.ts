@@ -1,3 +1,5 @@
+import { pointUrl, type Point } from "./geo";
+
 /** A question the register form asks besides name, email and phone. */
 export type Question = {
   id: string;
@@ -8,8 +10,21 @@ export type Question = {
 };
 
 export type Place =
-  | { kind: "venue"; name: string; address: string; mapUrl?: string }
+  | {
+      kind: "venue";
+      name: string;
+      address: string;
+      mapUrl?: string;
+      /** Shows the venue on a map. Absent when the map link carries none. */
+      point?: Point;
+    }
   | { kind: "online"; platform: string };
+
+/** Where "Ver en el mapa" goes: the pasted link, else the venue's point. */
+export const mapLink = (place: Place): string | undefined =>
+  place.kind === "venue"
+    ? (place.mapUrl ?? (place.point && pointUrl(place.point)))
+    : undefined;
 
 export const kinds = ["hackathon", "taller", "charla", "meetup"] as const;
 export const backdrops = ["plain", "grid", "dots", "glow"] as const;
@@ -96,6 +111,8 @@ type Row = {
   place_name: string;
   place_address: string;
   map_url: string | null;
+  lat: number | null;
+  lng: number | null;
   hosts: string;
   capacity: number | null;
   cover_key: string | null;
@@ -127,6 +144,9 @@ function fromRow(r: Row): EventMeta {
             name: r.place_name,
             address: r.place_address,
             ...(r.map_url ? { mapUrl: r.map_url } : {}),
+            ...(r.lat !== null && r.lng !== null
+              ? { point: { lat: r.lat, lng: r.lng } }
+              : {}),
           }
         : { kind: "online", platform: r.place_name },
     hosts: JSON.parse(r.hosts),
@@ -197,6 +217,8 @@ export async function saveEvent(
     place.kind === "venue" ? place.name : place.platform,
     place.kind === "venue" ? place.address : "",
     place.kind === "venue" ? (place.mapUrl ?? null) : null,
+    place.kind === "venue" ? (place.point?.lat ?? null) : null,
+    place.kind === "venue" ? (place.point?.lng ?? null) : null,
     JSON.stringify(event.hosts),
     event.capacity ?? null,
     event.coverKey ?? null,
@@ -210,7 +232,7 @@ export async function saveEvent(
     event.featured ? 1 : 0,
   ];
   const columns = `slug, title, summary, body, start_at, end_at, place_kind,
-    place_name, place_address, map_url, hosts, capacity, cover_key, questions,
+    place_name, place_address, map_url, lat, lng, hosts, capacity, cover_key, questions,
     status, recording_url, kind, accent, backdrop, font, featured`;
   const at = values.length + 1;
   const sets = columns

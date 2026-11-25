@@ -162,10 +162,10 @@ function EditorForm({ view, action }: { view: EditorView; action: string }) {
           />
           <Input
             name="map_url"
-            label="Enlace al mapa"
-            type="url"
+            label="Mapa"
             form={form}
-            placeholder="https://maps.google.com/?q=..."
+            placeholder="https://maps.app.goo.gl/... o -12.0599, -77.0817"
+            hint="Un enlace de Google Maps o las coordenadas del lugar. La página muestra el mapa cuando hay coordenadas."
           />
         </fieldset>
 

@@ -1356,6 +1356,62 @@ a:hover {
   font-size: var(--font-size-sm);
 }
 
+/* Luma's location map: 199px tall, the card's radius, and a soft-light wash
+   of the brand color over the tiles. The box keeps its size before MapLibre
+   loads, so nothing shifts. */
+.venue-map {
+  position: relative;
+  height: 199px;
+  margin-top: 0.875rem;
+  overflow: hidden;
+  border-radius: var(--card-border-radius);
+  background: var(--opacity-light);
+}
+
+.venue-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--brand-color);
+  mix-blend-mode: soft-light;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* The link covers the map and sits under the attribution control. */
+.venue-map-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.venue-pin {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--brand-color);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.venue-map .maplibregl-ctrl-attrib {
+  font-size: 0.625rem;
+}
+
+.dark .venue-map .maplibregl-ctrl-attrib {
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--secondary-color);
+}
+
+.dark .venue-map .maplibregl-ctrl-attrib a {
+  color: inherit;
+}
+
+.dark .venue-map .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}
+
 /* Sidebar: hosts and the kind */
 
 .sidebar {

@@ -43,6 +43,7 @@ import {
   type EventMeta,
 } from "./events";
 import type { FormState } from "./form";
+import { locate } from "./geo";
 import {
   accessToken,
   authUrl,
@@ -473,6 +474,17 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     errors: { ...form.errors, slug: "Ya hay un evento con esta dirección." },
   });
 
+  /**
+   * Gives a venue the point its map link carries. A link that carries none,
+   * or a short link that fails to resolve, saves without a map.
+   */
+  const withPoint = async (event: EventMeta): Promise<EventMeta> => {
+    const place = event.place;
+    if (place.kind !== "venue" || place.point || !place.mapUrl) return event;
+    const point = await locate(fetcher, place.mapUrl).catch(() => null);
+    return point ? { ...event, place: { ...place, point } } : event;
+  };
+
   admin.get("/eventos/nuevo", (c) =>
     editor(c, { form: { values: blankEvent, errors: {} }, registrations: 0 }),
   );
@@ -493,7 +505,11 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
         409,
       );
     const cover = await placeCover(c, parsed, event.slug);
-    await saveEvent(c.env.DB, { ...event, coverKey: cover.key }, iso());
+    await saveEvent(
+      c.env.DB,
+      { ...(await withPoint(event)), coverKey: cover.key },
+      iso(),
+    );
     return c.redirect(`/admin/eventos/${event.slug}?creado`, 303);
   });
 
@@ -562,7 +578,7 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
         );
       const cover = await placeCover(c, parsed, event.slug, current.coverKey);
       const saved = {
-        ...event,
+        ...(await withPoint(event)),
         coverKey: cover.key,
         calendar: current.calendar,
       };

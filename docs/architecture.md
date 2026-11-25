@@ -43,7 +43,8 @@ frees.
    [`src/worker/eventForm.ts`](../src/worker/eventForm.ts). It turns Lima
    datetimes into ISO, the questions text into `Question[]` with
    [`src/worker/questions.ts`](../src/worker/questions.ts) and the theme fields
-   into a `Theme`.
+   into a `Theme`. The route follows a map link without a point to the one it
+   redirects to, with `locate` in [`src/worker/geo.ts`](../src/worker/geo.ts).
 4. A new cover goes to R2 under `covers/`, and the old one is deleted after the
    save. `saveEvent` writes the row and clears `featured` on every other event.
    `fillSeats` seats the waitlist when the capacity rose.
@@ -58,6 +59,9 @@ Sign-in uses passkeys through
 challenge in D1 and takes it once.
 [`src/client/admin.ts`](../src/client/admin.ts) runs the ceremony in the
 browser, and it loads only on the sign-in and invite pages.
+[`src/client/map.ts`](../src/client/map.ts) draws a venue's map with MapLibre
+and OpenFreeMap tiles. `main.ts` imports it when the map nears the viewport, so
+its chunk and worker load only on an event page with a point.
 
 The Google Calendar link runs through
 [`src/worker/google.ts`](../src/worker/google.ts): the OAuth exchange, the
@@ -73,7 +77,7 @@ schema.
 
 | Table            | Row                                                                                                |
 | ---------------- | -------------------------------------------------------------------------------------------------- |
-| `events`         | One event: its text, dates, place, capacity, questions as JSON, status and theme.                  |
+| `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.    |
 | `people`         | One email, with the latest name and phone, and the consent dates.                                  |
 | `registrations`  | One person at one event: the ticket token as `id`, the number, the status and the answers as JSON. |
 | `admins`         | One admin's name.                                                                                  |
@@ -105,6 +109,7 @@ are stored as their SHA-256 only.
 | [`src/worker/tokens.ts`](../src/worker/tokens.ts)               | Random tokens and their hashes.                                             |
 | [`src/worker/csv.ts`](../src/worker/csv.ts)                     | The registrants export.                                                     |
 | [`src/worker/calendar.ts`](../src/worker/calendar.ts)           | Google Calendar links and `.ics` files.                                     |
+| [`src/worker/geo.ts`](../src/worker/geo.ts)                     | Venue points from coordinates and map links.                                |
 | [`src/worker/time.ts`](../src/worker/time.ts)                   | Dates in Lima time, es-PE.                                                  |
 | [`src/pages/`](../src/pages/)                                   | The page components; [`admin/`](../src/pages/admin/) holds the admin pages. |
 | [`src/client/`](../src/client/)                                 | The stylesheets and the client scripts.                                     |

@@ -6,8 +6,10 @@ import {
   type EventMeta,
   type Font,
   type Kind,
+  type Place,
 } from "./events";
 import type { FormState } from "./form";
+import { parsePoint } from "./geo";
 import { formatQuestions, parseQuestions } from "./questions";
 
 /** Paths the Worker routes itself; an event cannot take them. */
@@ -40,6 +42,10 @@ const isUrl = (value: string) => {
   }
 };
 
+/** The map field: the link the admin pasted, else the coordinates. */
+const mapValue = (place: Extract<Place, { kind: "venue" }>) =>
+  place.mapUrl ?? (place.point ? `${place.point.lat}, ${place.point.lng}` : "");
+
 /** An event as the editor's fields show it. */
 export function eventValues(event: EventMeta): Record<string, string> {
   const place = event.place;
@@ -53,7 +59,7 @@ export function eventValues(event: EventMeta): Record<string, string> {
     place_kind: place.kind,
     place_name: place.kind === "venue" ? place.name : place.platform,
     place_address: place.kind === "venue" ? place.address : "",
-    map_url: place.kind === "venue" ? (place.mapUrl ?? "") : "",
+    map_url: place.kind === "venue" ? mapValue(place) : "",
     hosts: event.hosts.join(", "),
     capacity: event.capacity === undefined ? "" : String(event.capacity),
     questions: formatQuestions(event.questions),
@@ -137,8 +143,10 @@ export function parseEventForm(
       : "Escribe el nombre del lugar.";
   if (!online && !values.place_address)
     errors.place_address = "Escribe la dirección.";
-  if (!online && values.map_url && !isUrl(values.map_url))
-    errors.map_url = "Pega un enlace que empiece con https://.";
+  const point = online ? null : parsePoint(values.map_url);
+  if (!online && values.map_url && !point && !isUrl(values.map_url))
+    errors.map_url =
+      "Pega un enlace de Google Maps o coordenadas como -12.0599, -77.0817.";
 
   const hosts = values.hosts
     .split(",")
@@ -192,7 +200,11 @@ export function parseEventForm(
             kind: "venue",
             name: values.place_name,
             address: values.place_address,
-            ...(values.map_url ? { mapUrl: values.map_url } : {}),
+            ...(point
+              ? { point }
+              : values.map_url
+                ? { mapUrl: values.map_url }
+                : {}),
           },
       hosts,
       ...(capacity !== undefined ? { capacity } : {}),
