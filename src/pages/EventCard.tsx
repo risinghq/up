@@ -2,7 +2,7 @@ import { placeLine } from "../worker/calendar";
 import { coverUrl, kindTag, mapLink, type EventMeta } from "../worker/events";
 import { clock, longDate, shortDate, tile } from "../worker/time";
 import { Mark } from "./Layout";
-import { themeClass, themeStyle } from "./theme";
+import { palette, themeClass, themeStyle } from "./theme";
 
 /** The month over the day, in a square tile. */
 export function DateTile({ iso }: { iso: string }) {
@@ -172,18 +172,22 @@ export function EventCard({
   );
 }
 
-/** The featured event at the top of the home page. */
+/**
+ * The featured event is the home page's hero: a full-width band in the
+ * event's page colors, as its own page would show them.
+ */
 export function Spotlight({ event }: { event: EventMeta }) {
+  const tinted = palette(event.theme.accent) ? " tinted" : "";
   return (
     <section
-      class={`section spotlight tint ${themeClass(event.theme)}`}
+      class={`spotlight tint ${themeClass(event.theme)}${tinted}`}
       style={themeStyle(event.theme)}
       aria-labelledby="spotlight-title"
     >
       <a href={`/${event.slug}`}>
         <Cover event={event} />
         <div class="spotlight-text">
-          <h2 id="spotlight-title">{event.title}</h2>
+          <h1 id="spotlight-title">{event.title}</h1>
           <p class="spotlight-desc">{event.summary}</p>
           <div class="spotlight-meta">
             <DateRow event={event} />
