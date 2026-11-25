@@ -1267,6 +1267,21 @@ a:hover {
   margin-top: 0.25rem;
 }
 
+/* The summary is the Inscribirme button; once open, the form's own submit
+   takes its place. */
+.register-details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.register-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.register-details[open] > summary {
+  display: none;
+}
+
 /* Content cards: a small label over a divider */
 
 .content-card {
@@ -1298,9 +1313,26 @@ a:hover {
   border-bottom-color: var(--brand-active-color);
 }
 
+.spark {
+  overflow-wrap: break-word;
+}
+
+@supports not (font: -apple-system-body) {
+  .spark {
+    text-wrap: pretty;
+  }
+}
+
+.spark p,
+.spark h2 {
+  unicode-bidi: plaintext;
+}
+
 .spark h2,
 .spark h3 {
   margin: 1.5rem 0 1rem;
+  font-family: var(--title-font);
+  font-weight: var(--title-font-weight-bold, var(--font-weight-bold));
   font-size: var(--font-size-xl);
   line-height: var(--reduced-line-height);
 }

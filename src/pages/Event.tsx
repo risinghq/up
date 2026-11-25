@@ -179,6 +179,7 @@ function RegisterCard(view: EventView) {
       ? Math.max(meta.capacity - view.going, 0)
       : null;
   const hasErrors = Object.keys(view.form.errors).length > 0;
+  const action = full ? "Unirme a la lista de espera" : "Inscribirme";
 
   return (
     <section class="register" aria-labelledby="register-title">
@@ -191,7 +192,7 @@ function RegisterCard(view: EventView) {
             ? "Los cupos se llenaron. Si alguien cancela, la primera persona en espera recibe su cupo."
             : left !== null
               ? `¡Bienvenido! Quedan ${left} de ${meta.capacity} cupos. La inscripción es gratuita.`
-              : "¡Bienvenido! Para unirte al evento, inscríbete abajo. Es gratis."}
+              : "¡Bienvenido! Para unirte al evento, inscríbete. Es gratis."}
         </p>
         {view.notice === "exists" && (
           <p class="notice" role="status">
@@ -204,55 +205,66 @@ function RegisterCard(view: EventView) {
             Revisa los campos marcados.
           </p>
         )}
-        <form method="post" action={`/${meta.slug}`} novalidate>
-          <Field
-            name="name"
-            label="Nombre y apellido"
-            form={view.form}
-            autocomplete="name"
-          />
-          <Field
-            name="email"
-            label="Correo"
-            type="email"
-            inputMode="email"
-            form={view.form}
-            autocomplete="email"
-          />
-          <Field
-            name="phone"
-            label="WhatsApp"
-            type="tel"
-            inputMode="tel"
-            form={view.form}
-            autocomplete="tel"
-            hint="Te escribimos solo sobre este evento. Fuera del Perú, empieza con +código."
-          />
-          {meta.questions.map((q) => (
-            <QuestionField key={q.id} q={q} form={view.form} />
-          ))}
-          <Check name="news" form={view.form}>
-            Avísenme por WhatsApp de los próximos eventos.
-          </Check>
-          <Check name="privacy" form={view.form}>
-            Acepto la <a href="/privacidad">política de privacidad</a>.
-          </Check>
-          {/* A field people never see; a bot that fills it is refused. */}
-          <div class="trap" aria-hidden="true">
-            <label for="f-website">No llenar</label>
-            <input
-              id="f-website"
-              name="website"
-              tabIndex={-1}
-              autoComplete="off"
-            />
-          </div>
-          <button class="button button-primary button-full" type="submit">
-            {full ? "Unirme a la lista de espera" : "Inscribirme"}
-          </button>
-        </form>
+        {/* The form opens in place, as Luma's opens a modal, so the
+            description is not buried under it. A failed post reopens it. */}
+        <details
+          class="register-details"
+          id="inscripcion"
+          open={hasErrors || view.notice !== null}
+        >
+          <summary class="button button-primary button-full">{action}</summary>
+          <RegisterForm view={view} action={action} />
+        </details>
       </div>
     </section>
+  );
+}
+
+function RegisterForm({ view, action }: { view: EventView; action: string }) {
+  const meta = view.event;
+  return (
+    <form method="post" action={`/${meta.slug}`} novalidate>
+      <Field
+        name="name"
+        label="Nombre y apellido"
+        form={view.form}
+        autocomplete="name"
+      />
+      <Field
+        name="email"
+        label="Correo"
+        type="email"
+        inputMode="email"
+        form={view.form}
+        autocomplete="email"
+      />
+      <Field
+        name="phone"
+        label="WhatsApp"
+        type="tel"
+        inputMode="tel"
+        form={view.form}
+        autocomplete="tel"
+        hint="Te escribimos solo sobre este evento. Fuera del Perú, empieza con +código."
+      />
+      {meta.questions.map((q) => (
+        <QuestionField key={q.id} q={q} form={view.form} />
+      ))}
+      <Check name="news" form={view.form}>
+        Avísenme por WhatsApp de los próximos eventos.
+      </Check>
+      <Check name="privacy" form={view.form}>
+        Acepto la <a href="/privacidad">política de privacidad</a>.
+      </Check>
+      {/* A field people never see; a bot that fills it is refused. */}
+      <div class="trap" aria-hidden="true">
+        <label for="f-website">No llenar</label>
+        <input id="f-website" name="website" tabIndex={-1} autoComplete="off" />
+      </div>
+      <button class="button button-primary button-full" type="submit">
+        {action}
+      </button>
+    </form>
   );
 }
 

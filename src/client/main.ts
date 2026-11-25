@@ -25,6 +25,16 @@ if (venue) {
   near.observe(venue);
 }
 
+const signup = document.querySelector<HTMLDetailsElement>("#inscripcion");
+if (signup) {
+  // A link to #inscripcion, as the home spotlight's, arrives with it open.
+  if (location.hash === "#inscripcion") signup.open = true;
+  signup.addEventListener("toggle", () => {
+    if (signup.open && !signup.querySelector("[aria-invalid]"))
+      signup.querySelector<HTMLInputElement>("input")?.focus();
+  });
+}
+
 const nav = document.querySelector<HTMLElement>(".site-nav.sticky");
 if (nav) {
   // Luma shows the divider past 1.5 root font sizes of scroll.
