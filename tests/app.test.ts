@@ -11,6 +11,7 @@ import { createApp, type Env } from "../src/worker/app";
 import type { Fetch } from "../src/worker/google";
 import { checkIn } from "../src/worker/registrations";
 import { sendReminders } from "../src/worker/reminders";
+import { page, parse, type Page } from "./dom";
 import {
   adminCookie,
   cardAssets,
@@ -86,6 +87,9 @@ const get = (path: string, headers: Record<string, string> = {}) =>
 const post = (path: string, body: FormData) =>
   app.request(path, { method: "POST", body }, env);
 
+const open = async (path: string, headers: Record<string, string> = {}) =>
+  page(await get(path, headers));
+
 /** Registers and returns the ticket token from the redirect. */
 async function registerAs(slug: string, fields: Record<string, string>) {
   const res = await post(`/${slug}`, form(fields));
@@ -95,97 +99,131 @@ async function registerAs(slug: string, fields: Record<string, string>) {
   return location.slice("/entrada/".length, -"?nueva".length);
 }
 
+/** The event titles a listing shows. */
+const listed = (p: Page) =>
+  p.screen.queryAllByRole("heading", { level: 3 }).map((h) => h.textContent);
+
+/** The headings of a page's cards, in reading order. */
+const cards = (p: Page) =>
+  p.screen.queryAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+
+/** The message a labelled field's description carries. */
+const described = (p: Page, label: string) =>
+  p.message(p.screen.getByLabelText(label));
+
+const button = (p: Page, name: string) => p.button(name);
+
+const counts = (p: Page) => p.text(".profile-count");
+
 describe("home", () => {
   test("lists upcoming events and hides drafts", async () => {
-    const html = await (await get("/")).text();
-    expect(html).toContain("Taller de Rust");
-    expect(html).toContain("Charla abierta");
-    expect(html).not.toContain("Evento pasado");
-    expect(html).not.toContain("Evento en borrador");
+    expect(listed(await open("/"))).toEqual([
+      "Taller de Rust",
+      "Charla abierta",
+    ]);
   });
 
   test("preloads the Geist file the stylesheet uses", async () => {
-    const html = await (await get("/")).text();
-    expect(html).toContain(
-      '<link rel="preload" href="/assets/geist-latin-wght-normal-test.woff2" as="font" type="font/woff2" crossorigin="anonymous"/>',
+    const font = (await open("/")).document.querySelector(
+      'link[rel="preload"][as="font"]',
     );
+    expect(font?.getAttribute("href")).toBe(
+      "/assets/geist-latin-wght-normal-test.woff2",
+    );
+    expect(font?.getAttribute("crossorigin")).toBe("anonymous");
   });
 
   test("sets the scheme before paint, with a theme-color for each", async () => {
-    const html = await (await get("/")).text();
-    const script = html.indexOf('classList.toggle("dark"');
-    expect(script).toBeGreaterThan(-1);
-    expect(script).toBeLessThan(html.indexOf("/assets/client-test.css"));
-    expect(html).toContain(
-      '<meta name="theme-color" media="(prefers-color-scheme: light)" data-scheme="light" content="#f2f2f2"/>',
+    const p = await open("/");
+    const head = [...p.document.head.children];
+    const scheme = head.findIndex((el) =>
+      el.textContent?.includes('classList.toggle("dark"'),
     );
-    expect(html).toContain(
-      '<meta name="theme-color" media="(prefers-color-scheme: dark)" data-scheme="dark" content="#141414"/>',
+    const styles = head.findIndex(
+      (el) => el.getAttribute("rel") === "stylesheet",
     );
-    expect(html).toContain('<button class="theme-toggle"');
+    expect(scheme).toBeGreaterThan(-1);
+    expect(scheme).toBeLessThan(styles);
+
+    const colors = [
+      ...p.document.querySelectorAll('meta[name="theme-color"]'),
+    ].map((m) => [m.getAttribute("data-scheme"), m.getAttribute("content")]);
+    expect(colors).toEqual([
+      ["light", "#f2f2f2"],
+      ["dark", "#141414"],
+    ]);
+    expect(button(p, "Modo oscuro")).not.toBeNull();
   });
 
   test("the past tab lists ended events", async () => {
-    const html = await (await get("/?ver=pasados")).text();
-    expect(html).toContain("Evento pasado");
-    expect(html).not.toContain("Taller de Rust");
+    expect(listed(await open("/?ver=pasados"))).toEqual([
+      "Meetup organizado",
+      "Evento pasado",
+    ]);
   });
 
   test("a draft is served only to a signed-in admin", async () => {
     expect((await get("/borrador")).status).toBe(404);
+
     const cookie = await adminCookie(DB, now);
-    const res = await get("/borrador", { cookie });
-    expect(res.status).toBe(200);
-    expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(await res.text()).toContain('name="robots" content="noindex"');
-    const home = await (await get("/", { cookie })).text();
-    expect(home).toContain("Evento en borrador");
+    const draft = await open("/borrador", { cookie });
+    expect(draft.status).toBe(200);
+    expect(draft.headers.get("cache-control")).toBe("no-store");
+    expect(draft.meta("robots")).toBe("noindex");
+    expect(listed(await open("/", { cookie }))).toContain("Evento en borrador");
   });
 });
 
 describe("event page", () => {
   test("carries the link preview tags", async () => {
-    const html = await (await get("/charla")).text();
-    expect(html).toContain(
-      '<meta property="og:title" content="Charla abierta"/>',
-    );
-    expect(html).toContain(
-      '<link rel="canonical" href="https://up.test/charla"/>',
-    );
+    const p = await open("/charla");
+    expect(p.meta("og:title")).toBe("Charla abierta");
+    expect(p.link("canonical")).toBe("https://up.test/charla");
   });
 
   test("an ended event shows the recording and refuses registrations", async () => {
-    const html = await (await get("/pasado")).text();
-    expect(html).toContain("https://youtu.be/test");
-    expect(html).not.toContain("<form");
+    const p = await open("/pasado");
+    expect(
+      p.screen.getByRole("link", { name: "Ver la grabación" }),
+    ).toHaveProperty("href", "https://youtu.be/test");
+    expect(button(p, "Inscribirme")).toBeNull();
+
     const res = await post("/pasado", form({ email: "late@example.com" }));
     expect(res.status).toBe(410);
   });
 
   test("keeps its nav in place, where the home nav sticks", async () => {
-    const home = await (await get("/")).text();
-    expect(home).toContain('<header class="site-nav sticky">');
-    const page = await (await get("/charla")).text();
-    expect(page).toContain('<header class="site-nav">');
+    const sticks = async (path: string) =>
+      (await open(path)).document
+        .querySelector("header.site-nav")
+        ?.classList.contains("sticky");
+    expect(await sticks("/")).toBe(true);
+    expect(await sticks("/charla")).toBe(false);
   });
 
   test("a tinted event marks its page for the dark palette", async () => {
-    const html = await (await get("/charla")).text();
-    expect(html).toMatch(/<body class="tint [^"]* tinted"/);
-    expect(html).not.toContain('data-scheme="dark" content="#141414"');
+    const p = await open("/charla");
+    expect(p.document.body.classList.contains("tinted")).toBe(true);
+    const dark = p.document.querySelector(
+      'meta[name="theme-color"][data-scheme="dark"]',
+    );
+    expect(dark?.getAttribute("content")).not.toBe("#141414");
   });
 
   test("shows the kind only when the title does not name it", async () => {
-    const named = await (await get("/taller")).text();
-    expect(named).not.toContain('class="category"');
-    const unnamed = await (await get("/charla")).text();
-    expect(unnamed).toMatch(/class="category">.*Taller<\/span>/);
+    const kind = async (path: string) =>
+      (await open(path)).document.querySelector(".category")?.textContent ??
+      null;
+    expect(await kind("/taller")).toBeNull();
+    expect(await kind("/charla")).toBe("Taller");
   });
 
   test("an unknown slug is a 404 page", async () => {
-    const res = await get("/no-existe");
-    expect(res.status).toBe(404);
-    expect(await res.text()).toContain("No encontramos esta página");
+    const p = await open("/no-existe");
+    expect(p.status).toBe(404);
+    expect(p.screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "No encontramos esta página",
+    );
   });
 });
 
@@ -209,13 +247,11 @@ describe("registration", () => {
       news_opt_in_at: now.toISOString(),
     });
 
-    const res = await get(`/entrada/${token}?nueva`);
-    expect(res.headers.get("cache-control")).toBe("no-store");
-    const html = await res.text();
-    expect(html).toContain("¡Listo, Luis!");
-    expect(html).toContain("Tienes un cupo");
-    expect(html).toContain("#1");
-    expect(html).toContain(`https://up.test/entrada/${token}`);
+    const p = await open(`/entrada/${token}?nueva`);
+    expect(p.headers.get("cache-control")).toBe("no-store");
+    expect(p.screen.getByText(/^¡Listo, Luis!/)).toBeTruthy();
+    expect(p.screen.getByText("Tienes un cupo")).toBeTruthy();
+    expect(p.screen.getByText("#1")).toBeTruthy();
   });
 
   test("a refused form comes back with its values and messages", async () => {
@@ -229,18 +265,24 @@ describe("registration", () => {
         q_nivel: "Experto",
       }),
     );
-    expect(res.status).toBe(422);
-    const html = await res.text();
-    expect(html).toContain('value="Eva"');
-    expect(html).toContain("Escribe un correo válido.");
-    expect(html).toContain("Escribe un número de WhatsApp");
-    expect(html).toContain("Necesitamos tu aceptación");
-    expect(html).toContain("Responde esta pregunta."); // carrera
-    expect(html).toContain("Elige una de las opciones."); // nivel
+    const p = await page(res);
+    expect(p.status).toBe(422);
+    expect(p.screen.getByLabelText("Nombre y apellido")).toHaveProperty(
+      "value",
+      "Eva",
+    );
+    expect(described(p, "Correo")).toBe("Escribe un correo válido.");
+    expect(described(p, "WhatsApp")).toStartWith(
+      "Escribe un número de WhatsApp",
+    );
+    expect(described(p, "Carrera")).toBe("Responde esta pregunta.");
+    expect(described(p, "Nivel")).toBe("Elige una de las opciones.");
+    const privacy = p.document.getElementById("f-privacy-error");
+    expect(privacy?.textContent).toStartWith("Necesitamos tu aceptación");
 
     // The page reloads at the top; focus takes it to the first error.
-    expect(html.match(/autofocus/g)).toHaveLength(1);
-    expect(html).toMatch(/<input id="f-email"[^>]*autofocus/);
+    const focused = [...p.document.querySelectorAll("[autofocus]")];
+    expect(focused).toEqual([p.screen.getByLabelText("Correo")]);
   });
 
   test("a registration emails the ticket link", async () => {
@@ -249,18 +291,26 @@ describe("registration", () => {
     expect(message?.subject).toBe("Estás inscrito: Charla abierta");
     expect(message?.text).toContain(`https://up.test/entrada/${token}`);
     expect(message?.text).toContain("Hola, Ana:");
-    expect(message?.html).toContain(`href="https://up.test/entrada/${token}"`);
+    const links = [
+      ...parse(message?.html ?? "").document.querySelectorAll("a"),
+    ];
+    expect(links.map((a) => a.getAttribute("href"))).toContain(
+      `https://up.test/entrada/${token}`,
+    );
   });
 
   test("an email already registered gets its link by email, not on the page", async () => {
     const token = await registerAs("charla", { email: "twice@example.com" });
     const res = await post("/charla", form({ email: "twice@example.com" }));
-    expect(res.status).toBe(409);
     expect(res.headers.get("location")).toBeNull();
-    const html = await res.text();
-    expect(html).toContain("Este correo ya está inscrito");
-    expect(html).toMatch(/<p class="notice"[^>]*autofocus/);
-    expect(html).not.toContain("/entrada/");
+    const p = await page(res);
+    expect(p.status).toBe(409);
+    const notice = p.screen.getByText(/^Este correo ya está inscrito/);
+    expect(notice.getAttribute("role")).toBe("status");
+    expect(notice.hasAttribute("autofocus")).toBe(true);
+    expect(
+      p.document.querySelector('[href*="/entrada/"], [action*="/entrada/"]'),
+    ).toBeNull();
 
     // A third post inside the cooldown sends nothing more.
     await post("/charla", form({ email: "twice@example.com" }));
@@ -272,12 +322,13 @@ describe("registration", () => {
     expect(resent?.text).toContain(`/entrada/${token}`);
   });
 
-  test("a title with markup is escaped in the email", async () => {
+  test("a title with markup reaches the email as text", async () => {
     await seed(DB, [event({ slug: "marcado", title: "<b>Taller</b> & más" })]);
     await registerAs("marcado", { email: "marcado@example.com" });
     const message = mail.sent.find((m) => m.to === "marcado@example.com");
-    expect(message?.html).toContain("&lt;b&gt;Taller&lt;/b&gt; &amp; más");
-    expect(message?.html).not.toContain("<b>Taller");
+    const email = parse(message?.html ?? "");
+    expect(email.document.querySelector("b")).toBeNull();
+    expect(email.document.body.textContent).toContain("<b>Taller</b> & más");
   });
 
   test("a filled trap field stores nothing", async () => {
@@ -294,6 +345,12 @@ describe("registration", () => {
   });
 });
 
+/** What the ticket page says about the seat. */
+const seat = async (token: string) =>
+  (await open(`/entrada/${token}`)).document
+    .querySelector(".ticket-status")
+    ?.textContent?.trim();
+
 describe("capacity and cancellation", () => {
   test("a full event waitlists, and a cancellation promotes the waitlist", async () => {
     const first = await registerAs("taller", {
@@ -305,21 +362,15 @@ describe("capacity and cancellation", () => {
       q_carrera: "Física",
     });
 
-    expect(await (await get(`/entrada/${second}`)).text()).toContain(
-      "Estás en la lista de espera",
-    );
-    expect(await (await get("/taller")).text()).toContain(
-      "Unirme a la lista de espera",
-    );
+    expect(await seat(second)).toBe("Estás en la lista de espera");
+    expect(
+      button(await open("/taller"), "Unirme a la lista de espera"),
+    ).not.toBeNull();
 
     const cancelled = await post(`/entrada/${first}/cancelar`, new FormData());
     expect(cancelled.status).toBe(303);
-    expect(await (await get(`/entrada/${first}`)).text()).toContain(
-      "Cancelaste tu inscripción",
-    );
-    expect(await (await get(`/entrada/${second}`)).text()).toContain(
-      "Tienes un cupo",
-    );
+    expect(await seat(first)).toBe("Cancelaste tu inscripción");
+    expect(await seat(second)).toBe("Tienes un cupo");
     expect(mail.subjects("dos@example.com")).toEqual([
       "Estás en la lista de espera: Taller de Rust",
       "Tienes cupo: Taller de Rust",
@@ -332,15 +383,15 @@ describe("capacity and cancellation", () => {
     const fresh = await registerAs("charla", { email: "vuelve@example.com" });
     expect(fresh).not.toBe(old);
     expect((await get(`/entrada/${old}`)).status).toBe(404);
-    expect(await (await get(`/entrada/${fresh}`)).text()).toContain(
-      "Tienes un cupo",
-    );
+    expect(await seat(fresh)).toBe("Tienes un cupo");
   });
 
   test("an unknown ticket is a 404", async () => {
-    const res = await get("/entrada/AAAAAAAAAAAAAAAAAAAAAA");
-    expect(res.status).toBe(404);
-    expect(await res.text()).toContain("No encontramos esa entrada");
+    const p = await open("/entrada/AAAAAAAAAAAAAAAAAAAAAA");
+    expect(p.status).toBe(404);
+    expect(p.screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "No encontramos esa entrada",
+    );
   });
 });
 
@@ -350,16 +401,17 @@ describe("share link", () => {
     const res = await post(`/entrada/${token}/compartir`, new FormData());
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe(`/entrada/${token}#compartir`);
-    const html = await (await get(`/entrada/${token}`)).text();
-    const url = html.match(/https:\/\/up\.test(\/charla\/voy\/[\w-]{22})/);
-    expect(url).not.toBeNull();
-    return url?.[1] ?? "";
+
+    const p = await open(`/entrada/${token}`);
+    const url = button(p, "Copiar el enlace")?.getAttribute("data-copy") ?? "";
+    expect(url).toMatch(/^https:\/\/up\.test\/charla\/voy\/[\w-]{22}$/);
+    return new URL(url).pathname;
   }
 
   test("a ticket offers the share button until it has a link", async () => {
     const token = await registerAs("charla", { email: "sofia@example.com" });
-    const before = await (await get(`/entrada/${token}`)).text();
-    expect(before).toContain("Compartir que voy");
+    const ticket = await open(`/entrada/${token}`);
+    expect(button(ticket, "Compartir que voy")).not.toBeNull();
     const path = await share(token);
     expect(await share(token)).toBe(path);
   });
@@ -371,15 +423,12 @@ describe("share link", () => {
     });
     const path = await share(token);
 
-    const res = await get(path);
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain("Rosa va a");
-    expect(html).not.toContain("Huamán");
-    expect(html).not.toContain(token);
-    expect(html).toContain(
-      `<meta property="og:image" content="https://up.test${path}.png"/>`,
-    );
+    const p = await open(path);
+    expect(p.status).toBe(200);
+    expect(p.screen.getByText("Rosa va a")).toBeTruthy();
+    expect(p.document.body.textContent).not.toContain("Huamán");
+    expect(p.document.documentElement.outerHTML).not.toContain(token);
+    expect(p.meta("og:image")).toBe(`https://up.test${path}.png`);
 
     const png = await get(`${path}.png`);
     expect(png.status).toBe(200);
@@ -406,11 +455,19 @@ describe("profile", () => {
   async function openProfile(token: string) {
     const res = await post(`/entrada/${token}/perfil`, new FormData());
     expect(res.status).toBe(303);
-    const html = await (await get(`/entrada/${token}`)).text();
-    const url = html.match(/https:\/\/up\.test(\/p\/[\w-]{22})/);
-    expect(url).not.toBeNull();
-    return url?.[1] ?? "";
+    const p = await open(`/entrada/${token}`);
+    const link = p.screen.getByRole("link", { name: "Ver mi perfil" });
+    const url = new URL(link.getAttribute("href") ?? "");
+    expect(url.origin).toBe("https://up.test");
+    return url.pathname;
   }
+
+  const badges = (p: Page, heading: string) =>
+    [
+      ...(p.screen
+        .getByRole("region", { name: heading })
+        .querySelectorAll("a") ?? []),
+    ].map((a) => a.getAttribute("href"));
 
   test("a check-in offers the profile; it lists attended events only", async () => {
     const email = "valeria@example.com";
@@ -422,38 +479,42 @@ describe("profile", () => {
       q_carrera: "Física",
     });
 
-    const before = await (await get(`/entrada/${went}`)).text();
-    expect(before).not.toContain("Crear mi perfil");
-
+    expect(
+      button(await open(`/entrada/${went}`), "Crear mi perfil"),
+    ).toBeNull();
     await checkIn(DB, went, now.toISOString());
-    expect(await (await get(`/entrada/${went}`)).text()).toContain(
-      "Crear mi perfil",
-    );
+    expect(
+      button(await open(`/entrada/${went}`), "Crear mi perfil"),
+    ).not.toBeNull();
+
     const path = await openProfile(went);
     expect(await openProfile(skipped)).toBe(path);
 
-    const res = await get(path);
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain("<h1>Valeria</h1>");
-    expect(html).not.toContain("Quispe");
-    expect(html).toContain("<strong>1</strong> evento</p>");
-    expect(html).toMatch(/En up\.rising\.sh desde \p{L}+ de \d{4}/u);
-    expect(html).toContain('href="/charla"');
-    expect(html).not.toContain('href="/taller"');
-    expect(html).not.toContain(went);
+    const p = await open(path);
+    expect(p.status).toBe(200);
+    expect(p.screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Valeria",
+    );
+    expect(p.document.body.textContent).not.toContain("Quispe");
+    expect(counts(p)).toBe("1 evento");
+    expect(
+      p.screen.getByText(/^En up\.rising\.sh desde \p{L}+ de \d{4}$/u),
+    ).toBeTruthy();
+    expect(badges(p, "Insignias")).toEqual(["/charla"]);
+    expect(p.document.documentElement.outerHTML).not.toContain(went);
   });
 
   test("hiding the profile kills its link", async () => {
     const token = await registerAs("charla", { email: "oculta@example.com" });
     await checkIn(DB, token, now.toISOString());
     const path = await openProfile(token);
+
     const res = await post(`/entrada/${token}/perfil/ocultar`, new FormData());
     expect(res.status).toBe(303);
     expect((await get(path)).status).toBe(404);
-    expect(await (await get(`/entrada/${token}`)).text()).toContain(
-      "Crear mi perfil",
-    );
+    expect(
+      button(await open(`/entrada/${token}`), "Crear mi perfil"),
+    ).not.toBeNull();
   });
 
   test("a host opens a profile before any check-in; the event links to it", async () => {
@@ -461,52 +522,62 @@ describe("profile", () => {
       email: "ana@example.com",
       name: "Ana Quispe",
     });
-    expect(await (await get(`/entrada/${token}`)).text()).toContain(
-      "los eventos que organizas",
-    );
+    const ticket = await open(`/entrada/${token}`);
+    expect(ticket.screen.getByText(/los eventos que organizas/)).toBeTruthy();
 
     const path = await openProfile(token);
-    const html = await (await get(path)).text();
-    expect(html).toContain("<strong>1</strong> organizado");
-    expect(html).toContain('<h2 id="organiza">Organiza</h2>');
-    expect(html).toContain('href="/organizado"');
-    expect(html).not.toContain("ana@example.com");
+    const profile = await open(path);
+    expect(counts(profile)).toBe("0 eventos · 1 organizado");
+    expect(badges(profile, "Organiza")).toEqual(["/organizado"]);
+    expect(profile.document.documentElement.outerHTML).not.toContain(
+      "ana@example.com",
+    );
 
-    const page = await (await get("/organizado")).text();
-    expect(page).toContain(`<a class="host-link" href="${path}">`);
-    expect(page).not.toContain("ana@example.com");
-    expect(page.match(/class="host-link"/g)).toHaveLength(2);
+    const event = await open("/organizado");
+    const links = event.screen.getAllByRole("link", { name: "Ana Quispe" });
+    expect(links.map((a) => a.getAttribute("href"))).toEqual([path, path]);
+    expect(event.screen.queryAllByRole("link", { name: "Pedro" })).toEqual([]);
+    expect(event.document.documentElement.outerHTML).not.toContain(
+      "ana@example.com",
+    );
   });
 });
 
 describe("ticket page", () => {
-  test("the fresh notice copies the ticket's link; the page shows no link box", async () => {
+  test("only the fresh notice offers to copy the ticket's link", async () => {
     const token = await registerAs("charla", { email: "nueva@example.com" });
-    const html = await (await get(`/entrada/${token}?nueva`)).text();
-    expect(html).toContain(`data-copy="https://up.test/entrada/${token}"`);
-    expect(html).not.toContain("<input");
+    const url = `https://up.test/entrada/${token}`;
 
-    const later = await (await get(`/entrada/${token}`)).text();
-    expect(later).not.toContain(`https://up.test/entrada/${token}`);
+    const fresh = await open(`/entrada/${token}?nueva`);
+    expect(button(fresh, "Copiar el enlace")?.getAttribute("data-copy")).toBe(
+      url,
+    );
+    expect(fresh.document.querySelector("input")).toBeNull();
+
+    const later = await open(`/entrada/${token}`);
+    expect(later.document.querySelector(`[data-copy="${url}"]`)).toBeNull();
   });
 
   test("a check-in drops the calendar and the venue, and leads with the profile", async () => {
     const token = await registerAs("charla", { email: "dentro@example.com" });
-    const before = await (await get(`/entrada/${token}`)).text();
-    expect(before).toContain("Agregar a Google Calendar");
-    expect(before).toContain(
-      '<h2 class="card-title" id="place-title">Lugar</h2>',
-    );
+    const before = await open(`/entrada/${token}`);
+    expect(
+      before.screen.getByRole("link", { name: "Agregar a Google Calendar" }),
+    ).toBeTruthy();
+    expect(cards(before)).toContain("Lugar");
 
     await checkIn(DB, token, now.toISOString());
-    const html = await (await get(`/entrada/${token}`)).text();
-    expect(html).not.toContain("Agregar a Google Calendar");
-    expect(html).not.toContain('id="place-title"');
-    expect(html).toContain(
-      '<button class="button button-primary button-full" type="submit">Crear mi perfil</button>',
-    );
-    expect(html.indexOf("Tus insignias")).toBeLessThan(
-      html.indexOf("Cuéntale a tus amigos"),
+    const after = await open(`/entrada/${token}`);
+    expect(
+      after.screen.queryByRole("link", { name: "Agregar a Google Calendar" }),
+    ).toBeNull();
+    expect(cards(after)).toEqual([
+      "Tus insignias",
+      "Durante el evento",
+      "Cuéntale a tus amigos",
+    ]);
+    expect(button(after, "Crear mi perfil")?.classList).toContain(
+      "button-primary",
     );
   });
 });
@@ -517,15 +588,19 @@ describe("credential", () => {
       email: "credencial@example.com",
       name: "Rosa Mamani",
     });
-    const html = await (await get(`/entrada/${token}`)).text();
-    expect(html).toMatch(/<div class="credential" hidden/);
-    expect(html).toContain('data-name="Rosa Mamani"');
-    expect(html).toContain('data-title="Charla abierta"');
+    const credential = async () =>
+      (await open(`/entrada/${token}`)).document.querySelector<HTMLElement>(
+        ".credential",
+      );
+
+    const seated = await credential();
+    expect(seated?.hidden).toBe(true);
+    expect(seated?.dataset.name).toBe("Rosa Mamani");
+    expect(seated?.dataset.title).toBe("Charla abierta");
 
     const res = await post(`/entrada/${token}/cancelar`, new FormData());
     expect(res.status).toBe(303);
-    const cancelled = await (await get(`/entrada/${token}`)).text();
-    expect(cancelled).not.toContain('class="credential"');
+    expect(await credential()).toBeNull();
   });
 });
 
@@ -578,10 +653,10 @@ describe("calendar", () => {
     expect(res.headers.get("content-type")).toBe(
       "text/calendar; charset=utf-8",
     );
-    const body = await res.text();
-    expect(body).toContain("DTSTART:20261212T200000Z\r\n");
-    expect(body).toContain("LOCATION:FCF\\, UNMSM\\, Av. Venezuela s/n\r\n");
-    expect(body).toContain("URL:https://up.test/charla\r\n");
+    const lines = (await res.text()).split("\r\n");
+    expect(lines).toContain("DTSTART:20261212T200000Z");
+    expect(lines).toContain("LOCATION:FCF\\, UNMSM\\, Av. Venezuela s/n");
+    expect(lines).toContain("URL:https://up.test/charla");
   });
 });
 
@@ -619,31 +694,40 @@ describe("turnstile", () => {
     DB.prepare("SELECT id FROM people WHERE email = ?").bind(email).first();
 
   test("the form carries the widget only with both keys", async () => {
-    expect(await (await get("/charla")).text()).not.toContain("turnstile");
-    const html = await (await guarded.request("/charla", {}, keyed())).text();
-    expect(html).toContain(
-      '<div class="turnstile" data-sitekey="clave-sitio">',
-    );
-    expect(html).toContain("<noscript>");
+    const widget = (p: Page) => p.document.querySelector(".turnstile");
+    expect(widget(await open("/charla"))).toBeNull();
+
+    const p = await page(await guarded.request("/charla", {}, keyed()));
+    expect(widget(p)?.getAttribute("data-sitekey")).toBe("clave-sitio");
+    expect(p.document.querySelector(".human-check noscript")).not.toBeNull();
   });
 
   test("a post without a token keeps the values and stores nothing", async () => {
-    const res = await send({ email: "sinjs@example.com" });
-    expect(res.status).toBe(422);
-    const html = await res.text();
-    expect(html).toContain("Activa JavaScript o recarga la página.");
-    expect(html).toMatch(/<p class="error" role="alert"[^>]*autofocus/);
-    expect(html).toContain('value="sinjs@example.com"');
+    const p = await page(await send({ email: "sinjs@example.com" }));
+    expect(p.status).toBe(422);
+    const error = p.screen.getByText(
+      /Activa JavaScript o recarga la página\.$/,
+    );
+    expect(error.getAttribute("role")).toBe("alert");
+    expect(error.hasAttribute("autofocus")).toBe(true);
+    expect(p.screen.getByLabelText("Correo")).toHaveProperty(
+      "value",
+      "sinjs@example.com",
+    );
     expect(await stored("sinjs@example.com")).toBeNull();
   });
 
   test("a refused token stores nothing", async () => {
-    const res = await send({
-      email: "robot@example.com",
-      "cf-turnstile-response": "robot",
-    });
-    expect(res.status).toBe(422);
-    expect(await res.text()).toContain("No pudimos confirmar");
+    const p = await page(
+      await send({
+        email: "robot@example.com",
+        "cf-turnstile-response": "robot",
+      }),
+    );
+    expect(p.status).toBe(422);
+    expect(
+      p.screen.getByText(/^No pudimos confirmar/).getAttribute("role"),
+    ).toBe("alert");
     expect(await stored("robot@example.com")).toBeNull();
   });
 
@@ -756,18 +840,20 @@ describe("whatsapp", () => {
 
   test("the settings say which mode runs", async () => {
     const cookie = await adminCookie(DB, now);
-    const settings = async (vars: Partial<Env>) =>
-      (
-        await app.request(
-          "/admin/ajustes",
-          { headers: { cookie } },
-          { ...env, ...vars },
-        )
-      ).text();
-    expect(await settings({})).toContain("Desactivado.");
-    expect(await settings({ WHATSAPP_PHONE_NUMBER_ID: "mock" })).toContain(
+    const mode = async (vars: Partial<Env>) => {
+      const res = await app.request(
+        "/admin/ajustes",
+        { headers: { cookie } },
+        { ...env, ...vars },
+      );
+      const p = await page(res);
+      return p.screen.queryByText(/^(Desactivado|Simulado|Conectado)\./)
+        ?.textContent;
+    };
+    expect(await mode({})).toStartWith("Desactivado.");
+    expect(await mode({ WHATSAPP_PHONE_NUMBER_ID: "mock" })).toStartWith(
       "Simulado.",
     );
-    expect(await settings(live())).toContain("Conectado.");
+    expect(await mode(live())).toStartWith("Conectado.");
   });
 });

@@ -1,0 +1,202 @@
+import { describe, expect, test } from "bun:test";
+import type { EventMeta } from "../src/worker/events";
+import type { Ticket } from "../src/worker/registrations";
+import { eventView, profileView, ticketView } from "../src/worker/views";
+import { event } from "./support";
+
+const origin = "https://up.test";
+const before = { origin, now: new Date("2026-12-01T12:00:00-05:00") };
+const after = { origin, now: new Date("2026-12-13T12:00:00-05:00") };
+
+const charla = event({ slug: "charla", title: "Charla abierta" });
+const online = event({
+  slug: "online",
+  place: { kind: "online", platform: "Google Meet" },
+  calendar: { eventId: "g1", htmlUrl: "", meetUrl: "https://meet.test/x" },
+});
+
+function ticket(overrides: Partial<Ticket> = {}): Ticket {
+  return {
+    token: "T".repeat(22),
+    eventSlug: "charla",
+    number: 1,
+    status: "going",
+    name: "Rosa Mamani",
+    email: "rosa@example.com",
+    phone: "+51987654321",
+    createdAt: "2026-11-20T00:00:00.000Z",
+    checkedInAt: null,
+    shareId: null,
+    profileId: null,
+    ...overrides,
+  };
+}
+
+const view = (
+  t: Ticket,
+  options: { e?: EventMeta; context?: typeof before; hosts?: boolean } = {},
+) =>
+  ticketView(options.context ?? before, {
+    ticket: t,
+    event: options.e ?? charla,
+    fresh: false,
+    door: false,
+    whatsapp: "https://chat.whatsapp.com/test",
+    hosts: options.hosts ?? false,
+  });
+
+describe("ticketView", () => {
+  test("the panels follow the ticket's state", () => {
+    const inside = ticket({ checkedInAt: "2026-12-12T20:10:00.000Z" });
+    const cases = [
+      {
+        name: "seated, before the event",
+        t: ticket(),
+        panels: ["next", "venue", "share"],
+      },
+      {
+        name: "a host, before check-in",
+        t: ticket(),
+        hosts: true,
+        panels: ["next", "venue", "share", "profile"],
+      },
+      {
+        name: "checked in: the profile leads, the venue goes",
+        t: inside,
+        panels: ["profile", "next", "share"],
+      },
+      { name: "cancelled", t: ticket({ status: "cancelled" }), panels: [] },
+      {
+        name: "after the event, checked in",
+        t: inside,
+        context: after,
+        panels: ["profile"],
+      },
+    ] as const;
+
+    for (const c of cases)
+      expect(
+        view(c.t, {
+          context: "context" in c ? c.context : before,
+          hosts: "hosts" in c ? c.hosts : false,
+        }).panels,
+        c.name,
+      ).toEqual([...c.panels]);
+  });
+
+  test("the QR shows only for a live venue ticket not yet used", () => {
+    expect(view(ticket()).qr).toStartWith("<svg");
+    expect(view(ticket({ checkedInAt: before.now.toISOString() })).qr).toBe(
+      undefined,
+    );
+    expect(view(ticket({ status: "cancelled" })).qr).toBe(undefined);
+    expect(view(ticket(), { context: after }).qr).toBe(undefined);
+    expect(view(ticket(), { e: online }).qr).toBe(undefined);
+  });
+
+  test("only a seat gets the call and the credential", () => {
+    const seated = view(ticket(), { e: online });
+    expect(seated.next.meetUrl).toBe("https://meet.test/x");
+    expect(seated.credential).toBe(true);
+
+    const waiting = view(ticket({ status: "waitlist" }), { e: online });
+    expect(waiting.next.meetUrl).toBe(undefined);
+    expect(waiting.credential).toBe(false);
+  });
+
+  test("the community is the primary action until the call or the door outranks it", () => {
+    expect(view(ticket()).next.communityPrimary).toBe(true);
+    expect(view(ticket(), { e: online }).next.communityPrimary).toBe(false);
+    const inside = ticket({ checkedInAt: before.now.toISOString() });
+    expect(view(inside).next.communityPrimary).toBe(false);
+    expect(view(inside).profile.primary).toBe(true);
+  });
+
+  test("a cancelled ticket offers to register again while the event is ahead", () => {
+    const cancelled = ticket({ status: "cancelled" });
+    expect(view(cancelled).rejoin).toBe(true);
+    expect(view(cancelled, { context: after }).rejoin).toBe(false);
+  });
+
+  test("the share and profile links are absolute, from their own ids", () => {
+    const v = view(ticket({ shareId: "S1", profileId: "P1" }));
+    expect(v.ticketUrl).toBe(`${origin}/entrada/${"T".repeat(22)}`);
+    expect(v.shareUrl).toBe(`${origin}/charla/voy/S1`);
+    expect(v.profile.url).toBe(`${origin}/p/P1`);
+  });
+});
+
+describe("eventView", () => {
+  test("links a host only when the host has a profile", () => {
+    const e = event({
+      slug: "organizado",
+      hosts: [
+        { name: "Ana Quispe", email: "ana@example.com" },
+        { name: "Luis", email: "luis@example.com" },
+        { name: "Pedro" },
+      ],
+    });
+    const v = eventView(before, {
+      event: e,
+      going: 0,
+      hostProfiles: new Map([["ana@example.com", "P1"]]),
+      form: { values: {}, errors: {} },
+      notice: null,
+      admin: false,
+      turnstileKey: null,
+    });
+    expect(v.hosts).toEqual([
+      { name: "Ana Quispe", url: "/p/P1" },
+      { name: "Luis" },
+      { name: "Pedro" },
+    ]);
+  });
+
+  test("ends at the event's end", () => {
+    const at = (now: string) =>
+      eventView(
+        { origin, now: new Date(now) },
+        {
+          event: charla,
+          going: 0,
+          hostProfiles: new Map(),
+          form: { values: {}, errors: {} },
+          notice: null,
+          admin: false,
+          turnstileKey: null,
+        },
+      ).ended;
+    expect(at("2026-12-12T18:59:59-05:00")).toBe(false);
+    expect(at("2026-12-12T19:00:00-05:00")).toBe(true);
+  });
+});
+
+describe("profileView", () => {
+  const events = [
+    event({ slug: "a", start: "2026-10-01T15:00:00-05:00" }),
+    event({ slug: "b", start: "2026-12-01T15:00:00-05:00" }),
+    event({ slug: "c", start: "2026-11-01T15:00:00-05:00" }),
+  ];
+  const profile = {
+    firstName: "Valeria",
+    since: "2026-09-01T00:00:00.000Z",
+    attended: ["a", "b", "c"],
+    hosted: [] as string[],
+  };
+
+  test("lists events newest first, only the ones the person attended", () => {
+    const v = profileView({ ...profile, attended: ["a", "b"] }, events);
+    expect(v.events.map((e) => e.slug)).toEqual(["b", "a"]);
+  });
+
+  test("the description names hosting only for a host", () => {
+    expect(profileView(profile, events).description).toBe(
+      "Los eventos a los que fue Valeria.",
+    );
+    const host = profileView({ ...profile, hosted: ["c"] }, events);
+    expect(host.hosted.map((e) => e.slug)).toEqual(["c"]);
+    expect(host.description).toBe(
+      "Los eventos que organiza Valeria y a los que fue.",
+    );
+  });
+});

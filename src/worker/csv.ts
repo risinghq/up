@@ -1,5 +1,5 @@
 import type { EventMeta } from "./events";
-import type { Registrant } from "./registrations";
+import type { Registrant } from "./registrants";
 
 /**
  * A spreadsheet runs a cell that starts with = + - @ tab or CR as a formula.

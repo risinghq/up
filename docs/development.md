@@ -26,11 +26,22 @@ Open the invite link, create a passkey and add an event from `/admin`
 
 ## Tests
 
-[`tests/app.test.ts`](../tests/app.test.ts) covers the public routes and
-[`tests/admin.test.ts`](../tests/admin.test.ts) the admin routes. Both send
-requests to `createApp({ now })` with a fixed clock.
+The tests check behaviour at three layers, each against a fixed clock:
+
+- [`tests/registrations.test.ts`](../tests/registrations.test.ts) calls the
+  domain functions on a migrated D1: seats, the waitlist, cancelling, check-in.
+- [`tests/views.test.ts`](../tests/views.test.ts) calls the view models in
+  [`src/worker/views.ts`](../src/worker/views.ts) with plain values, no D1.
+- [`tests/app.test.ts`](../tests/app.test.ts) covers the public routes,
+  [`tests/admin.test.ts`](../tests/admin.test.ts) the admin routes and
+  [`tests/google.test.ts`](../tests/google.test.ts) the Google Calendar link.
+  They send requests to `createApp({ now })` and assert the status, the headers
+  and the stored rows. [`tests/dom.ts`](../tests/dom.ts) parses a page with
+  happy-dom, and the tests query it as a reader would, by role and label, with
+  Testing Library.
+
 [`tests/support.tsx`](../tests/support.tsx) holds the migrated D1 and R2, the
-event fixture, the seeding and an admin session cookie.
+event fixture, the seeding, the outbox and an admin session cookie.
 [`tests/authenticator.ts`](../tests/authenticator.ts) is a software passkey that
 answers the WebAuthn ceremonies.
 

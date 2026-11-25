@@ -1,0 +1,190 @@
+import { renderSVG } from "uqr";
+import type { EventView, Notice } from "../pages/Event";
+import { googleCalendarUrl } from "./calendar";
+import { hasEnded, type EventMeta } from "./events";
+import type { FormState } from "./form";
+import type { Profile } from "./profiles";
+import type { Ticket } from "./registrations";
+
+/** What every view builder knows about the request. */
+export type ViewContext = {
+  /** The site's origin, without a trailing slash. */
+  origin: string;
+  now: Date;
+};
+
+export const eventUrl = (origin: string, event: EventMeta) =>
+  `${origin}/${event.slug}`;
+
+/** The event page: the event, its hosts linked to their profiles, the form. */
+export function eventView(
+  context: ViewContext,
+  input: {
+    event: EventMeta;
+    going: number;
+    /** Profile ids of the hosts that have one, by email. */
+    hostProfiles: Map<string, string>;
+    form: FormState;
+    notice: Notice;
+    admin: boolean;
+    turnstileKey: string | null;
+  },
+): EventView {
+  const { event } = input;
+  return {
+    event,
+    hosts: event.hosts.map((h) => {
+      const profileId = h.email && input.hostProfiles.get(h.email);
+      return { name: h.name, ...(profileId && { url: `/p/${profileId}` }) };
+    }),
+    going: input.going,
+    ended: hasEnded(event, context.now),
+    form: input.form,
+    notice: input.notice,
+    calendarUrl: googleCalendarUrl(event, eventUrl(context.origin, event)),
+    admin: input.admin,
+    turnstileKey: input.turnstileKey,
+  };
+}
+
+/** The panels under the ticket, in the order the page shows them. */
+export type TicketPanel = "next" | "venue" | "share" | "profile";
+
+export type TicketView = {
+  ticket: Ticket;
+  event: EventMeta;
+  /** True on the redirect right after registering. */
+  fresh: boolean;
+  ticketUrl: string;
+  /** True when an admin opens the ticket, as at the door after a scan. */
+  door: boolean;
+  /** SVG of a QR code of the ticket's link, for the venue's door. */
+  qr?: string;
+  panels: TicketPanel[];
+  next: {
+    /** True once the holder is inside: no calendar, no cancelling. */
+    inside: boolean;
+    /** The event's Google Meet call; only a ticket with a seat gets it. */
+    meetUrl?: string;
+    calendarUrl: string;
+    whatsapp: string;
+    /** The community link is the primary action when nothing outranks it. */
+    communityPrimary: boolean;
+  };
+  /** The public "voy" link, once the holder made one. */
+  shareUrl?: string;
+  profile: {
+    /** The holder's public profile, once they opened it. */
+    url?: string;
+    /** After check-in the profile is the next thing to do. */
+    primary: boolean;
+    /** True when a published event lists the holder as a host. */
+    hosts: boolean;
+  };
+  /** The 3D credential: only a ticket with a seat has one. */
+  credential: boolean;
+  /** A cancelled ticket of an event still ahead offers to register again. */
+  rejoin: boolean;
+};
+
+/**
+ * Decides what a ticket page shows. A live ticket (not cancelled, event not
+ * ended) gets the next steps and the share panel. The profile panel shows
+ * once there is something to put on it: a check-in, an open profile, or a
+ * hosted event. After check-in the profile leads and the venue goes.
+ */
+export function ticketView(
+  context: ViewContext,
+  input: {
+    ticket: Ticket;
+    event: EventMeta;
+    fresh: boolean;
+    door: boolean;
+    whatsapp: string;
+    hosts: boolean;
+  },
+): TicketView {
+  const { ticket, event } = input;
+  const origin = context.origin;
+  const ended = hasEnded(event, context.now);
+  const live = ticket.status !== "cancelled" && !ended;
+  const inside = Boolean(ticket.checkedInAt);
+  const ticketUrl = `${origin}/entrada/${ticket.token}`;
+  const meetUrl =
+    ticket.status === "going" ? event.calendar?.meetUrl : undefined;
+  const profileUrl = ticket.profileId
+    ? `${origin}/p/${ticket.profileId}`
+    : undefined;
+
+  const showNext = live && !(inside && !meetUrl && !input.whatsapp);
+  const showProfile = inside || Boolean(profileUrl) || input.hosts;
+  const order: TicketPanel[] = inside
+    ? ["profile", "next", "share"]
+    : ["next", "venue", "share", "profile"];
+  const shown: Record<TicketPanel, boolean> = {
+    next: showNext,
+    venue: live,
+    share: live,
+    profile: showProfile,
+  };
+
+  return {
+    ticket,
+    event,
+    fresh: input.fresh,
+    ticketUrl,
+    door: input.door,
+    ...(live &&
+      !inside &&
+      event.place.kind === "venue" && {
+        qr: renderSVG(ticketUrl, { border: 2 }),
+      }),
+    panels: order.filter((panel) => shown[panel]),
+    next: {
+      inside,
+      meetUrl,
+      calendarUrl: googleCalendarUrl(event, eventUrl(origin, event)),
+      whatsapp: input.whatsapp,
+      communityPrimary: !meetUrl && !inside,
+    },
+    shareUrl: ticket.shareId
+      ? `${eventUrl(origin, event)}/voy/${ticket.shareId}`
+      : undefined,
+    profile: { url: profileUrl, primary: inside, hosts: input.hosts },
+    credential: ticket.status === "going",
+    rejoin: ticket.status === "cancelled" && !ended,
+  };
+}
+
+export type ProfileView = {
+  firstName: string;
+  since: string;
+  /** Attended events, newest first. */
+  events: EventMeta[];
+  /** Hosted events, newest first. */
+  hosted: EventMeta[];
+  /** The page's meta description. */
+  description: string;
+};
+
+/** A public profile: the person's events, newest first, from every event. */
+export function profileView(
+  profile: Profile,
+  events: EventMeta[],
+): ProfileView {
+  const newest = [...events].sort((a, b) => b.start.localeCompare(a.start));
+  const among = (slugs: string[]) =>
+    newest.filter((e) => slugs.includes(e.slug));
+  const hosted = among(profile.hosted);
+  const name = profile.firstName;
+
+  return {
+    firstName: name,
+    since: profile.since,
+    events: among(profile.attended),
+    hosted,
+    description: hosted.length
+      ? `Los eventos que organiza ${name} y a los que fue.`
+      : `Los eventos a los que fue ${name}.`,
+  };
+}

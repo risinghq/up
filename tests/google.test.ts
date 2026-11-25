@@ -20,6 +20,7 @@ import {
   seed,
   testEnv,
 } from "./support";
+import { page, type Page } from "./dom";
 
 setDefaultTimeout(HOST_TIMEOUT);
 
@@ -133,6 +134,15 @@ const post = (path: string, body = new FormData()) =>
 
 const location = (res: Response) => res.headers.get("location") ?? "";
 
+const open = async (path: string, headers?: Record<string, string>) =>
+  page(await get(path, headers));
+
+/** The links on a page that lead into the event's Meet call. */
+const meetLinks = (p: Page) =>
+  p.screen
+    .queryAllByRole("link")
+    .filter((a) => a.getAttribute("href") === MEET);
+
 /** Registers on the public page and returns the ticket path. */
 async function register(email: string) {
   const res = await app.request(
@@ -170,12 +180,14 @@ function editForm(title: string) {
 describe("without an OAuth client", () => {
   test("the admin shows no Google section and the connect route is gone", async () => {
     const bare = { ...env, GOOGLE_CLIENT_ID: undefined };
-    const page = await app.request(
-      "/admin/ajustes",
-      { headers: { cookie } },
-      bare,
+    const settings = await page(
+      await app.request("/admin/ajustes", { headers: { cookie } }, bare),
     );
-    expect(await page.text()).not.toContain("Google Calendar");
+    expect(
+      settings.screen.queryByRole("heading", {
+        name: "Google Calendar y Meet",
+      }),
+    ).toBeNull();
     const res = await app.request(
       "/admin/google/conectar",
       { headers: { cookie } },
@@ -187,8 +199,12 @@ describe("without an OAuth client", () => {
 
 describe("connecting", () => {
   test("the settings offer to connect", async () => {
-    const html = await (await get("/admin/ajustes")).text();
-    expect(html).toContain('href="/admin/google/conectar"');
+    const settings = await open("/admin/ajustes");
+    expect(
+      settings.screen
+        .getByRole("link", { name: "Conectar Google" })
+        .getAttribute("href"),
+    ).toBe("/admin/google/conectar");
   });
 
   test("a visitor cannot start or finish the flow", async () => {
@@ -229,9 +245,16 @@ describe("connecting", () => {
       email: "rising@example.com",
       refreshToken: "r1",
     });
-    const html = await (await get("/admin/ajustes?google=conectado")).text();
-    expect(html).toContain("rising@example.com");
-    expect(html).toContain("Google Calendar quedó conectado.");
+    const settings = await open("/admin/ajustes?google=conectado");
+    expect(settings.screen.getByRole("status").textContent).toBe(
+      "Google Calendar quedó conectado.",
+    );
+    expect(settings.text(".google-account p")).toBe(
+      "Conectado como rising@example.com.",
+    );
+    expect(
+      settings.screen.getByRole("button", { name: "Desconectar" }),
+    ).toBeDefined();
   });
 });
 
@@ -258,16 +281,20 @@ describe("the event's calendar copy", () => {
       htmlUrl: "https://calendar.google.com/event?eid=g1",
       meetUrl: MEET,
     });
-    const html = await (await get("/admin/eventos/online")).text();
-    expect(html).toContain(MEET);
+    expect(meetLinks(await open("/admin/eventos/online"))).toHaveLength(1);
   });
 
   test("only a ticket with a seat shows the Meet link", async () => {
-    const seated = await register("seat@example.com");
-    const waiting = await register("wait@example.com");
-    expect(await (await get(seated, {})).text()).toContain(MEET);
-    expect(await (await get(waiting, {})).text()).not.toContain(MEET);
-    expect(await (await get("/online", {})).text()).not.toContain(MEET);
+    const seated = await open(await register("seat@example.com"), {});
+    expect(
+      seated.screen
+        .getByRole("link", { name: "Entrar a la llamada en Google Meet" })
+        .getAttribute("href"),
+    ).toBe(MEET);
+
+    const waiting = await open(await register("wait@example.com"), {});
+    expect(meetLinks(waiting)).toEqual([]);
+    expect(meetLinks(await open("/online", {}))).toEqual([]);
   });
 
   test("saving the event updates its calendar copy", async () => {
@@ -289,10 +316,15 @@ describe("the event's calendar copy", () => {
       "/admin/eventos/online/editar?guardado&calendario=error",
     );
     expect((await findEvent(DB, "online"))?.title).toBe("Charla otra");
-    const html = await (
-      await get("/admin/eventos/online/editar?guardado&calendario=error")
-    ).text();
-    expect(html).toContain("Google no respondió bien");
+    const editor = await open(
+      "/admin/eventos/online/editar?guardado&calendario=error",
+    );
+    expect(
+      editor.screen.getAllByRole("status").map((s) => s.textContent?.trim()),
+    ).toContain("Guardado.");
+    expect(editor.screen.getByRole("alert").textContent).toStartWith(
+      "Google no respondió bien",
+    );
   });
 
   test("a copy deleted in Google is created again on sync", async () => {

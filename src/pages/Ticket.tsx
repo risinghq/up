@@ -1,31 +1,10 @@
+import { Fragment } from "preact";
 import { kindLabel, type EventMeta } from "../worker/events";
 import type { Ticket } from "../worker/registrations";
 import { clock, shortDate } from "../worker/time";
+import type { TicketView } from "../worker/views";
 import { DateRow, PlaceRow, VenueCard } from "./EventCard";
 import { cardColors } from "./theme";
-
-export type TicketView = {
-  ticket: Ticket;
-  event: EventMeta;
-  ended: boolean;
-  /** True on the redirect right after registering. */
-  fresh: boolean;
-  ticketUrl: string;
-  calendarUrl: string;
-  /** The event's Google Meet call; only a ticket with a seat gets it. */
-  meetUrl?: string;
-  whatsapp: string;
-  /** SVG of a QR code of the ticket's link, shown at the venue's door. */
-  qr?: string;
-  /** True when an admin opens the ticket, as at the door after a scan. */
-  door: boolean;
-  /** The public "voy" link, once the holder made one. */
-  shareUrl?: string;
-  /** The holder's public profile, once they opened it. */
-  profileUrl?: string;
-  /** True when a published event lists the holder as a host. */
-  hosts: boolean;
-};
 
 const statusText = {
   going: "Tienes un cupo",
@@ -179,58 +158,60 @@ function ProfilePanel(props: {
 /**
  * What to do before the event: join the call, save the date, join the
  * community, or give the seat back. Once inside, only the call and the
- * community are left, and the profile is the primary action.
+ * community are left.
  */
-function NextSteps({ view }: { view: TicketView }) {
-  const { ticket, event } = view;
-  const inside = Boolean(ticket.checkedInAt);
-  if (inside && !view.meetUrl && !view.whatsapp) return null;
-
-  const communityWeight =
-    view.meetUrl || inside ? "button-light" : "button-primary";
+function NextSteps(props: {
+  token: string;
+  slug: string;
+  next: TicketView["next"];
+}) {
+  const { next } = props;
+  const communityWeight = next.communityPrimary
+    ? "button-primary"
+    : "button-light";
   return (
     <section class="content-card" aria-labelledby="next-title">
       <h2 class="card-title" id="next-title">
-        {inside ? "Durante el evento" : "Antes del evento"}
+        {next.inside ? "Durante el evento" : "Antes del evento"}
       </h2>
       <div class="ticket-actions">
-        {view.meetUrl && (
+        {next.meetUrl && (
           <a
             class="button button-primary button-full"
-            href={view.meetUrl}
+            href={next.meetUrl}
             rel="noopener"
           >
             Entrar a la llamada en Google Meet
           </a>
         )}
-        {!inside && (
+        {!next.inside && (
           <div class="row">
             <a
               class="button button-light button-small button-round"
-              href={view.calendarUrl}
+              href={next.calendarUrl}
             >
               Agregar a Google Calendar
             </a>
             <a
               class="button button-light button-small button-round"
-              href={`/${event.slug}/calendario.ics`}
+              href={`/${props.slug}/calendario.ics`}
             >
               Descargar .ics
             </a>
           </div>
         )}
-        {view.whatsapp && (
+        {next.whatsapp && (
           <a
             class={`button button-full ${communityWeight}`}
-            href={view.whatsapp}
+            href={next.whatsapp}
           >
             Únete a la comunidad
           </a>
         )}
-        {!inside && (
+        {!next.inside && (
           <form
             method="post"
-            action={`/entrada/${ticket.token}/cancelar`}
+            action={`/entrada/${props.token}/cancelar`}
             class="cancel"
             data-confirm="¿Seguro que quieres cancelar tu inscripción?"
           >
@@ -246,21 +227,19 @@ function NextSteps({ view }: { view: TicketView }) {
 
 export function TicketPage(view: TicketView) {
   const { ticket, event } = view;
-  const live = ticket.status !== "cancelled" && !view.ended;
-  const checkedIn = Boolean(ticket.checkedInAt);
 
-  const next = live && <NextSteps view={view} />;
-  const share = live && (
-    <SharePanel token={ticket.token} title={event.title} url={view.shareUrl} />
-  );
-  const profile = (checkedIn || view.profileUrl || view.hosts) && (
-    <ProfilePanel
-      token={ticket.token}
-      url={view.profileUrl}
-      primary={checkedIn}
-      hosts={view.hosts}
-    />
-  );
+  const panels = {
+    next: <NextSteps token={ticket.token} slug={event.slug} next={view.next} />,
+    venue: <VenueCard event={event} />,
+    share: (
+      <SharePanel
+        token={ticket.token}
+        title={event.title}
+        url={view.shareUrl}
+      />
+    ),
+    profile: <ProfilePanel token={ticket.token} {...view.profile} />,
+  };
 
   return (
     <article class="ticket-page">
@@ -312,7 +291,7 @@ export function TicketPage(view: TicketView) {
               Ingresaste a las {clock(ticket.checkedInAt)}
             </p>
           )}
-          {live && view.qr && !ticket.checkedInAt && (
+          {view.qr && (
             <figure class="ticket-qr">
               {/* The SVG is uqr's output for our own URL; it holds no
                   user text. */}
@@ -329,26 +308,13 @@ export function TicketPage(view: TicketView) {
         </div>
       </section>
 
-      {checkedIn ? (
-        <>
-          {profile}
-          {next}
-          {share}
-        </>
-      ) : (
-        <>
-          {next}
-          {live && <VenueCard event={event} />}
-          {share}
-          {profile}
-        </>
-      )}
+      {view.panels.map((panel) => (
+        <Fragment key={panel}>{panels[panel]}</Fragment>
+      ))}
 
-      {ticket.status === "going" && (
-        <Credential ticket={ticket} event={event} />
-      )}
+      {view.credential && <Credential ticket={ticket} event={event} />}
 
-      {ticket.status === "cancelled" && !view.ended && (
+      {view.rejoin && (
         <p class="ticket-note">
           ¿Cambiaste de idea? <a href={`/${event.slug}`}>Inscríbete otra vez</a>
           .

@@ -37,6 +37,7 @@ import {
   coverUrl,
   deleteEvent,
   findEvent,
+  hasEnded,
   linkCalendar,
   listEvents,
   saveEvent,
@@ -70,11 +71,13 @@ import {
   fillSeats,
   findTicket,
   goingCount,
+  undoCheckIn,
+} from "./registrations";
+import {
   listRegistrants,
   registrationCount,
   statusCounts,
-  undoCheckIn,
-} from "./registrations";
+} from "./registrants";
 import { newToken } from "./tokens";
 import { after, notFound, page, site, type AppEnv, type Ctx } from "./web";
 import { whatsappMode } from "./whatsapp";
@@ -327,8 +330,8 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     const period: Period =
       c.req.query("periodo") === "pasados" ? "pasados" : "proximos";
     const events = await listEvents(c.env.DB);
-    const upcoming = events.filter((e) => new Date(e.end) > now());
-    const past = events.filter((e) => new Date(e.end) <= now()).reverse();
+    const upcoming = events.filter((e) => !hasEnded(e, now()));
+    const past = events.filter((e) => hasEnded(e, now())).reverse();
     const shown = period === "proximos" ? upcoming : past;
     const rows = await Promise.all(
       shown.map(async (event) => ({
