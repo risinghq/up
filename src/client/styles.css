@@ -290,6 +290,23 @@ a:hover {
   background-color: var(--nav-bg-color);
 }
 
+/* As Luma's discover nav: the page scrolls under a blur, and a divider shows
+   once it has (main.ts sets data-scrolled). An event page's nav stays put. */
+.site-nav.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  border-bottom: 1px solid transparent;
+  background-color: transparent;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  transition: border-color var(--transition-duration) var(--transition-fn);
+}
+
+.site-nav.sticky[data-scrolled] {
+  border-bottom-color: var(--divider-color);
+}
+
 .site-logo {
   display: flex;
   align-items: center;
@@ -343,12 +360,19 @@ a:hover {
   color: var(--nav-link-hover-color);
 }
 
+.site-links a:not(.button):focus-visible {
+  border-radius: 100px;
+  outline: 2px solid var(--nav-link-color);
+  outline-offset: 4px;
+}
+
+/* The logo already leads home, so a phone drops the Eventos link. */
 @media (max-width: 650px) {
   .site-links {
     gap: 0.875rem;
   }
 
-  .site-links a:not(.button) {
+  .site-links .home-link {
     display: none;
   }
 }

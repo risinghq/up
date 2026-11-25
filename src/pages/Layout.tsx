@@ -49,15 +49,21 @@ export const Lockup = () => (
   </span>
 );
 
-function SiteHeader(props: { community: Community; admin: boolean }) {
+function SiteHeader(props: {
+  community: Community;
+  admin: boolean;
+  sticky: boolean;
+}) {
   const { community } = props;
   return (
-    <header class="site-nav">
+    <header class={props.sticky ? "site-nav sticky" : "site-nav"}>
       <a class="site-logo" href="/" aria-label="up.rising.sh, inicio">
         <Lockup />
       </a>
-      <nav class="site-links" aria-label="Comunidad">
-        <a href="/">Eventos</a>
+      <nav class="site-links" aria-label="Principal">
+        <a class="home-link" href="/">
+          Eventos
+        </a>
         {props.admin && <a href="/admin">Admin</a>}
         {community.instagram && <a href={community.instagram}>Instagram</a>}
         {community.whatsapp && (
@@ -77,7 +83,7 @@ function AdminHeader({ shell }: { shell: AdminShell }) {
   const current = (section: AdminShell["section"]) =>
     shell.section === section ? ("page" as const) : undefined;
   return (
-    <header class="site-nav admin-nav">
+    <header class="site-nav sticky admin-nav">
       <a
         class="site-logo"
         href={shell.name ? "/admin" : "/"}
@@ -193,7 +199,11 @@ export function Layout(props: {
         {props.shell ? (
           <AdminHeader shell={props.shell} />
         ) : (
-          <SiteHeader community={community} admin={props.admin} />
+          <SiteHeader
+            community={community}
+            admin={props.admin}
+            sticky={!theme}
+          />
         )}
         <main id="main">{props.children}</main>
         {!props.shell && (

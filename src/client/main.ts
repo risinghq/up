@@ -6,7 +6,20 @@ import "./styles.css";
 import "./admin.css";
 
 // Every page works without this script. It only stops a double submit,
-// confirms a cancellation and copies the ticket link.
+// confirms a cancellation, copies the ticket link and marks a scrolled nav.
+
+const nav = document.querySelector<HTMLElement>(".site-nav.sticky");
+if (nav) {
+  // Luma shows the divider past 1.5 root font sizes of scroll.
+  const mark = () => {
+    const root = parseFloat(
+      getComputedStyle(document.documentElement).fontSize,
+    );
+    nav.toggleAttribute("data-scrolled", scrollY > 1.5 * root);
+  };
+  mark();
+  addEventListener("scroll", mark, { passive: true });
+}
 
 for (const form of document.querySelectorAll<HTMLFormElement>("form")) {
   form.addEventListener("submit", (event) => {
