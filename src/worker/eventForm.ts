@@ -43,9 +43,8 @@ const isUrl = (value: string) => {
   }
 };
 
-/** The map field: the link the admin pasted, else the coordinates. */
-const mapValue = (place: Extract<Place, { kind: "venue" }>) =>
-  place.mapUrl ?? (place.point ? `${place.point.lat}, ${place.point.lng}` : "");
+const venuePoint = (place: Place) =>
+  place.kind === "venue" ? place.point : undefined;
 
 /** An event as the editor's fields show it. */
 export function eventValues(event: EventMeta): Record<string, string> {
@@ -60,7 +59,8 @@ export function eventValues(event: EventMeta): Record<string, string> {
     place_kind: place.kind,
     place_name: place.kind === "venue" ? place.name : place.platform,
     place_address: place.kind === "venue" ? place.address : "",
-    map_url: place.kind === "venue" ? mapValue(place) : "",
+    lat: String(venuePoint(place)?.lat ?? ""),
+    lng: String(venuePoint(place)?.lng ?? ""),
     capacity: event.capacity === undefined ? "" : String(event.capacity),
     questions: formatQuestions(event.questions),
     status: event.status,
@@ -103,7 +103,8 @@ export function parseEventForm(
     place_kind: text("place_kind"),
     place_name: text("place_name"),
     place_address: text("place_address"),
-    map_url: text("map_url"),
+    lat: text("lat"),
+    lng: text("lng"),
     capacity: text("capacity"),
     questions: text("questions"),
     status: text("status"),
@@ -142,10 +143,11 @@ export function parseEventForm(
       : "Escribe el nombre del lugar.";
   if (!online && !values.place_address)
     errors.place_address = "Escribe la dirección.";
-  const point = online ? null : parsePoint(values.map_url);
-  if (!online && values.map_url && !point && !isUrl(values.map_url))
-    errors.map_url =
-      "Pega un enlace de Google Maps o coordenadas como -12.0599, -77.0817.";
+  const placed = Boolean(values.lat || values.lng);
+  const point =
+    online || !placed ? null : parsePoint(`${values.lat},${values.lng}`);
+  if (placed && !online && !point)
+    errors.lat = "Marca el lugar en el mapa otra vez.";
 
   let capacity: number | undefined;
   if (values.capacity) {
@@ -193,11 +195,7 @@ export function parseEventForm(
             kind: "venue",
             name: values.place_name,
             address: values.place_address,
-            ...(point
-              ? { point }
-              : values.map_url
-                ? { mapUrl: values.map_url }
-                : {}),
+            ...(point ? { point } : {}),
           },
       ...(capacity !== undefined ? { capacity } : {}),
       questions,

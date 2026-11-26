@@ -113,6 +113,7 @@
   padding: 0.5rem 0.75rem 0.625rem;
   border-bottom: 1px solid var(--divider-color);
   color: var(--primary-color);
+  font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
 }
 
@@ -148,7 +149,7 @@
   background: none;
   color: var(--secondary-color-alpha);
   font: inherit;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
   text-align: left;
   cursor: pointer;
 }
@@ -602,8 +603,229 @@
   font-weight: 650;
 }
 
-.editor .make-special {
-  background: linear-gradient(160deg, var(--wash), var(--paper) 60%);
+.editor [hidden] {
+  display: none !important;
+}
+
+/* An online event has no venue: its address and map leave, and the name
+   field asks for the platform. */
+.editor:has(input[name="place_kind"][value="online"]:checked) .venue-fields,
+.editor:has(input[name="place_kind"][value="online"]:checked) .venue-only,
+.editor:not(:has(input[name="place_kind"][value="online"]:checked))
+  .online-only {
+  display: none;
+}
+
+.venue-fields {
+  display: grid;
+  gap: 18px;
+}
+
+.affix {
+  display: flex;
+  align-items: center;
+  border: var(--input-border-thickness) solid var(--opacity-16);
+  border-radius: var(--border-radius);
+  background-color: var(--primary-bg-color);
+  transition: var(--transition);
+}
+
+.affix:hover {
+  border-color: var(--opacity-32);
+}
+
+.affix:focus-within {
+  border-color: var(--primary-color);
+}
+
+.affix:has([aria-invalid="true"]) {
+  border-color: var(--error);
+}
+
+.affix > span {
+  padding-left: 0.875rem;
+  color: var(--tertiary-color-alpha);
+  font-size: var(--input-font-size);
+  white-space: nowrap;
+}
+
+.field .affix input {
+  min-width: 0;
+  padding-left: 0;
+  border: 0;
+  background: none;
+}
+
+.place-search {
+  position: relative;
+}
+
+.place-search [role="listbox"] {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  left: 0;
+  z-index: 3;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  border: 1px solid var(--divider-color);
+  border-radius: var(--card-border-radius);
+  background-color: var(--primary-bg-color);
+  box-shadow: var(--shadow-lg);
+}
+
+.place-search [role="option"],
+.place-note {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-sm);
+}
+
+.place-search [role="option"] {
+  cursor: pointer;
+}
+
+.place-search [role="option"]:hover,
+.place-search [aria-selected="true"] {
+  background-color: var(--opacity-light);
+}
+
+.place-search [role="option"] strong {
+  font-weight: var(--font-weight-medium);
+}
+
+.place-search [role="option"] span,
+.place-note {
+  color: var(--tertiary-color-alpha);
+}
+
+.place-map {
+  height: 280px;
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--divider-color);
+  border-radius: var(--card-border-radius);
+  background: var(--opacity-light);
+}
+
+.place-pin {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-width: 3px;
+  background: var(--accent-preview, #2563eb);
+  cursor: grab;
+}
+
+.place-pin:active {
+  cursor: grabbing;
+}
+
+.place-clear {
+  justify-self: start;
+  margin-top: 10px;
+}
+
+.place-picker {
+  display: grid;
+}
+
+/* The look: its controls beside the card they paint. */
+.editor .look {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.look-controls {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.look-preview {
+  min-width: 0;
+}
+
+@media (min-width: 860px) {
+  .editor .look {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    align-items: start;
+    column-gap: 32px;
+  }
+
+  .look-preview {
+    position: sticky;
+    top: calc(var(--nav-height, 3.5rem) + 16px);
+  }
+}
+
+.look-card {
+  overflow: hidden;
+  border: 1px solid var(--divider-color);
+  border-radius: var(--card-border-radius);
+  background-color: var(--page-bg);
+  color: var(--primary-color);
+}
+
+.look-cover {
+  aspect-ratio: 1;
+}
+
+.look-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.look-text {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 14px 16px 16px;
+}
+
+.look-kind {
+  color: var(--tertiary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
+.look-title {
+  font-family: var(--title-font);
+  font-size: 1.375rem;
+  font-weight: var(--font-weight-medium);
+  line-height: var(--reduced-title-line-height);
+  overflow-wrap: anywhere;
+}
+
+.look-summary {
+  color: var(--secondary-color-alpha);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.look-summary:empty {
+  display: none;
+}
+
+.look-text .button {
+  margin-top: 6px;
+  pointer-events: none;
+}
+
+/* Guardar stays in reach down the whole form. */
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 -12px;
+  padding: 12px;
+  border-top: 1px solid var(--divider-color);
+  background-color: color-mix(in srgb, var(--page-bg) 88%, transparent);
+  backdrop-filter: blur(8px);
 }
 
 .field-row {
@@ -775,12 +997,6 @@
   font-weight: var(--font-weight-medium);
 }
 
-.cover-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-}
-
 .field .cover-drop {
   position: relative;
   display: grid;
@@ -892,34 +1108,16 @@
   opacity: 0.3;
 }
 
-.cover-side {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-}
-
-.cover-side .hint,
-.cover-side .error {
-  margin: 0;
+.cover-field .check {
+  margin-top: 10px;
 }
 
 .cover-name {
-  margin: 0;
+  margin: 8px 0 0;
   overflow: hidden;
   font-size: var(--font-size-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-@media (max-width: 480px) {
-  .cover-row {
-    flex-direction: column;
-  }
-
-  .field .cover-drop {
-    width: 100%;
-    max-width: 240px;
-  }
 }
 
 @media (hover: none) {

@@ -28,7 +28,11 @@ import {
 setDefaultTimeout(HOST_TIMEOUT);
 
 const now = new Date("2026-12-01T12:00:00-05:00");
-const app = createApp({ now: () => now });
+// No test reaches the network: every outside request fails.
+const app = createApp({
+  now: () => now,
+  fetch: async () => new Response("", { status: 503 }),
+});
 
 let mf: Miniflare;
 let DB: D1Database;
@@ -206,9 +210,7 @@ describe("events", () => {
     );
     const p = await page(res);
     expect(p.status).toBe(422);
-    expect(described(p, "Dirección")).toStartWith(
-      "Esa dirección la usa el sitio",
-    );
+    expect(described(p, "Enlace")).toStartWith("Esa dirección la usa el sitio");
     expect(described(p, "Fin")).toBe("El fin va después del inicio.");
     expect(described(p, "Color")).toBe("Un color como #2563eb.");
     const font = p.screen.getByRole("group", { name: "Letra del título" });
@@ -223,9 +225,7 @@ describe("events", () => {
     );
     const p = await page(res);
     expect(p.status).toBe(409);
-    expect(described(p, "Dirección")).toBe(
-      "Ya hay un evento con esta dirección.",
-    );
+    expect(described(p, "Enlace")).toBe("Ya hay un evento con esta dirección.");
   });
 
   test("renames an event without registrations and replaces its cover", async () => {
@@ -257,10 +257,10 @@ describe("events", () => {
     expect(await MEDIA.head(after?.coverKey ?? "")).toBeNull();
   });
 
-  test("coordinates in the map field put the venue on a map", async () => {
+  test("a point marked on the map puts the venue on a map", async () => {
     const res = await post(
       "/admin/eventos/vacio/editar",
-      eventForm({ slug: "vacio", map_url: "-12.0598607, -77.0817416" }),
+      eventForm({ slug: "vacio", lat: "-12.0598607", lng: "-77.0817416" }),
     );
     expect(res.status).toBe(303);
     const saved = await findEvent(DB, "vacio");
@@ -269,7 +269,8 @@ describe("events", () => {
     });
 
     const editor = await open("/admin/eventos/vacio/editar");
-    expect(value(editor, "Mapa")).toBe("-12.0598607, -77.0817416");
+    expect(value(editor, "Latitud")).toBe("-12.0598607");
+    expect(value(editor, "Longitud")).toBe("-77.0817416");
 
     const p = await visit("/vacio");
     const map = p.document.querySelector<HTMLElement>(".venue-map");
@@ -288,13 +289,38 @@ describe("events", () => {
     const refused = await page(
       await post(
         "/admin/eventos/vacio/editar",
-        eventForm({ slug: "vacio", map_url: "cerca del parque" }),
+        eventForm({ slug: "vacio", lat: "abc", lng: "-77" }),
       ),
     );
     expect(refused.status).toBe(422);
-    expect(described(refused, "Mapa")).toStartWith(
-      "Pega un enlace de Google Maps",
+    expect(refused.document.querySelector("#a-lat-error")?.textContent).toBe(
+      "Marca el lugar en el mapa otra vez.",
     );
+  });
+
+  test("the place search answers short queries empty and reports a failed search", async () => {
+    const short = await get("/admin/lugares?q=fa");
+    expect(await short.json()).toEqual({ places: [] });
+
+    const coords = await get("/admin/lugares?q=-12.06,-77.08");
+    expect(await coords.json()).toEqual({
+      places: [
+        {
+          name: "-12.06,-77.08",
+          address: "",
+          point: { lat: -12.06, lng: -77.08 },
+        },
+      ],
+    });
+
+    const failed = await get("/admin/lugares?q=Facultad");
+    expect(failed.status).toBe(502);
+    expect(await failed.json()).toEqual({
+      error: "La búsqueda no respondió.",
+    });
+
+    const visitor = await get("/admin/lugares?q=Facultad", {});
+    expect(visitor.status).toBe(303);
   });
 
   test("an event with registrations keeps its slug and cannot be deleted", async () => {

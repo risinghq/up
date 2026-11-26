@@ -39,13 +39,19 @@ if (
 )
   void import("./credential").then((m) => m.showCredential(credential));
 
-const picker = document.querySelector<HTMLElement>(".accent-picker");
-const cover = document.querySelector<HTMLElement>(".cover-drop");
-if (picker || cover)
+const editor = document.querySelector<HTMLFormElement>("form.editor");
+if (editor)
   void import("./editor").then((m) => {
-    if (picker) m.showAccentChips(picker);
+    const chips = editor.querySelector<HTMLElement>(".accent-picker");
+    const cover = editor.querySelector<HTMLElement>(".cover-drop");
+    if (chips) m.showAccentChips(chips);
     if (cover) m.showCoverDrop(cover);
+    m.showPreview(editor);
+    m.followStart(editor);
   });
+
+const place = document.querySelector<HTMLElement>(".place-picker");
+if (place) void import("./picker").then((m) => m.showPicker(place));
 
 const signup = document.querySelector<HTMLDetailsElement>("#inscripcion");
 if (signup) {

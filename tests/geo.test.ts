@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { locate, parsePoint, pointInUrl } from "../src/worker/geo";
+import { findPlaces, locate, parsePoint, pointInUrl } from "../src/worker/geo";
 
 describe("parsePoint", () => {
   test("reads the pair Google Maps copies", () => {
@@ -80,5 +80,87 @@ describe("locate", () => {
     expect(
       await locate(fetcher, "https://maps.google.com/?q=Facultad"),
     ).toBeNull();
+  });
+});
+
+describe("findPlaces", () => {
+  const refuse = async () => {
+    throw new Error("no fetch expected");
+  };
+
+  test("offers typed coordinates and a map link's point without a search", async () => {
+    expect(await findPlaces(refuse, " -12.06, -77.08 ")).toEqual([
+      {
+        name: "-12.06, -77.08",
+        address: "",
+        point: { lat: -12.06, lng: -77.08 },
+      },
+    ]);
+    expect(
+      await findPlaces(
+        refuse,
+        "https://www.google.com/maps/@-12.06,-77.08,15z",
+      ),
+    ).toEqual([
+      {
+        name: "Lugar del enlace",
+        address: "",
+        point: { lat: -12.06, lng: -77.08 },
+      },
+    ]);
+    expect(
+      await findPlaces(refuse, "https://maps.google.com/?q=Facultad"),
+    ).toEqual([]);
+  });
+
+  test("searches Photon near Lima and names each place with its address", async () => {
+    const seen: URL[] = [];
+    const fetcher = async (url: string) => {
+      seen.push(new URL(url));
+      return Response.json({
+        features: [
+          {
+            geometry: { coordinates: [-77.0817, -12.0598] },
+            properties: {
+              name: "Facultad de Ciencias Físicas",
+              street: "Avenida Venezuela",
+              housenumber: "3400",
+              district: "Cercado de Lima",
+              city: "Lima",
+            },
+          },
+          {
+            geometry: { coordinates: [-77.03, -12.05] },
+            properties: {
+              street: "Jirón Ucayali",
+              district: "Lima",
+              city: "Lima",
+            },
+          },
+        ],
+      });
+    };
+
+    expect(await findPlaces(fetcher, "Ciencias Físicas")).toEqual([
+      {
+        name: "Facultad de Ciencias Físicas",
+        address: "Avenida Venezuela 3400, Cercado de Lima, Lima",
+        point: { lat: -12.0598, lng: -77.0817 },
+      },
+      {
+        name: "Jirón Ucayali",
+        address: "Lima",
+        point: { lat: -12.05, lng: -77.03 },
+      },
+    ]);
+    expect(seen[0]?.origin).toBe("https://photon.komoot.io");
+    expect(seen[0]?.searchParams.get("q")).toBe("Ciencias Físicas");
+    expect(seen[0]?.searchParams.get("lat")).toBe("-12.06");
+    expect(seen[0]?.searchParams.get("bbox")).toBe("-81.4,-18.4,-68.6,-0.03");
+  });
+
+  test("a failed search throws", async () => {
+    const down = async () => new Response("", { status: 503 });
+    await expect(findPlaces(down, "Facultad")).rejects.toThrow("Photon 503");
   });
 });

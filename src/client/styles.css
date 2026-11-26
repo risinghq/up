@@ -1716,11 +1716,6 @@ main > .spotlight:first-child {
   font-size: var(--font-size-sm);
 }
 
-.place-map {
-  margin-top: 0.75rem;
-  font-size: var(--font-size-sm);
-}
-
 /* Luma's location map: 199px tall, the card's radius, and a soft-light wash
    of the brand color over the tiles. The box keeps its size before MapLibre
    loads, so nothing shifts. */
@@ -1899,7 +1894,8 @@ main > .spotlight:first-child {
   font-weight: var(--font-weight-medium);
 }
 
-.field input,
+/* A text box: radio pills and checkboxes inside a field keep their own size. */
+.field input:where(:not([type="radio"], [type="checkbox"])),
 .field select,
 .field textarea {
   display: block;
@@ -1941,13 +1937,13 @@ main > .spotlight:first-child {
   height: auto;
 }
 
-.field input:hover,
+.field input:where(:not([type="radio"], [type="checkbox"])):hover,
 .field select:hover,
 .field textarea:hover {
   border-color: var(--opacity-32);
 }
 
-.field input:focus-visible,
+.field input:where(:not([type="radio"], [type="checkbox"])):focus-visible,
 .field select:focus-visible,
 .field textarea:focus-visible {
   outline: none;
