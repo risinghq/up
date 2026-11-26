@@ -1,0 +1,184 @@
+/* The 3D credential under a ticket with a seat. It keeps `display` unset so
+   `hidden` holds it out until the script draws it. The canvas spans the
+   viewport, centered on the box, so a card dragged past the column stays
+   whole; `main` clips what passes the window. */
+
+.credential {
+  position: relative;
+  height: 28rem;
+  touch-action: pan-y;
+}
+
+.credential > canvas {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 100vw;
+  height: 100%;
+  translate: -50%;
+}
+
+/* Ticket */
+
+.ticket-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 2rem 1rem 0;
+}
+
+.ticket-page > .notice {
+  background-color: var(--ok-bg-color);
+  color: var(--ok);
+}
+
+.ticket-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background-color: var(--ok);
+}
+
+.ticket-waitlist .status-dot {
+  background-color: var(--wait);
+}
+
+.ticket-cancelled .status-dot,
+.ticket-missed .status-dot {
+  background-color: var(--tertiary-color-alpha);
+}
+
+.ticket-title {
+  margin-bottom: 0.5rem;
+  font-family: var(--title-font);
+  font-size: 1.625rem;
+  line-height: var(--reduced-title-line-height);
+  text-wrap: pretty;
+}
+
+.ticket-title a {
+  color: var(--primary-color);
+}
+
+.ticket-title a:hover {
+  color: var(--brand-active-color);
+}
+
+/* The ticket card is narrower than the event page, so the venue wraps
+   instead of cutting its name. */
+.ticket-page .meta-title,
+.ticket-page .meta-title > span:first-child {
+  white-space: normal;
+}
+
+.ticket-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 2rem;
+  margin: 0.25rem 0 0;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--divider-color);
+}
+
+.ticket-facts dt {
+  color: var(--tertiary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
+.ticket-facts dd {
+  margin: 0;
+  font-weight: var(--font-weight-medium);
+}
+
+.ticket-note {
+  color: var(--secondary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
+.ticket-cancelled .ticket-title a {
+  color: var(--tertiary-color-alpha);
+}
+
+.ticket-checked {
+  color: var(--ok);
+  font-weight: var(--font-weight-medium);
+}
+
+/* The QR keeps its white ground in a dark theme: a scanner needs the
+   contrast. */
+.ticket-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0;
+}
+
+.ticket-qr > div {
+  width: min(100%, 220px);
+  line-height: 0;
+}
+
+.ticket-qr svg {
+  width: 100%;
+  height: auto;
+  border-radius: var(--border-radius);
+}
+
+.ticket-qr figcaption {
+  color: var(--secondary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
+.door-who {
+  margin-bottom: 0.75rem;
+  font-weight: var(--font-weight-medium);
+}
+
+.door-done {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--ok);
+}
+
+.ticket-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.notice-fresh {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.notice-fresh p {
+  margin: 0;
+}
+
+/* A destructive act set as a plain link: the underline marks it as one, and
+   the row is a full tap target. */
+.cancel {
+  margin-top: 0.25rem;
+}
+
+.cancel .link-button {
+  min-height: 2.75rem;
+  color: var(--secondary-color-alpha);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 3px;
+}

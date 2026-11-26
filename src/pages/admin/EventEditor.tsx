@@ -8,7 +8,7 @@ import {
   type Kind,
 } from "../../worker/events";
 import type { FormState } from "../../worker/form";
-import { Mark } from "../Layout";
+import { Mark } from "../Brand";
 import { palette as tints, themeClass, themeStyle } from "../theme";
 import { Choice, Input, TextArea, Toggle } from "./fields";
 import { calendarNotice, ManageFrame } from "./Manage";

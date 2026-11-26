@@ -1,12 +1,8 @@
 import type { Context } from "hono";
 import type { ComponentChildren } from "preact";
 import { renderToString } from "preact-render-to-string";
-import {
-  Layout,
-  type AdminShell,
-  type Community,
-  type Head,
-} from "../pages/Layout";
+import type { AdminShell } from "../pages/admin/Shell";
+import { Layout, type Community, type Head } from "../pages/Layout";
 import { NotFound } from "../pages/NotFound";
 import type { Account } from "./accounts";
 import type { WhatsAppEnv } from "./whatsapp";

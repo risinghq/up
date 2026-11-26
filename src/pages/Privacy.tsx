@@ -3,7 +3,7 @@
 // the text.
 export function Privacy() {
   return (
-    <article class="prose page">
+    <article class="prose links page">
       <h1>Privacidad</h1>
       <p>
         up.rising.sh es la página de eventos de rising.sh. Aquí explicamos qué

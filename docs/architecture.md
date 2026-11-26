@@ -139,7 +139,7 @@ notifies each seated ticket of an event that starts within a day and marks
 5. The event page renders the theme with
    [`src/pages/theme.ts`](../src/pages/theme.ts): the accent's tint palette as
    CSS variables, and the kind and backdrop as classes.
-   [`src/client/styles.css`](../src/client/styles.css) derives text, dividers
+   [`src/client/global.css`](../src/client/global.css) derives text, dividers
    and buttons from the palette, once for light and once under `.dark`.
 
 `accountRoutes` in [`src/worker/account.tsx`](../src/worker/account.tsx) serves
@@ -194,53 +194,53 @@ their SHA-256 only.
 
 ## Files
 
-| Path                                                            | Holds                                                                       |
-| --------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| [`src/worker/app.tsx`](../src/worker/app.tsx)                   | Public routes, headers and the session middleware.                          |
-| [`src/worker/admin.tsx`](../src/worker/admin.tsx)               | The `/admin` routes.                                                        |
-| [`src/worker/adminPage.tsx`](../src/worker/adminPage.tsx)       | The admin page frame and the loader of the event in the path.               |
-| [`src/worker/team.tsx`](../src/worker/team.tsx)                 | The routes of an event's Equipo tab.                                        |
-| [`src/worker/door.tsx`](../src/worker/door.tsx)                 | The `/puerta` routes: door links, check-in and walk-ins.                    |
-| [`src/worker/web.tsx`](../src/worker/web.tsx)                   | The `Env` type, page rendering and work after the response.                 |
-| [`src/worker/events.ts`](../src/worker/events.ts)               | The event type and its D1 queries.                                          |
-| [`src/worker/google.ts`](../src/worker/google.ts)               | Google OAuth, the Calendar API and the connected account.                   |
-| [`src/worker/eventForm.ts`](../src/worker/eventForm.ts)         | The editor's form parsing.                                                  |
-| [`src/worker/questions.ts`](../src/worker/questions.ts)         | The one-per-line question syntax.                                           |
-| [`src/worker/form.ts`](../src/worker/form.ts)                   | Registration parsing and phone normalization.                               |
-| [`src/worker/signup.ts`](../src/worker/signup.ts)               | A register post, from the bot checks to the stored registration.            |
-| [`src/worker/registrations.ts`](../src/worker/registrations.ts) | Seats, the waitlist, cancelling, check-in and reminders of one ticket.      |
-| [`src/worker/people.ts`](../src/worker/people.ts)               | People by email and their contact details.                                  |
-| [`src/worker/accounts.ts`](../src/worker/accounts.ts)           | Accounts, the email an account proves, and the admin flag.                  |
-| [`src/worker/account.tsx`](../src/worker/account.tsx)           | The `/entrar`, `/salir` and `/cuenta` routes.                               |
-| [`src/worker/codes.ts`](../src/worker/codes.ts)                 | Sign-in codes and the new-account token.                                    |
-| [`src/worker/session.ts`](../src/worker/session.ts)             | The session cookie and the return path after sign-in.                       |
-| [`src/worker/registrants.ts`](../src/worker/registrants.ts)     | An event's registrant list and counts, for the admin.                       |
-| [`src/worker/shares.ts`](../src/worker/shares.ts)               | The share link of a ticket.                                                 |
-| [`src/worker/profiles.ts`](../src/worker/profiles.ts)           | Public profiles and the events a person attended.                           |
-| [`src/worker/roles.ts`](../src/worker/roles.ts)                 | The roles at an event, their labels and their D1 queries.                   |
-| [`src/worker/certificates.ts`](../src/worker/certificates.ts)   | Certificates by id and when an event issues them.                           |
-| [`src/worker/views.ts`](../src/worker/views.ts)                 | The view models of the event, ticket, profile and certificate pages.        |
-| [`src/worker/mail.ts`](../src/worker/mail.ts)                   | The emails to ticket holders and their sending.                             |
-| [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts)           | The WhatsApp templates and their sending.                                   |
-| [`src/worker/notify.ts`](../src/worker/notify.ts)               | Sends a ticket's email and WhatsApp message together.                       |
-| [`src/worker/reminders.ts`](../src/worker/reminders.ts)         | The day-before reminders the hourly cron sends.                             |
-| [`src/worker/auth.ts`](../src/worker/auth.ts)                   | Passkey, session and challenge queries.                                     |
-| [`src/worker/passkeys.ts`](../src/worker/passkeys.ts)           | WebAuthn options and verification.                                          |
-| [`src/worker/tokens.ts`](../src/worker/tokens.ts)               | Random tokens and their hashes.                                             |
-| [`src/worker/csv.ts`](../src/worker/csv.ts)                     | The registrants export.                                                     |
-| [`src/worker/calendar.ts`](../src/worker/calendar.ts)           | Google Calendar links and `.ics` files.                                     |
-| [`src/worker/geo.ts`](../src/worker/geo.ts)                     | Venue points from coordinates and map links.                                |
-| [`src/worker/time.ts`](../src/worker/time.ts)                   | Dates in Lima time, es-PE.                                                  |
-| [`src/worker/card.tsx`](../src/worker/card.tsx)                 | The share card and its PNG rendering.                                       |
-| [`src/worker/cardAssets.ts`](../src/worker/cardAssets.ts)       | The card's WebAssembly modules and fonts, bundled into the Worker.          |
-| [`src/worker/fonts/`](../src/worker/fonts/)                     | The card's Geist fonts without kerning.                                     |
-| [`scripts/card-fonts.sh`](../scripts/card-fonts.sh)             | Writes those fonts from `@fontsource/geist`.                                |
-| [`src/pages/`](../src/pages/)                                   | The page components; [`admin/`](../src/pages/admin/) holds the admin pages. |
-| [`src/client/`](../src/client/)                                 | The stylesheets and the client scripts.                                     |
-| [`scripts/admin-grant.ts`](../scripts/admin-grant.ts)           | Makes an account the first admin.                                           |
+| Path                                                            | Holds                                                                                                 |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [`src/worker/app.tsx`](../src/worker/app.tsx)                   | Public routes, headers and the session middleware.                                                    |
+| [`src/worker/admin.tsx`](../src/worker/admin.tsx)               | The `/admin` routes.                                                                                  |
+| [`src/worker/adminPage.tsx`](../src/worker/adminPage.tsx)       | The admin page frame and the loader of the event in the path.                                         |
+| [`src/worker/team.tsx`](../src/worker/team.tsx)                 | The routes of an event's Equipo tab.                                                                  |
+| [`src/worker/door.tsx`](../src/worker/door.tsx)                 | The `/puerta` routes: door links, check-in and walk-ins.                                              |
+| [`src/worker/web.tsx`](../src/worker/web.tsx)                   | The `Env` type, page rendering and work after the response.                                           |
+| [`src/worker/events.ts`](../src/worker/events.ts)               | The event type and its D1 queries.                                                                    |
+| [`src/worker/google.ts`](../src/worker/google.ts)               | Google OAuth, the Calendar API and the connected account.                                             |
+| [`src/worker/eventForm.ts`](../src/worker/eventForm.ts)         | The editor's form parsing.                                                                            |
+| [`src/worker/questions.ts`](../src/worker/questions.ts)         | The one-per-line question syntax.                                                                     |
+| [`src/worker/form.ts`](../src/worker/form.ts)                   | Registration parsing and phone normalization.                                                         |
+| [`src/worker/signup.ts`](../src/worker/signup.ts)               | A register post, from the bot checks to the stored registration.                                      |
+| [`src/worker/registrations.ts`](../src/worker/registrations.ts) | Seats, the waitlist, cancelling, check-in and reminders of one ticket.                                |
+| [`src/worker/people.ts`](../src/worker/people.ts)               | People by email and their contact details.                                                            |
+| [`src/worker/accounts.ts`](../src/worker/accounts.ts)           | Accounts, the email an account proves, and the admin flag.                                            |
+| [`src/worker/account.tsx`](../src/worker/account.tsx)           | The `/entrar`, `/salir` and `/cuenta` routes.                                                         |
+| [`src/worker/codes.ts`](../src/worker/codes.ts)                 | Sign-in codes and the new-account token.                                                              |
+| [`src/worker/session.ts`](../src/worker/session.ts)             | The session cookie and the return path after sign-in.                                                 |
+| [`src/worker/registrants.ts`](../src/worker/registrants.ts)     | An event's registrant list and counts, for the admin.                                                 |
+| [`src/worker/shares.ts`](../src/worker/shares.ts)               | The share link of a ticket.                                                                           |
+| [`src/worker/profiles.ts`](../src/worker/profiles.ts)           | Public profiles and the events a person attended.                                                     |
+| [`src/worker/roles.ts`](../src/worker/roles.ts)                 | The roles at an event, their labels and their D1 queries.                                             |
+| [`src/worker/certificates.ts`](../src/worker/certificates.ts)   | Certificates by id and when an event issues them.                                                     |
+| [`src/worker/views.ts`](../src/worker/views.ts)                 | The view models of the event, ticket, profile and certificate pages.                                  |
+| [`src/worker/mail.ts`](../src/worker/mail.ts)                   | The emails to ticket holders and their sending.                                                       |
+| [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts)           | The WhatsApp templates and their sending.                                                             |
+| [`src/worker/notify.ts`](../src/worker/notify.ts)               | Sends a ticket's email and WhatsApp message together.                                                 |
+| [`src/worker/reminders.ts`](../src/worker/reminders.ts)         | The day-before reminders the hourly cron sends.                                                       |
+| [`src/worker/auth.ts`](../src/worker/auth.ts)                   | Passkey, session and challenge queries.                                                               |
+| [`src/worker/passkeys.ts`](../src/worker/passkeys.ts)           | WebAuthn options and verification.                                                                    |
+| [`src/worker/tokens.ts`](../src/worker/tokens.ts)               | Random tokens and their hashes.                                                                       |
+| [`src/worker/csv.ts`](../src/worker/csv.ts)                     | The registrants export.                                                                               |
+| [`src/worker/calendar.ts`](../src/worker/calendar.ts)           | Google Calendar links and `.ics` files.                                                               |
+| [`src/worker/geo.ts`](../src/worker/geo.ts)                     | Venue points from coordinates and map links.                                                          |
+| [`src/worker/time.ts`](../src/worker/time.ts)                   | Dates in Lima time, es-PE.                                                                            |
+| [`src/worker/card.tsx`](../src/worker/card.tsx)                 | The share card and its PNG rendering.                                                                 |
+| [`src/worker/cardAssets.ts`](../src/worker/cardAssets.ts)       | The card's WebAssembly modules and fonts, bundled into the Worker.                                    |
+| [`src/worker/fonts/`](../src/worker/fonts/)                     | The card's Geist fonts without kerning.                                                               |
+| [`scripts/card-fonts.sh`](../scripts/card-fonts.sh)             | Writes those fonts from `@fontsource/geist`.                                                          |
+| [`src/pages/`](../src/pages/)                                   | The page components, each with its stylesheet; [`admin/`](../src/pages/admin/) holds the admin pages. |
+| [`src/client/`](../src/client/)                                 | The shared stylesheet, `global.css`, and the client scripts.                                          |
+| [`scripts/admin-grant.ts`](../scripts/admin-grant.ts)           | Makes an account the first admin.                                                                     |
 
 [`vite.config.ts`](../vite.config.ts) builds the client to
-`/assets/client-<build>.css`, `/assets/client-<build>.js` and
-`/assets/admin-<build>.js`, and passes the build stamp to the layout as
-`BUILD_ID`. [`public/_headers`](../public/_headers) caches `/assets/` for a
-year.
+`/assets/client-<build>.css`, `/assets/client-<build>.js`,
+`/assets/admin-<build>.css` and `/assets/passkey-<build>.js`, and passes the
+build stamp to the layout as `BUILD_ID`. [`public/_headers`](../public/_headers)
+caches `/assets/` for a year.

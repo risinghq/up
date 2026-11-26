@@ -89,7 +89,7 @@ export function Check(props: {
   const error = props.form.errors[props.name];
   const id = `f-${props.name}`;
   return (
-    <div class="check">
+    <div class="check links">
       <input
         id={id}
         name={props.name}

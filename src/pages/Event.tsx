@@ -371,7 +371,7 @@ export function EventPage(view: EventView) {
             <Card label="Sobre el evento" id="about-title">
               {/* micromark escapes raw HTML and drops javascript: links. */}
               <div
-                class="spark"
+                class="spark links"
                 dangerouslySetInnerHTML={{ __html: micromark(meta.body) }}
               />
             </Card>

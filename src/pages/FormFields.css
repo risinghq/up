@@ -1,0 +1,17 @@
+/* The widget stays empty unless Turnstile asks for a click, so the form's gap
+   comes back only with content. */
+.human-check {
+  margin-top: -0.75rem;
+}
+
+.turnstile:not(:empty) {
+  margin-top: 0.75rem;
+}
+
+.trap {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

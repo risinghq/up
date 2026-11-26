@@ -1,5 +1,5 @@
 import type { ComponentChildren } from "preact";
-import type { AdminShell } from "../pages/Layout";
+import type { AdminShell } from "../pages/admin/Shell";
 import { findEvent, type EventMeta } from "./events";
 import { notFound, page, site, type Ctx } from "./web";
 

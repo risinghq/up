@@ -1,0 +1,142 @@
+/* The events home: a timeline of days, each with its event cards. */
+
+.admin-head + .timeline,
+.admin-head + .empty-state {
+  margin-top: 1.5rem;
+}
+
+.timeline {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline > li + li {
+  margin-top: 1.5rem;
+}
+
+.timeline-day {
+  margin-bottom: 0.75rem;
+  color: var(--secondary-color-alpha);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+}
+
+.host-rows {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.host-row > a {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.75rem 0.75rem 0.75rem 1rem;
+  border: 1px solid var(--card-border-color);
+  border-radius: var(--card-border-radius);
+  background-color: var(--card-bg-color);
+  color: var(--primary-color);
+  transition-property: border-color, box-shadow;
+  transition-duration: var(--transition-duration);
+  transition-timing-function: var(--transition-fn);
+}
+
+@media (hover: hover) {
+  .host-row > a:hover {
+    border-color: var(--card-hover-border-color);
+    box-shadow: var(--card-hover-shadow);
+    color: var(--primary-color);
+  }
+}
+
+.host-row-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.host-row-time {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  color: var(--tint-color);
+  font-size: var(--font-size-sm);
+}
+
+.host-row h3 {
+  font-family: var(--title-font);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--reduced-line-height);
+}
+
+.host-row-place {
+  color: var(--tertiary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
+.host-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+}
+
+.host-row-going {
+  color: var(--tertiary-color-alpha);
+  font-size: var(--font-size-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.host-row-cover {
+  flex: none;
+  width: 96px;
+}
+
+.host-row-cover img,
+.host-row-blank {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--border-radius);
+  object-fit: cover;
+}
+
+.host-row-blank {
+  background-color: var(--brand-color);
+  opacity: 0.6;
+}
+
+.pill {
+  padding: 0.0625rem 0.5rem;
+  border-radius: 100px;
+  background-color: var(--opacity-light);
+  color: var(--secondary-color-alpha);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.pill-draft {
+  background-color: var(--wait-bg-color);
+  color: var(--wait);
+}
+
+.pill-live {
+  background-color: var(--ok-bg-color);
+  color: var(--ok);
+}
+
+@media (max-width: 450px) {
+  .host-row-cover {
+    width: 72px;
+  }
+}

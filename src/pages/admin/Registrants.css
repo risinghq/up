@@ -1,0 +1,103 @@
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--secondary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.registrants {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.registrants th,
+.registrants td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.registrants th {
+  background: var(--wash);
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.registrants tr:last-child td {
+  border-bottom: 0;
+}
+
+.registrants .status-cancelled td {
+  color: var(--ink-3);
+}
+
+.registrants form {
+  display: inline;
+}
+
+/* A phone shows each registrant as a stacked row: the number beside the name,
+   the rest under the name, each answer after its question. */
+@media (max-width: 650px) {
+  .table-wrap {
+    overflow-x: visible;
+  }
+
+  .registrants thead {
+    display: none;
+  }
+
+  .registrants tr {
+    display: grid;
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+    gap: 0.25rem 0.625rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .registrants tr:last-child {
+    border-bottom: 0;
+  }
+
+  .registrants td {
+    padding: 0;
+    border: 0;
+  }
+
+  .registrants td:first-child {
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .registrants td:nth-child(2) {
+    font-weight: 550;
+  }
+
+  .registrants td:nth-child(n + 3) {
+    grid-column: 2;
+    color: var(--ink-2);
+  }
+
+  .registrants .registrant-email {
+    overflow-wrap: anywhere;
+  }
+
+  .registrants td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--ink-3);
+  }
+
+  .registrants td:empty {
+    display: none;
+  }
+}

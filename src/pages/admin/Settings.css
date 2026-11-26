@@ -1,0 +1,51 @@
+/* Settings: a label column beside each section's card. */
+
+.settings-section {
+  display: grid;
+  align-items: start;
+  gap: 0.75rem 2rem;
+}
+
+@media (min-width: 700px) {
+  .settings-section {
+    grid-template-columns: 220px 1fr;
+  }
+}
+
+.settings-label .hint {
+  margin-top: 0.25rem;
+}
+
+.admin .settings-label h2 {
+  margin: 0;
+}
+
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.inline-form .field {
+  flex: 1 1 260px;
+}
+
+.inline-form .button {
+  margin-top: 27px;
+}
+
+.google-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 20px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+.google-account p {
+  flex: 1 1 320px;
+}

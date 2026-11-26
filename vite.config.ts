@@ -5,9 +5,10 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { defineConfig } from "vite";
 
-// The Worker renders every page. The client build is one stylesheet and one
-// script named after a hash of the client's inputs, which the Worker reads as
-// BUILD_ID, so it can link them without a manifest. Fonts carry the hash too,
+// The Worker renders every page. The client build is a public stylesheet, an
+// admin stylesheet and scripts, each named after a hash of the client's
+// inputs, which the Worker reads as BUILD_ID, so it can link them without a
+// manifest. A page's stylesheet sits next to it under src/pages. Fonts carry the hash too,
 // so the page can preload the Geist file before the stylesheet asks for it.
 // Every name under /assets changes with its content, so public/_headers caches
 // them for a year. Vite evaluates this file once per environment, so the stamp
@@ -16,6 +17,10 @@ const clientInputs = [
   ...readdirSync("src/client", { recursive: true, encoding: "utf8" })
     .map((file) => join("src/client", file))
     .filter((file) => statSync(file).isFile())
+    .sort(),
+  ...readdirSync("src/pages", { recursive: true, encoding: "utf8" })
+    .filter((file) => file.endsWith(".css"))
+    .map((file) => join("src/pages", file))
     .sort(),
   "bun.lock",
   "vite.config.ts",
@@ -33,6 +38,7 @@ export default defineConfig({
         rolldownOptions: {
           input: {
             client: "src/client/main.ts",
+            admin: "src/client/admin.ts",
             passkey: "src/client/passkey.ts",
           },
           output: {

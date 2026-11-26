@@ -153,7 +153,7 @@ export function CodeStep(props: {
           Continuar
         </button>
       </form>
-      <p class="account-foot">
+      <p class="account-foot links">
         ¿No llegó? Revisa el spam o <a href={props.retry}>usa otro correo</a>.
       </p>
     </Narrow>
@@ -198,7 +198,7 @@ export function NewAccount(props: {
 export function CodeGone(props: { retry: string }) {
   return (
     <Narrow title="El código ya no sirve">
-      <p class="account-lead">
+      <p class="account-lead links">
         Venció o se usaron todos sus intentos.{" "}
         <a href={props.retry}>Pide otro</a>.
       </p>
@@ -255,7 +255,7 @@ function Section(props: {
 function Tickets({ tickets }: { tickets: AccountTicket[] }) {
   if (!tickets.length)
     return (
-      <p class="account-empty">
+      <p class="account-empty links">
         Aún no tienes entradas. <a href="/">Mira los próximos eventos</a>.
       </p>
     );
@@ -323,7 +323,7 @@ export function AccountPage(view: AccountView) {
     <div class="page account">
       <h1>Tu cuenta</h1>
       {view.admin && (
-        <p class="account-lead">
+        <p class="account-lead links">
           Eres admin. <a href="/admin">Ir al panel</a>.
         </p>
       )}
@@ -393,7 +393,12 @@ export function AccountPage(view: AccountView) {
       >
         {view.profileId ? (
           <div class="account-row">
-            <a href={`/p/${view.profileId}`}>Ver mi perfil</a>
+            <a
+              class="button button-light button-small"
+              href={`/p/${view.profileId}`}
+            >
+              Ver mi perfil
+            </a>
             <form method="post" action="/cuenta/perfil/ocultar">
               <button class="button button-light button-small" type="submit">
                 Ocultar
