@@ -8,6 +8,7 @@ and fling it, and it swings back to face front.
 The credential needs JavaScript, WebGL 2 and no request for reduced motion. A
 browser without one of them shows the ticket alone; the ticket card above holds
 the same facts in text, and the QR code stays where it was. A waitlisted or
-cancelled ticket shows no credential.
+cancelled ticket shows no credential, and no ticket shows one after the event
+ends: the [certificate](certificates.md) takes its place.
 
 On a phone, a touch on the card drags it and a touch beside it scrolls the page.

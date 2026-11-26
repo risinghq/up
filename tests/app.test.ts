@@ -617,6 +617,8 @@ describe("certificate", () => {
     ).toBeNull();
 
     const ticket = await openLater(`/entrada/${token}`);
+    expect(ticket.text(".ticket-status")).toBe("Asististe");
+    expect(ticket.document.querySelector(".credential")).toBeNull();
     const link = ticket.screen.getByRole("link", {
       name: "Ver mi certificado",
     });
