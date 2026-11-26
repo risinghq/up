@@ -35,7 +35,7 @@ The tests check behaviour at three layers, each against a fixed clock:
 - [`tests/registrations.test.ts`](../tests/registrations.test.ts) calls the
   domain functions on a migrated D1: seats, the waitlist, cancelling, check-in.
 - [`tests/views.test.ts`](../tests/views.test.ts) calls the view models in
-  [`src/worker/views.ts`](../src/worker/views.ts) with plain values, no D1.
+  `src/pages/*.view.ts` with plain values, no D1.
 - [`tests/app.test.ts`](../tests/app.test.ts) covers the public routes,
   [`tests/admin.test.ts`](../tests/admin.test.ts) the admin routes and
   [`tests/google.test.ts`](../tests/google.test.ts) the Google Calendar link.

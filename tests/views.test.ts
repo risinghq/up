@@ -3,13 +3,10 @@ import type { EventMeta } from "../src/worker/events";
 import type { Profile } from "../src/worker/profiles";
 import type { Ticket } from "../src/worker/registrations";
 import type { EventRole, Role } from "../src/worker/roles";
-import {
-  certificateView,
-  eventView,
-  profileView,
-  ticketView,
-  type Standing,
-} from "../src/worker/views";
+import { certificateView } from "../src/pages/Certificate.view";
+import { eventView } from "../src/pages/Event.view";
+import { profileView } from "../src/pages/Profile.view";
+import { ticketView, type Standing } from "../src/pages/Ticket.view";
 import { event } from "./support";
 
 const origin = "https://up.test";

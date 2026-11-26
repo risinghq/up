@@ -1,7 +1,7 @@
 import type { ComponentChildren } from "preact";
-import type { AdminShell } from "../pages/admin/Shell";
-import { findEvent, type EventMeta } from "./events";
-import { notFound, page, site, type Ctx } from "./web";
+import type { AdminShell } from "../../../pages/admin/Shell";
+import { findEvent, type EventMeta } from "../../events";
+import { notFound, page, site, type Ctx } from "../../web";
 
 /** An admin page. The header names the signed-in admin and marks `section`. */
 export function adminPage(
@@ -40,3 +40,9 @@ export const withEvent =
     const event = await findEvent(c.env.DB, c.req.param("slug") ?? "");
     return event ? handler(c, event) : notFound(c);
   };
+
+/** The query value when it is one of `allowed`. */
+export const pick = <T extends string>(
+  allowed: readonly T[],
+  value: string | undefined,
+) => allowed.find((a) => a === value);

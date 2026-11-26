@@ -1,8 +1,8 @@
 import type { EventMeta } from "./events";
 import { parseRegistration, type FormState } from "./form";
-import type { Fetch } from "./google";
 import { claimResend, register } from "./registrations";
 import { TOKEN_FIELD, verifyHuman, type Verdict } from "./turnstile";
+import type { Fetch } from "./web";
 
 export type SignupDeps = {
   db: D1Database;

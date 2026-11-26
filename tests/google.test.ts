@@ -9,7 +9,7 @@ import {
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
 import { findEvent } from "../src/worker/events";
-import { findAccount } from "../src/worker/google";
+import { findAccount } from "../src/worker/google/account";
 import {
   adminCookie,
   event,

@@ -8,7 +8,7 @@ import {
 } from "bun:test";
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
-import type { Fetch } from "../src/worker/google";
+import type { Fetch } from "../src/worker/web";
 import { checkIn } from "../src/worker/registrations";
 import { sendReminders } from "../src/worker/reminders";
 import { addRole, eventRoles } from "../src/worker/roles";

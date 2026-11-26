@@ -1,7 +1,7 @@
 import { Fragment } from "preact";
 import { kindLabel, type EventMeta } from "../worker/events";
-import type { ProfileView } from "../worker/views";
 import { monthYear, shortDate } from "../worker/time";
+import type { ProfileView } from "./Profile.view";
 import { Mark } from "./Brand";
 import { themeClass, themeStyle } from "./theme";
 

@@ -2,8 +2,8 @@ import { Fragment } from "preact";
 import { kindLabel, type EventMeta } from "../worker/events";
 import type { Ticket } from "../worker/registrations";
 import { clock, shortDate } from "../worker/time";
-import type { Standing, TicketView } from "../worker/views";
 import { DateRow, PlaceRow, VenueCard } from "./EventCard";
+import type { Standing, TicketView } from "./Ticket.view";
 import { cardColors } from "./theme";
 
 const standingText: Record<Standing, string> = {

@@ -1,9 +1,8 @@
 import { Hono } from "hono";
-import { Team, type DoorLink } from "../pages/admin/Team";
-import { issuesCertificates } from "./certificates";
-import type { EventMeta } from "./events";
-import { emailPattern, type FormState } from "./form";
-import { adminPage, withEvent } from "./adminPage";
+import { Team, type DoorLink } from "../../../pages/admin/Team";
+import { issuesCertificates } from "../../certificates";
+import type { EventMeta } from "../../events";
+import { emailPattern, type FormState } from "../../form";
 import {
   addRole,
   eventRoles,
@@ -11,8 +10,9 @@ import {
   openDoor,
   removeRole,
   type NewRole,
-} from "./roles";
-import { site, type AppEnv, type Ctx } from "./web";
+} from "../../roles";
+import { site, type AppEnv, type Ctx, type Deps } from "../../web";
+import { adminPage, withEvent } from "./page";
 
 type ParsedRole = ({ ok: true; value: NewRole } | { ok: false }) & FormState;
 
@@ -43,7 +43,7 @@ export function parseRoleForm(form: FormData): ParsedRole {
 const blankForm: FormState = { values: { role: "organiza" }, errors: {} };
 
 /** The Equipo tab: who holds a role at one event. Mounted under /admin/eventos/:slug/equipo. */
-export function teamRoutes(now: () => Date) {
+export function teamRoutes({ now }: Deps) {
   const team = new Hono<AppEnv>();
 
   const teamPage = async (

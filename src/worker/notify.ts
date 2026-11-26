@@ -1,6 +1,6 @@
 import type { EventMeta } from "./events";
-import type { Fetch } from "./google";
 import { sendMail, ticketMail, type MailKind } from "./mail";
+import type { Fetch } from "./web";
 import { findTicket } from "./registrations";
 import { sendWhatsApp, ticketMessage, type WhatsAppEnv } from "./whatsapp";
 
