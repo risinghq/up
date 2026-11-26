@@ -8,7 +8,8 @@ import "./scheme";
 import { showTurnstile } from "./turnstile";
 
 // Every page but registration works without this script. It stops a double
-// submit, confirms a cancellation, copies the ticket link, marks a scrolled
+// submit, confirms a cancellation, copies the ticket link, prints a
+// certificate, marks a scrolled
 // nav, closes the admin's menu, runs the scheme toggle, renders the register
 // form's Turnstile, draws a venue's map, hangs a ticket's credential, and
 // runs the event editor's color chips and cover drop.
@@ -111,6 +112,13 @@ addEventListener("pageshow", () => {
     button.disabled = false;
   }
 });
+
+for (const button of document.querySelectorAll<HTMLButtonElement>(
+  "[data-print]",
+)) {
+  button.hidden = false;
+  button.addEventListener("click", () => print());
+}
 
 for (const button of document.querySelectorAll<HTMLButtonElement>(
   "[data-copy]",

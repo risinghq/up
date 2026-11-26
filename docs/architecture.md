@@ -91,6 +91,15 @@ events where the person checked in, and the roles their email holds with
 `POST /entrada/<token>/perfil/ocultar` calls `closeProfile`, which clears
 `profile_id`.
 
+`checkIn` gives the registration a random `certificate_id` unless it has one,
+and `addRole` gives each role one. `GET /c/<id>` calls `findCertificate` in
+[`src/worker/certificates.ts`](../src/worker/certificates.ts), which looks the
+id up in the checked-in registrations, then in `event_roles`, and answers 404
+unless `issuesCertificates` holds: the event is published and over.
+`certificateView` in [`src/worker/views.ts`](../src/worker/views.ts) words it,
+and [`src/pages/Certificate.tsx`](../src/pages/Certificate.tsx) lays it out as
+one A4 landscape sheet.
+
 satori is pinned to 0.32.0. Later releases bundle a HarfBuzz module that reads
 `self.location` and compiles WebAssembly at run time, and workerd allows
 neither. 0.32.0 measures text without kerning but draws it with kerning, so the
@@ -159,18 +168,18 @@ routes store the entry's id, its link and the Meet link on the event row;
 D1 holds everything but the covers; [`migrations/`](../migrations/) holds the
 schema.
 
-| Table            | Row                                                                                                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.                                                              |
-| `event_roles`    | One person's role at one event: name, optional email, role, position and a voluntario's door link hash. It follows the event's slug and dies with the event. |
-| `people`         | One email, with the latest name and phone, the consent dates and the public profile's `profile_id`.                                                          |
-| `registrations`  | One person at one event: the ticket token as `id`, the number, the status, the answers as JSON and the share link's `share_id`.                              |
-| `admins`         | One admin's name.                                                                                                                                            |
-| `credentials`    | One passkey of one admin.                                                                                                                                    |
-| `invites`        | One admin invite, by token hash, until it is used or expires.                                                                                                |
-| `sessions`       | One signed-in browser, by token hash.                                                                                                                        |
-| `challenges`     | One WebAuthn challenge between its options request and its verification.                                                                                     |
-| `google_account` | The one connected Google account: its email and refresh token.                                                                                               |
+| Table            | Row                                                                                                                                                                                |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.                                                                                    |
+| `event_roles`    | One person's role at one event: name, optional email, role, position, a voluntario's door link hash and the `certificate_id`. It follows the event's slug and dies with the event. |
+| `people`         | One email, with the latest name and phone, the consent dates and the public profile's `profile_id`.                                                                                |
+| `registrations`  | One person at one event: the ticket token as `id`, the number, the status, the answers as JSON, the share link's `share_id` and, once checked in, the `certificate_id`.            |
+| `admins`         | One admin's name.                                                                                                                                                                  |
+| `credentials`    | One passkey of one admin.                                                                                                                                                          |
+| `invites`        | One admin invite, by token hash, until it is used or expires.                                                                                                                      |
+| `sessions`       | One signed-in browser, by token hash.                                                                                                                                              |
+| `challenges`     | One WebAuthn challenge between its options request and its verification.                                                                                                           |
+| `google_account` | The one connected Google account: its email and refresh token.                                                                                                                     |
 
 The ticket token is the registrant's only key. Anyone with the link can see and
 cancel the ticket, and registrants have no accounts. Invite and session tokens
@@ -198,7 +207,8 @@ are stored as their SHA-256 only.
 | [`src/worker/shares.ts`](../src/worker/shares.ts)               | The share link of a ticket.                                                 |
 | [`src/worker/profiles.ts`](../src/worker/profiles.ts)           | Public profiles and the events a person attended.                           |
 | [`src/worker/roles.ts`](../src/worker/roles.ts)                 | The roles at an event, their labels and their D1 queries.                   |
-| [`src/worker/views.ts`](../src/worker/views.ts)                 | The view models of the event, ticket and profile pages.                     |
+| [`src/worker/certificates.ts`](../src/worker/certificates.ts)   | Certificates by id and when an event issues them.                           |
+| [`src/worker/views.ts`](../src/worker/views.ts)                 | The view models of the event, ticket, profile and certificate pages.        |
 | [`src/worker/mail.ts`](../src/worker/mail.ts)                   | The emails to ticket holders and their sending.                             |
 | [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts)           | The WhatsApp templates and their sending.                                   |
 | [`src/worker/notify.ts`](../src/worker/notify.ts)               | Sends a ticket's email and WhatsApp message together.                       |

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
+import { CertificatePage } from "../pages/Certificate";
 import { EventPage, type Notice } from "../pages/Event";
 import { Home, type Tab } from "../pages/Home";
 import { Privacy } from "../pages/Privacy";
@@ -11,6 +12,7 @@ import { sessionAdmin } from "./auth";
 import { ics } from "./calendar";
 import { DOOR_COOKIE, doorCookieEvent, doorRoutes, worksDoor } from "./door";
 import { renderCard, type CardAssets } from "./card";
+import { findCertificate, issuesCertificates } from "./certificates";
 import {
   coverUrl,
   findEvent,
@@ -32,6 +34,7 @@ import { eventRoles, rolesOf } from "./roles";
 import { findShare, shareTicket } from "./shares";
 import { signUp } from "./signup";
 import {
+  certificateView,
   eventUrl,
   eventView,
   profileView,
@@ -249,6 +252,28 @@ export function createApp(options: AppOptions = {}) {
         noindex: true,
       },
       <ProfilePage {...view} />,
+    );
+  });
+
+  app.get("/c/:id", async (c) => {
+    const certificate = await findCertificate(c.env.DB, c.req.param("id"));
+    const event =
+      certificate && (await findEvent(c.env.DB, certificate.eventSlug));
+    if (!certificate || !event || !issuesCertificates(event, now()))
+      return notFound(c);
+
+    const view = certificateView(viewContext(c), certificate, event);
+    c.header("Cache-Control", "no-store");
+    return page(
+      c,
+      {
+        title: `Certificado: ${view.name}`,
+        description: `${view.name} ${view.verb} ${event.title}.`,
+        url: view.url,
+        noindex: true,
+        theme: event.theme,
+      },
+      <CertificatePage {...view} />,
     );
   });
 

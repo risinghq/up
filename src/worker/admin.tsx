@@ -635,7 +635,7 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     }),
   );
 
-  admin.route("/eventos/:slug/equipo", teamRoutes());
+  admin.route("/eventos/:slug/equipo", teamRoutes(now));
 
   return admin;
 }

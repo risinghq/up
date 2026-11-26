@@ -78,7 +78,9 @@ optional; with it, the event appears on that person's profile. See
 [Roles](profile.md#roles). **Quitar** removes a role. One person can hold
 several roles at one event, each once. A voluntario gets **Enlace de puerta**,
 which opens the event's door on their phone; see
-[Who works the door](check-in.md#who-works-the-door).
+[Who works the door](check-in.md#who-works-the-door). Once the event is over,
+each person gets a **Certificado** link instead; see
+[Certificates](certificates.md#roles).
 
 ## Delete
 
