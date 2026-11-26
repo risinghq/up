@@ -8,6 +8,7 @@ import {
   eventView,
   profileView,
   ticketView,
+  type Standing,
 } from "../src/worker/views";
 import { event } from "./support";
 
@@ -119,6 +120,54 @@ describe("ticketView", () => {
     const waiting = view(ticket({ status: "waitlist" }), { e: online });
     expect(waiting.next.meetUrl).toBe(undefined);
     expect(waiting.credential).toBe(false);
+
+    expect(view(ticket(), { context: after }).credential).toBe(false);
+  });
+
+  test("the ticket says where the holder stands, past tense once it ends", () => {
+    const inside = { checkedInAt: before.now.toISOString() };
+    const cases: {
+      name: string;
+      t: Ticket;
+      context: typeof before;
+      standing: Standing;
+    }[] = [
+      { name: "seated", t: ticket(), context: before, standing: "going" },
+      {
+        name: "checked in",
+        t: ticket(inside),
+        context: before,
+        standing: "going",
+      },
+      {
+        name: "came in",
+        t: ticket(inside),
+        context: after,
+        standing: "attended",
+      },
+      {
+        name: "seated, never came",
+        t: ticket(),
+        context: after,
+        standing: "missed",
+      },
+      {
+        name: "still waiting",
+        t: ticket({ status: "waitlist" }),
+        context: after,
+        standing: "missed",
+      },
+      {
+        name: "cancelled",
+        t: ticket({ status: "cancelled" }),
+        context: after,
+        standing: "cancelled",
+      },
+    ];
+    for (const c of cases)
+      expect(view(c.t, { context: c.context }).standing, c.name).toBe(
+        c.standing,
+      );
   });
 
   test("the community is the primary action until the call or the door outranks it", () => {

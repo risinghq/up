@@ -2,15 +2,17 @@ import { Fragment } from "preact";
 import { kindLabel, type EventMeta } from "../worker/events";
 import type { Ticket } from "../worker/registrations";
 import { clock, shortDate } from "../worker/time";
-import type { TicketView } from "../worker/views";
+import type { Standing, TicketView } from "../worker/views";
 import { DateRow, PlaceRow, VenueCard } from "./EventCard";
 import { cardColors } from "./theme";
 
-const statusText = {
+const standingText: Record<Standing, string> = {
   going: "Tienes un cupo",
   waitlist: "Estás en la lista de espera",
   cancelled: "Cancelaste tu inscripción",
-} as const;
+  attended: "Asististe",
+  missed: "El evento terminó",
+};
 
 const doorText = {
   going: "Tiene cupo",
@@ -283,12 +285,12 @@ export function TicketPage(view: TicketView) {
         </div>
       )}
       <section
-        class={`register ticket ticket-${ticket.status}`}
+        class={`register ticket ticket-${view.standing}`}
         aria-labelledby="ticket-title"
       >
         <p class="register-header ticket-status">
           <span class="status-dot" aria-hidden="true" />
-          {statusText[ticket.status]}
+          {standingText[view.standing]}
         </p>
         <div class="register-content">
           <h1 class="ticket-title" id="ticket-title">
@@ -321,7 +323,7 @@ export function TicketPage(view: TicketView) {
               <figcaption>Muestra este código en la entrada</figcaption>
             </figure>
           )}
-          {ticket.status === "waitlist" && (
+          {view.standing === "waitlist" && (
             <p class="ticket-note">
               Si se libera un cupo, pasa a la primera persona en espera. Vuelve
               a este enlace para ver si ya tienes el tuyo.

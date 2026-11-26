@@ -1,8 +1,10 @@
 # Certificates
 
 Once a published event ends, every ticket checked in at its door has a
-certificate. The ticket opens with **Tu certificado**, and **Ver mi
-certificado** goes to the certificate's own link:
+certificate. The ticket's header reads **Asististe**, a ticket that never came
+in reads **El evento terminó**, and the 3D credential goes. The checked-in
+ticket opens with **Tu certificado**, and **Ver mi certificado** goes to the
+certificate's own link:
 
 ```
 https://up.rising.sh/c/Xq3vT9bLk2RmW8pZc4HnAe

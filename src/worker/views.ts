@@ -75,9 +75,13 @@ export type TicketPanel =
   | "share"
   | "profile";
 
+/** Where the holder stands: the ticket's status until the event ends. */
+export type Standing = Ticket["status"] | "attended" | "missed";
+
 export type TicketView = {
   ticket: Ticket;
   event: EventMeta;
+  standing: Standing;
   /** True on the redirect right after registering. */
   fresh: boolean;
   ticketUrl: string;
@@ -108,7 +112,7 @@ export type TicketView = {
     /** True when the holder has a role at a published event. */
     hasRole: boolean;
   };
-  /** The 3D credential: only a ticket with a seat has one. */
+  /** The 3D credential: only a seat at an event still ahead has one. */
   credential: boolean;
   /** A cancelled ticket of an event still ahead offers to register again. */
   rejoin: boolean;
@@ -165,6 +169,7 @@ export function ticketView(
   return {
     ticket,
     event,
+    standing: standing(ticket, inside, ended),
     fresh: input.fresh,
     ticketUrl,
     door: input.door,
@@ -190,9 +195,15 @@ export function ticketView(
       primary: inside && !certificateUrl,
       hasRole: input.hasRole,
     },
-    credential: ticket.status === "going",
+    credential: ticket.status === "going" && !ended,
     rejoin: ticket.status === "cancelled" && !ended,
   };
+}
+
+function standing(ticket: Ticket, inside: boolean, ended: boolean): Standing {
+  if (inside) return ended ? "attended" : ticket.status;
+  if (ended && ticket.status !== "cancelled") return "missed";
+  return ticket.status;
 }
 
 /** The events where a person held one role, newest first. */

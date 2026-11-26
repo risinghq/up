@@ -2082,7 +2082,8 @@ main > .spotlight:first-child {
   background-color: var(--wait);
 }
 
-.ticket-cancelled .status-dot {
+.ticket-cancelled .status-dot,
+.ticket-missed .status-dot {
   background-color: var(--tertiary-color-alpha);
 }
 
