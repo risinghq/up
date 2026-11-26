@@ -2271,6 +2271,7 @@ main > .spotlight:first-child {
 .account-lead {
   margin-bottom: 1.25rem;
   color: var(--secondary-color-alpha);
+  overflow-wrap: anywhere;
 }
 
 .account-form {
@@ -2307,6 +2308,21 @@ main > .spotlight:first-child {
 
 .account-section > .hint {
   margin-top: -0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.account-section .button {
+  justify-self: start;
+  width: auto;
+}
+
+.account-lead a,
+.account-empty a,
+.account-foot a,
+.account-row > a {
+  text-decoration: underline;
+  text-decoration-color: var(--opacity-32);
+  text-underline-offset: 0.2em;
 }
 
 .account-list {
