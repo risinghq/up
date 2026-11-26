@@ -2,7 +2,7 @@ import { Fragment } from "preact";
 import { kindLabel, type EventMeta } from "../worker/events";
 import type { ProfileView } from "../worker/views";
 import { monthYear, shortDate } from "../worker/time";
-import { Mark } from "./Layout";
+import { Mark } from "./Brand";
 import { themeClass, themeStyle } from "./theme";
 
 /** One attended event, as a medal in the event's colors and backdrop. */

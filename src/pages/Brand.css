@@ -1,0 +1,50 @@
+/* "up.rising.sh" reads as "uprising": the domain dims after "up". */
+.lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+}
+
+.lockup svg {
+  width: auto;
+  height: 16px;
+}
+
+.lockup-up {
+  color: var(--primary-color);
+}
+
+.lockup-domain {
+  margin-left: -0.375rem;
+}
+
+.theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin: -0.625rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--nav-link-color);
+  transition: var(--transition);
+}
+
+.theme-toggle[hidden] {
+  display: none;
+}
+
+.theme-toggle:hover {
+  background-color: var(--hover-bg-color);
+  color: var(--nav-link-hover-color);
+}
+
+/* The button shows the scheme it switches to. */
+.dark .theme-toggle .icon-moon,
+:root:not(.dark) .theme-toggle .icon-sun {
+  display: none;
+}

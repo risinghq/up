@@ -1,5 +1,7 @@
 import type { ComponentChildren } from "preact";
 import type { Theme } from "../worker/events";
+import { AdminHeader, type AdminShell } from "./admin/Shell";
+import { Lockup, SchemeToggle } from "./Brand";
 import { palette, themeClass, themeStyle } from "./theme";
 
 export type Head = {
@@ -16,13 +18,6 @@ export type Head = {
 };
 
 export type Community = { whatsapp: string; instagram: string };
-
-/** The admin header. Without `name` (signed out), it holds the logo only. */
-export type AdminShell = {
-  name: string;
-  /** The current admin section, marked in the nav. */
-  section?: "eventos" | "ajustes";
-};
 
 // Vite serves the client entry in dev; the build names it after BUILD_ID.
 const dev = Boolean(import.meta.env?.DEV);
@@ -58,7 +53,7 @@ const speculation = JSON.stringify({
   ],
 });
 
-/** The neutral page background in each scheme, as styles.css sets it. */
+/** The neutral page background in each scheme, as global.css sets it. */
 const neutralBg = { light: "#f2f2f2", dark: "#141414" };
 
 /**
@@ -77,65 +72,6 @@ const schemeScript = `(function(){var s;try{s=localStorage.getItem("theme")}catc
  */
 const transitionOptIn =
   "@media (prefers-reduced-motion: no-preference){@view-transition{navigation:auto}}";
-
-/** Switches the scheme; src/client/scheme.ts shows it and wires it. The
-    labeled form is a full-width row in the admin's phone menu. */
-const SchemeToggle = ({ labeled = false }: { labeled?: boolean }) => (
-  <button
-    class={labeled ? "theme-toggle theme-toggle-row" : "theme-toggle"}
-    type="button"
-    aria-label={labeled ? undefined : "Modo oscuro"}
-    aria-pressed={labeled ? undefined : "false"}
-    hidden
-  >
-    {labeled && <span class="label-dark">Modo oscuro</span>}
-    {labeled && <span class="label-light">Modo claro</span>}
-    <svg
-      class="icon-moon"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-    </svg>
-    <svg
-      class="icon-sun"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="2"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      aria-hidden="true"
-    >
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M6.3 17.7l-1.4 1.4M19.1 4.9l-1.4 1.4" />
-    </svg>
-  </button>
-);
-
-export const Mark = () => (
-  <svg viewBox="0 0 24 24" aria-hidden="true">
-    <path
-      fill="currentColor"
-      fill-rule="evenodd"
-      d="M12 22A7 7 0 0 1 5 15A8 8 0 0 1 8 8A6 6 0 0 0 10 1A15 15 0 0 1 19 15A7 7 0 0 1 12 22ZM9 16a3 3 0 1 0 6 0a3 3 0 1 0-6 0Z"
-    />
-  </svg>
-);
-
-/** "up.rising.sh" set so that it reads as "uprising". */
-export const Lockup = () => (
-  <span class="lockup">
-    <Mark />
-    <span class="lockup-up">up</span>
-    <span class="lockup-domain">.rising.sh</span>
-  </span>
-);
 
 function SiteHeader(props: {
   community: Community;
@@ -174,77 +110,6 @@ function SiteHeader(props: {
   );
 }
 
-const current = (shell: AdminShell, section: AdminShell["section"]) =>
-  shell.section === section ? ("page" as const) : undefined;
-
-/** The account menu, behind the admin's initial. On a phone it also holds the
-    sections. A <details> opens it without script. */
-function AdminMenu({ shell, name }: { shell: AdminShell; name: string }) {
-  return (
-    <details class="admin-menu">
-      <summary aria-label={`Cuenta de ${name}`}>
-        <span class="avatar" aria-hidden="true">
-          {name.slice(0, 1)}
-        </span>
-      </summary>
-      <nav aria-label="Cuenta">
-        <p class="admin-menu-name">{name}</p>
-        <a
-          class="admin-narrow"
-          href="/admin"
-          aria-current={current(shell, "eventos")}
-        >
-          Eventos
-        </a>
-        <a
-          class="admin-narrow"
-          href="/admin/ajustes"
-          aria-current={current(shell, "ajustes")}
-        >
-          Ajustes
-        </a>
-        <a href="/cuenta">Mi cuenta</a>
-        <a href="/">Ver sitio</a>
-        <SchemeToggle labeled />
-        <form method="post" action="/salir">
-          <button type="submit">Salir</button>
-        </form>
-      </nav>
-    </details>
-  );
-}
-
-function AdminHeader({ shell }: { shell: AdminShell }) {
-  return (
-    <header class="site-nav sticky admin-nav">
-      <a
-        class="site-logo"
-        href="/admin"
-        aria-label="up.rising.sh admin, inicio"
-      >
-        <Lockup /> <span class="admin-badge">admin</span>
-      </a>
-      <nav class="admin-sections" aria-label="Admin">
-        <a href="/admin" aria-current={current(shell, "eventos")}>
-          Eventos
-        </a>
-        <a href="/admin/ajustes" aria-current={current(shell, "ajustes")}>
-          Ajustes
-        </a>
-      </nav>
-      <div class="site-links">
-        <a
-          class="button button-light button-small button-round"
-          href="/admin/eventos/nuevo"
-        >
-          Crear<span class="admin-wide"> evento</span>
-        </a>
-        <AdminMenu shell={shell} name={shell.name} />
-      </div>
-    </header>
-  );
-}
-
 export function Layout(props: {
   head: Head;
   community: Community;
@@ -254,7 +119,7 @@ export function Layout(props: {
   signedIn: boolean;
   /** Loads the passkey script for the sign-in and account pages. */
   passkeys: boolean;
-  /** An admin page: the admin header and no public footer. */
+  /** An admin page: the admin header and stylesheet, and no public footer. */
   shell?: AdminShell;
   children: ComponentChildren;
 }) {
@@ -309,6 +174,7 @@ export function Layout(props: {
           <>
             <script type="module" src="/@vite/client" />
             <script type="module" src="/src/client/main.ts" />
+            {props.shell && <script type="module" src="/src/client/admin.ts" />}
             {props.passkeys && (
               <script type="module" src="/src/client/passkey.ts" />
             )}
@@ -323,6 +189,9 @@ export function Layout(props: {
               crossorigin="anonymous"
             />
             <link rel="stylesheet" href={asset("client", ".css")} />
+            {props.shell && (
+              <link rel="stylesheet" href={asset("admin", ".css")} />
+            )}
             <script type="module" src={asset("client", ".js")} />
             {props.passkeys && (
               <script type="module" src={asset("passkey", ".js")} />
@@ -352,7 +221,7 @@ export function Layout(props: {
         {!props.shell && (
           <footer class="site-footer">
             <div class="site-footer-content">
-              <p>
+              <p class="links">
                 <a href="/">up.rising.sh</a> es la agenda de eventos de{" "}
                 <a href="https://rising.sh">rising.sh</a>.
               </p>

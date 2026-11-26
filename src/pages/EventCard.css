@@ -1,0 +1,361 @@
+/* The featured event: a band as wide as the page, in the event's page color,
+   with the cover beside its text inside the page's column. */
+
+.spotlight {
+  border-bottom: 1px solid var(--divider-color);
+  background-color: var(--page-bg);
+}
+
+/* A spotlight that opens the page runs up behind the sticky nav, so its color
+   starts at the top edge, as an event page's does. */
+main > .spotlight:first-child {
+  margin-top: calc(-1 * var(--nav-height));
+  padding-top: var(--nav-height);
+}
+
+.spotlight > a {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2.5rem 1rem;
+  color: var(--primary-color);
+}
+
+.spotlight > a:hover {
+  color: var(--primary-color);
+}
+
+.spotlight .cover {
+  flex: none;
+  width: 280px;
+}
+
+.spotlight-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.spotlight h1 {
+  font-family: var(--title-font);
+  font-size: 2rem;
+  line-height: var(--reduced-title-line-height);
+  text-wrap: pretty;
+}
+
+.spotlight-desc {
+  margin-top: 0.5rem;
+  color: var(--secondary-color-alpha);
+}
+
+.spotlight-meta {
+  margin: 1rem 0 1.25rem;
+}
+
+@media (max-width: 650px) {
+  .spotlight > a {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.25rem;
+    padding: 1.5rem 1rem 2rem;
+  }
+
+  .spotlight .cover {
+    width: 100%;
+  }
+
+  .spotlight h1 {
+    font-size: 1.625rem;
+  }
+
+  .spotlight .button {
+    width: 100%;
+  }
+}
+
+.event-row > a {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 0.5rem;
+  border-radius: var(--border-radius);
+  color: var(--primary-color);
+}
+
+@media (hover: hover) {
+  .event-row > a:hover {
+    background-color: var(--hover-bg-color);
+    color: var(--primary-color);
+  }
+}
+
+.event-row-text {
+  min-width: 0;
+}
+
+.event-row-meta {
+  color: var(--tint-color);
+  font-size: var(--font-size-sm);
+}
+
+.event-row h3 {
+  margin: 0.125rem 0 0.125rem;
+  font-family: var(--title-font);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--reduced-line-height);
+}
+
+.event-row-desc,
+.event-row-place {
+  color: var(--tertiary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
+.event-row-desc {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  margin: -0.5rem;
+  padding: 0.5rem;
+  color: var(--primary-color);
+}
+
+.icon-tile {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin: 0.125rem 0;
+  overflow: hidden;
+  border: 1px solid var(--divider-color);
+  border-radius: var(--border-radius);
+  color: var(--tint-color);
+}
+
+.icon-tile svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.date-tile {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+}
+
+.date-tile-month {
+  padding: 2px 0;
+  background-color: var(--opacity-8);
+  color: var(--secondary-color-alpha);
+  font-size: 0.6875rem;
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.date-tile-day {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  color: var(--primary-color);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.meta-text {
+  min-width: 0;
+}
+
+.meta-title {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow: hidden;
+  color: var(--primary-color);
+  font-family: var(--title-font);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.meta-title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta-desc {
+  margin-top: 1px;
+  overflow: hidden;
+  color: var(--tint-color);
+  font-size: var(--font-size-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.meta-arrow {
+  flex: none;
+  color: var(--tint-color);
+  opacity: 0.5;
+  transition: var(--transition);
+}
+
+.meta-arrow svg {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.meta-link:hover .meta-title,
+.meta-link:hover .meta-desc {
+  color: var(--brand-active-color);
+}
+
+.meta-link:hover .meta-arrow {
+  opacity: 1;
+  transform: translate(1px, -0.5px);
+}
+
+@media (max-width: 650px) {
+  .meta {
+    margin-top: 0.75rem;
+  }
+}
+
+@media (max-width: 450px) {
+  .meta {
+    margin-top: 0.5rem;
+  }
+
+  .meta-row {
+    gap: 0.75rem;
+  }
+
+  .icon-tile {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .icon-tile svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  .date-tile-month {
+    padding: 1px 0;
+  }
+
+  .date-tile-day {
+    font-size: var(--font-size-sm);
+    transform: none;
+  }
+}
+
+.place {
+  font-weight: var(--font-weight-medium);
+}
+
+.street {
+  margin-top: 0.125rem;
+  color: var(--tint-color);
+  font-size: var(--font-size-sm);
+}
+
+/* Luma's location map: 199px tall, the card's radius, and a soft-light wash
+   of the brand color over the tiles. The box keeps its size before MapLibre
+   loads, so nothing shifts. */
+.venue-map {
+  position: relative;
+  height: 199px;
+  margin-top: 0.875rem;
+  overflow: hidden;
+  border-radius: var(--card-border-radius);
+  background: var(--opacity-light);
+}
+
+.venue-map::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--brand-color);
+  mix-blend-mode: soft-light;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* The link covers the map and sits under the attribution control. */
+.venue-map-link {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.venue-pin {
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--brand-color);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.venue-map .maplibregl-ctrl-attrib {
+  font-size: 0.625rem;
+}
+
+/* On a tinted dark page, the dark tiles lose their gray and take the event's
+   hue at their own lightness, so the map reads as part of the page. */
+.dark .tinted .venue-map {
+  background: var(--card-bg-color);
+}
+
+.dark .tinted .venue-map canvas {
+  filter: grayscale(1);
+}
+
+.dark .tinted .venue-map::after {
+  background: var(--brand-50);
+  mix-blend-mode: color;
+  opacity: 0.6;
+}
+
+.dark .venue-map .maplibregl-ctrl-attrib {
+  background: color-mix(in srgb, var(--page-bg) 80%, transparent);
+  color: var(--secondary-color-alpha);
+}
+
+.dark .venue-map .maplibregl-ctrl-attrib a {
+  color: inherit;
+}
+
+.dark .venue-map .maplibregl-ctrl-attrib-button {
+  filter: invert(1);
+}

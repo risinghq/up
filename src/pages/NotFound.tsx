@@ -1,6 +1,6 @@
 export function NotFound({ what }: { what: "page" | "ticket" }) {
   return (
-    <article class="prose page">
+    <article class="prose links page">
       <h1>
         {what === "ticket"
           ? "No encontramos esa entrada"

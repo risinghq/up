@@ -339,7 +339,7 @@ export function TicketPage(view: TicketView) {
       {view.credential && <Credential ticket={ticket} event={event} />}
 
       {view.rejoin && (
-        <p class="ticket-note">
+        <p class="ticket-note links">
           ¿Cambiaste de idea? <a href={`/${event.slug}`}>Inscríbete otra vez</a>
           .
         </p>

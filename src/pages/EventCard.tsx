@@ -1,7 +1,7 @@
 import { placeLine } from "../worker/calendar";
 import { coverUrl, kindTag, mapLink, type EventMeta } from "../worker/events";
 import { clock, longDate, shortDate, tile } from "../worker/time";
-import { Mark } from "./Layout";
+import { Mark } from "./Brand";
 import { palette, themeClass, themeStyle } from "./theme";
 
 /** The month over the day, in a square tile. */

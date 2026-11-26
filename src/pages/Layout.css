@@ -1,0 +1,131 @@
+.skip {
+  position: fixed;
+  top: 0.5rem;
+  left: -9999px;
+  z-index: 1000;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--border-radius);
+  background-color: var(--primary-bg-color);
+  color: var(--primary-color);
+  box-shadow: var(--shadow-lg);
+  transition: var(--transition);
+}
+
+.skip:focus {
+  left: 0.5rem;
+}
+
+/* Nav */
+
+.site-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--nav-bg-color);
+}
+
+/* As Luma's discover nav: the page scrolls under a blur, and a divider shows
+   once it has (main.ts sets data-scrolled). An event page's nav stays put. */
+.site-nav.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: var(--nav-height);
+  border-bottom: 1px solid transparent;
+  background-color: transparent;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  transition: border-color var(--transition-duration) var(--transition-fn);
+}
+
+.site-nav.sticky[data-scrolled] {
+  border-bottom-color: var(--divider-color);
+}
+
+.site-logo {
+  display: flex;
+  align-items: center;
+  margin: 0 -4px;
+  padding: 6px 4px;
+  border-radius: var(--border-radius);
+  color: var(--nav-link-color);
+}
+
+.site-logo:hover {
+  color: var(--nav-link-hover-color);
+}
+
+.site-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.site-links a:not(.button) {
+  color: var(--nav-link-color);
+  white-space: nowrap;
+}
+
+.site-links a:not(.button):hover {
+  color: var(--nav-link-hover-color);
+}
+
+.site-links a:not(.button):focus-visible {
+  border-radius: 100px;
+  outline: 2px solid var(--nav-link-color);
+  outline-offset: 4px;
+}
+
+/* The logo already leads home, so a phone drops the Eventos link. */
+@media (max-width: 650px) {
+  .site-links {
+    gap: 0.875rem;
+  }
+
+  .site-links .home-link {
+    display: none;
+  }
+}
+
+/* Footer */
+
+.site-footer {
+  width: 100%;
+  max-width: var(--max-width-wide-page);
+  margin: 0 auto;
+  padding: 4rem 0 1rem;
+  color: var(--tertiary-color-alpha);
+  font-size: var(--font-size-sm);
+}
+
+.site-footer-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 1rem;
+  margin: 1rem 1rem 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--divider-color);
+}
+
+.site-footer a {
+  color: var(--secondary-color-alpha);
+}
+
+.site-footer nav a {
+  display: inline-block;
+  margin: -0.5rem;
+  padding: 0.5rem;
+  color: inherit;
+}
+
+.site-footer a:hover {
+  color: var(--secondary-color-alpha);
+}

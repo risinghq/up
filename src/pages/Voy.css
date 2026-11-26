@@ -1,0 +1,9 @@
+/* A shared "voy" page: who is going, over the event's band. */
+.voy-lead {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2rem 1rem 1rem;
+  color: var(--secondary-color-alpha);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-medium);
+}

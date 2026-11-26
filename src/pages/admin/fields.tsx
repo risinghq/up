@@ -108,7 +108,7 @@ export function Choice(
 export function Toggle(props: FieldProps) {
   const id = `a-${props.name}`;
   return (
-    <div class="check">
+    <div class="check links">
       <input
         id={id}
         name={props.name}

@@ -1,0 +1,97 @@
+/* Discover: the home page */
+
+.discover {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 2.5rem 0 1rem;
+}
+
+.discover > .section {
+  margin: 0 1rem;
+}
+
+.section + .section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--divider-color);
+}
+
+.section-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.section-title {
+  color: var(--primary-color);
+  font-size: var(--section-title-font-size);
+  font-weight: var(--font-weight-bold);
+}
+
+.tabs {
+  display: flex;
+  align-items: baseline;
+}
+
+.tabs a {
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--border-radius);
+  color: var(--tertiary-color-alpha);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+
+.tabs a:hover {
+  color: var(--secondary-color-alpha);
+}
+
+.tabs a[aria-current="page"] {
+  background-color: var(--opacity-light);
+  color: var(--secondary-color-alpha);
+}
+
+.tabs span {
+  margin-left: 0.25rem;
+  color: var(--tertiary-color-alpha);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 650px) {
+  .discover {
+    padding-top: 2rem;
+  }
+}
+
+@media (max-width: 450px) {
+  .discover {
+    padding-top: 1.5rem;
+  }
+
+  .section + .section {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+  }
+
+  .section-title-row {
+    margin-bottom: 1rem;
+  }
+}
+
+/* The event list: rows with a date tile, as Luma's calendar rows. */
+
+.event-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0 -0.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+.community-desc {
+  margin: 0.5rem 0 1.25rem;
+  color: var(--secondary-color-alpha);
+}
