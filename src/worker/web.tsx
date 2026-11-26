@@ -32,8 +32,12 @@ export type Env = {
 
 export type AppEnv = {
   Bindings: Env;
-  /** The admin whose session cookie came with the request, or null. */
-  Variables: { admin: Admin | null };
+  Variables: {
+    /** The admin whose session cookie came with the request, or null. */
+    admin: Admin | null;
+    /** The slug of the event whose door the request's door cookie opens, or null. */
+    door: string | null;
+  };
 };
 
 export type Ctx = Context<AppEnv>;

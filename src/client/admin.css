@@ -537,6 +537,12 @@
   border-top: 0;
 }
 
+.actions {
+  display: flex;
+  flex: none;
+  gap: 8px;
+}
+
 .team-email {
   color: var(--ink-2);
   font-size: 14px;

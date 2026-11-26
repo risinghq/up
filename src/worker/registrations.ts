@@ -137,6 +137,26 @@ export async function checkIn(
     .run();
 }
 
+/**
+ * Registers a person who came to the door and checks them in. They take a
+ * seat past the capacity: the door already let them in. A person who was
+ * registered keeps their ticket and is checked in on it.
+ */
+export async function walkIn(
+  db: D1Database,
+  event: EventMeta,
+  r: Registration,
+  now: string,
+): Promise<{ kind: "created" | "exists"; ticket: Ticket }> {
+  const result = await register(db, { ...event, capacity: undefined }, r, now);
+  await checkIn(db, result.token, now);
+
+  const ticket = await findTicket(db, result.token);
+  if (!ticket) throw new Error("walk-in ticket vanished");
+
+  return { kind: result.kind, ticket };
+}
+
 export async function undoCheckIn(
   db: D1Database,
   token: string,

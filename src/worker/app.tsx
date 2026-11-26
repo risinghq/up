@@ -9,6 +9,7 @@ import { Voy } from "../pages/Voy";
 import { adminRoutes, SESSION_COOKIE } from "./admin";
 import { sessionAdmin } from "./auth";
 import { ics } from "./calendar";
+import { DOOR_COOKIE, doorCookieEvent, doorRoutes, worksDoor } from "./door";
 import { renderCard, type CardAssets } from "./card";
 import {
   coverUrl,
@@ -131,6 +132,7 @@ export function createApp(options: AppOptions = {}) {
       "admin",
       token ? await sessionAdmin(c.env.DB, token, now().toISOString()) : null,
     );
+    c.set("door", await doorCookieEvent(c.env.DB, getCookie(c, DOOR_COOKIE)));
     await next();
     c.header("X-Content-Type-Options", "nosniff");
     // A ticket URL is a secret; no page leaks its own path to another site.
@@ -138,6 +140,7 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.route("/admin", adminRoutes(now, fetcher));
+  app.route("/puerta", doorRoutes(now, fetcher));
 
   app.get("/", async (c) => {
     const tab: Tab = c.req.query("ver") === "pasados" ? "pasados" : "proximos";
@@ -197,7 +200,7 @@ export function createApp(options: AppOptions = {}) {
       ticket,
       event,
       fresh: c.req.query("nueva") !== undefined,
-      door: Boolean(c.get("admin")),
+      door: worksDoor(c, event, now()),
       whatsapp: c.env.WHATSAPP_COMMUNITY_URL,
       hasRole: (await rolesOf(c.env.DB, ticket.email)).length > 0,
     });

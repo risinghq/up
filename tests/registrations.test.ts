@@ -15,6 +15,7 @@ import {
   findTicket,
   goingCount,
   register,
+  walkIn,
 } from "../src/worker/registrations";
 import { event, HOST_TIMEOUT, migratedDb, seed } from "./support";
 
@@ -163,6 +164,24 @@ describe("checkIn", () => {
     await cancel(DB, e, gone.token, at);
     await checkIn(DB, gone.token, at);
     expect((await findTicket(DB, gone.token))?.checkedInAt).toBeNull();
+  });
+});
+
+describe("walkIn", () => {
+  test("seats a walk-in past the capacity, and checks in a known one on their ticket", async () => {
+    const e = await freshEvent("llegada", 1);
+    const booked = await register(DB, e, person("a@x.pe"), at);
+
+    const walked = await walkIn(DB, e, person("b@x.pe"), at);
+    expect(walked.kind).toBe("created");
+    expect(walked.ticket.status).toBe("going");
+    expect(walked.ticket.checkedInAt).toBe(at);
+    expect(await goingCount(DB, "llegada")).toBe(2);
+
+    const known = await walkIn(DB, e, person("a@x.pe"), at);
+    expect(known.kind).toBe("exists");
+    expect(known.ticket.token).toBe(booked.token);
+    expect(known.ticket.checkedInAt).toBe(at);
   });
 });
 

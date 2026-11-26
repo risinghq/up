@@ -76,7 +76,9 @@ The **Equipo** tab opens `/admin/eventos/<slug>/equipo`. **Agregar** gives a
 person a role: Organiza, Ponente, Mentor, Jurado or Voluntario. The email is
 optional; with it, the event appears on that person's profile. See
 [Roles](profile.md#roles). **Quitar** removes a role. One person can hold
-several roles at one event, each once.
+several roles at one event, each once. A voluntario gets **Enlace de puerta**,
+which opens the event's door on their phone; see
+[Who works the door](check-in.md#who-works-the-door).
 
 ## Delete
 
