@@ -1,34 +1,16 @@
 import { Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { csrf } from "hono/csrf";
-import type {
-  AuthenticationResponseJSON,
-  RegistrationResponseJSON,
-} from "@simplewebauthn/server";
 import { EventEditor, type EditorView } from "../pages/admin/EventEditor";
 import { Events, type Period } from "../pages/admin/Events";
 import { More, Overview, type CalendarPanel } from "../pages/admin/Manage";
-import { Invite, InviteGone, SignIn } from "../pages/admin/Passkey";
 import { Registrants } from "../pages/admin/Registrants";
 import {
   Settings,
+  type AdminsNotice,
   type GooglePanel,
-  type NewInvite,
 } from "../pages/admin/Settings";
-import {
-  acceptInvite,
-  createInvite,
-  createSession,
-  endSession,
-  findCredential,
-  findInvite,
-  listAdmins,
-  saveChallenge,
-  SESSION_DAYS,
-  takeChallenge,
-  touchCredential,
-  type Admin,
-} from "./auth";
+import { grantAdmin, listAdmins, revokeAdmin, type Account } from "./accounts";
 import { registrantsCsv } from "./csv";
 import { coverTypes, eventValues, parseEventForm } from "./eventForm";
 import {
@@ -41,7 +23,7 @@ import {
   saveEvent,
   type EventMeta,
 } from "./events";
-import type { FormState } from "./form";
+import { emailPattern, type FormState } from "./form";
 import { findPlaces } from "./geo";
 import { notifyTickets } from "./notify";
 import {
@@ -57,13 +39,6 @@ import {
   type Fetch,
   type GoogleCredentials,
 } from "./google";
-import {
-  authenticationOptions,
-  registrationOptions,
-  relyingParty,
-  verifyAuthentication,
-  verifyRegistration,
-} from "./passkeys";
 import { fillSeats, goingCount } from "./registrations";
 import {
   listRegistrants,
@@ -76,11 +51,11 @@ import { after, notFound, site, type AppEnv, type Ctx } from "./web";
 import { adminPage, withEvent } from "./adminPage";
 import { whatsappMode } from "./whatsapp";
 
-export const SESSION_COOKIE = "up_admin";
 const GOOGLE_STATE_COOKIE = "up_google_state";
 
 const calendarNotices = ["listo", "error", "quitado"] as const;
 const googleNotices = ["conectado", "desconectado", "error"] as const;
+const adminsNotices: readonly AdminsNotice[] = ["agregado", "quitado"];
 
 /** The query value when it is one of `allowed`. */
 const pick = <T extends string>(
@@ -103,7 +78,6 @@ const blankEvent: Record<string, string> = {
 export function adminRoutes(now: () => Date, fetcher: Fetch) {
   const admin = new Hono<AppEnv>();
   const iso = () => now().toISOString();
-  const rp = (c: Ctx) => relyingParty(c.env.SITE_URL);
   const secure = (c: Ctx) => c.env.SITE_URL.startsWith("https:");
 
   const googleCreds = (c: Ctx): GoogleCredentials | null =>
@@ -156,21 +130,6 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     }
   };
 
-  const startSession = async (c: Ctx, adminId: string) => {
-    setCookie(
-      c,
-      SESSION_COOKIE,
-      await createSession(c.env.DB, adminId, iso()),
-      {
-        path: "/",
-        httpOnly: true,
-        sameSite: "Lax",
-        secure: secure(c),
-        maxAge: SESSION_DAYS * 24 * 60 * 60,
-      },
-    );
-  };
-
   const calendarPanel = async (
     c: Ctx,
     event: EventMeta,
@@ -184,107 +143,30 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     };
   };
 
-  const json = async <T,>(c: Ctx): Promise<Partial<T>> =>
-    c.req.json<Partial<T>>().catch(() => ({}));
-
-  // Form posts must come from this origin. The passkey endpoints take JSON,
-  // which a cross-site form cannot send.
+  // Form posts must come from this origin.
   admin.use(
     csrf({ origin: (origin, c) => origin === new URL(c.env.SITE_URL).origin }),
   );
 
-  admin.get("/entrar", (c) =>
-    c.get("admin")
-      ? c.redirect("/admin", 303)
-      : adminPage(c, "Entrar", <SignIn />, { passkeys: true }),
-  );
+  admin.get("/entrar", (c) => c.redirect("/entrar?volver=/admin", 303));
 
-  admin.get("/invitacion/:token", async (c) => {
-    const token = c.req.param("token");
-    const name = await findInvite(c.env.DB, token, iso());
-    return name
-      ? adminPage(c, "Invitación", <Invite name={name} token={token} />, {
-          passkeys: true,
-        })
-      : adminPage(c, "Invitación", <InviteGone />, { status: 404 });
-  });
-
-  admin.post("/passkey/registro/opciones", async (c) => {
-    const { invite } = await json<{ invite: string }>(c);
-    const name = invite && (await findInvite(c.env.DB, invite, iso()));
-    if (!name) return c.json({ error: "La invitación ya no sirve." }, 410);
-    const options = await registrationOptions(rp(c), name);
-    const challengeId = await saveChallenge(c.env.DB, options.challenge, iso());
-    return c.json({ challengeId, options });
-  });
-
-  admin.post("/passkey/registro", async (c) => {
-    const body = await json<{
-      invite: string;
-      challengeId: string;
-      response: RegistrationResponseJSON;
-    }>(c);
-    const failed = () =>
-      c.json({ error: "No pudimos verificar la passkey." }, 400);
-    if (!body.invite || !body.challengeId || !body.response) return failed();
-    const challenge = await takeChallenge(c.env.DB, body.challengeId, iso());
-    if (!challenge) return failed();
-    const credential = await verifyRegistration(
-      rp(c),
-      body.response,
-      challenge,
-    );
-    if (!credential) return failed();
-    const created = await acceptInvite(
-      c.env.DB,
-      body.invite,
-      credential,
-      iso(),
-    );
-    if (!created) return c.json({ error: "La invitación ya no sirve." }, 410);
-    await startSession(c, created.id);
-    return c.json({ redirect: "/admin" });
-  });
-
-  admin.post("/passkey/entrar/opciones", async (c) => {
-    const options = await authenticationOptions(rp(c));
-    const challengeId = await saveChallenge(c.env.DB, options.challenge, iso());
-    return c.json({ challengeId, options });
-  });
-
-  admin.post("/passkey/entrar", async (c) => {
-    const body = await json<{
-      challengeId: string;
-      response: AuthenticationResponseJSON;
-    }>(c);
-    const refused = () =>
-      c.json({ error: "Esa passkey no es de un admin de up." }, 401);
-    if (!body.challengeId || typeof body.response?.id !== "string")
-      return refused();
-    const challenge = await takeChallenge(c.env.DB, body.challengeId, iso());
-    if (!challenge) return refused();
-    const stored = await findCredential(c.env.DB, body.response.id);
-    if (!stored) return refused();
-    const counter = await verifyAuthentication(
-      rp(c),
-      body.response,
-      challenge,
-      stored,
-    );
-    if (counter === null) return refused();
-    await touchCredential(c.env.DB, stored.id, counter, iso());
-    await startSession(c, stored.adminId);
-    return c.json({ redirect: "/admin" });
-  });
-
-  // Every route below needs a signed-in admin.
+  // Every route below needs a signed-in admin. A signed-in person who is not
+  // one finds no admin here at all.
   admin.use(async (c, next) => {
     if (c.get("admin")) return next();
-    if (c.req.method === "GET") return c.redirect("/admin/entrar", 303);
+    if (c.get("account"))
+      return c.req.method === "GET"
+        ? notFound(c)
+        : c.text("Necesitas ser admin.", 403);
+    if (c.req.method === "GET")
+      return c.redirect(
+        `/entrar?${new URLSearchParams({ volver: c.req.path })}`,
+        303,
+      );
     return c.text("Necesitas entrar como admin.", 403);
   });
 
-  const signedIn = (c: Ctx) => c.get("admin") as Admin;
+  const signedIn = (c: Ctx) => c.get("admin") as Account;
 
   // Upcoming runs soonest first; past runs newest first.
   admin.get("/", async (c) => {
@@ -313,7 +195,7 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
 
   const settings = async (
     c: Ctx,
-    extra: { invite?: NewInvite; inviteError?: string } = {},
+    form: { email: string; error?: string } = { email: "" },
     status = 200,
   ) => {
     const google: GooglePanel | undefined = googleCreds(c)
@@ -326,10 +208,14 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
       c,
       "Ajustes",
       <Settings
-        admins={await listAdmins(c.env.DB)}
+        admins={{
+          admins: await listAdmins(c.env.DB),
+          selfId: signedIn(c).id,
+          notice: pick(adminsNotices, c.req.query("admins")),
+          ...form,
+        }}
         google={google}
         whatsapp={whatsappMode(c.env)}
-        {...extra}
       />,
       { status, section: "ajustes" },
     );
@@ -382,21 +268,25 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
     return c.redirect("/admin/ajustes?google=desconectado", 303);
   });
 
-  admin.post("/invitaciones", async (c) => {
-    const name = String((await c.req.formData()).get("name") ?? "").trim();
-    if (!name || name.length > 60)
-      return settings(c, { inviteError: "Escribe un nombre." }, 422);
-    const token = await createInvite(c.env.DB, name, iso());
-    return settings(c, {
-      invite: { name, url: `${site(c)}/admin/invitacion/${token}` },
-    });
+  admin.post("/admins", async (c) => {
+    const email = String((await c.req.formData()).get("email") ?? "")
+      .trim()
+      .toLowerCase();
+    const change = emailPattern.test(email)
+      ? await grantAdmin(c.env.DB, email, iso())
+      : null;
+
+    if (change === "done")
+      return c.redirect("/admin/ajustes?admins=agregado#admins-title", 303);
+    const error = change
+      ? "Esa persona aún no tiene cuenta. Pídele que entre en /entrar con ese correo."
+      : "Escribe un correo válido.";
+    return settings(c, { email, error }, 422);
   });
 
-  admin.post("/salir", async (c) => {
-    const token = getCookie(c, SESSION_COOKIE);
-    if (token) await endSession(c.env.DB, token);
-    deleteCookie(c, SESSION_COOKIE, { path: "/" });
-    return c.redirect("/", 303);
+  admin.post("/admins/:id/quitar", async (c) => {
+    await revokeAdmin(c.env.DB, signedIn(c), c.req.param("id"), iso());
+    return c.redirect("/admin/ajustes?admins=quitado#admins-title", 303);
   });
 
   /** The editor of `event`, or of a new event when it is absent. */

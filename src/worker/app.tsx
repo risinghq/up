@@ -7,8 +7,9 @@ import { Privacy } from "../pages/Privacy";
 import { ProfilePage } from "../pages/Profile";
 import { TicketPage } from "../pages/Ticket";
 import { Voy } from "../pages/Voy";
-import { adminRoutes, SESSION_COOKIE } from "./admin";
-import { sessionAdmin } from "./auth";
+import { accountRoutes } from "./account";
+import { adminRoutes } from "./admin";
+import { sessionAccount } from "./auth";
 import { ics } from "./calendar";
 import { DOOR_COOKIE, doorCookieEvent, doorRoutes, worksDoor } from "./door";
 import { renderCard, type CardAssets } from "./card";
@@ -20,7 +21,7 @@ import {
   listEvents,
   type EventMeta,
 } from "./events";
-import type { FormState } from "./form";
+import { emptyForm, type FormState } from "./form";
 import type { Fetch } from "./google";
 import { notifyTickets } from "./notify";
 import {
@@ -32,6 +33,8 @@ import {
 import { cancel, findTicket, goingCount } from "./registrations";
 import { eventRoles, rolesOf } from "./roles";
 import { findShare, shareTicket } from "./shares";
+import { phoneOf } from "./people";
+import { SESSION_COOKIE } from "./session";
 import { signUp } from "./signup";
 import {
   certificateView,
@@ -44,6 +47,7 @@ import {
 import {
   after,
   description,
+  humanCheck,
   notFound,
   page,
   site,
@@ -60,15 +64,6 @@ export type AppOptions = {
   /** Draws the share card; without it the card's URL answers 404. */
   card?: CardAssets;
 };
-
-const emptyForm: FormState = { values: {}, errors: {} };
-
-/** The register form's Turnstile keys, when both are set. */
-function humanCheck(c: Ctx) {
-  const siteKey = c.env.TURNSTILE_SITE_KEY;
-  const secret = c.env.TURNSTILE_SECRET_KEY;
-  return siteKey && secret ? { siteKey, secret } : null;
-}
 
 export function createApp(options: AppOptions = {}) {
   const now = options.now ?? (() => new Date());
@@ -131,10 +126,11 @@ export function createApp(options: AppOptions = {}) {
 
   app.use(async (c, next) => {
     const token = getCookie(c, SESSION_COOKIE);
-    c.set(
-      "admin",
-      token ? await sessionAdmin(c.env.DB, token, now().toISOString()) : null,
-    );
+    const account = token
+      ? await sessionAccount(c.env.DB, token, now().toISOString())
+      : null;
+    c.set("account", account);
+    c.set("admin", account?.admin ? account : null);
     c.set("door", await doorCookieEvent(c.env.DB, getCookie(c, DOOR_COOKIE)));
     await next();
     c.header("X-Content-Type-Options", "nosniff");
@@ -143,6 +139,7 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.route("/admin", adminRoutes(now, fetcher));
+  app.route("/", accountRoutes(now, fetcher));
   app.route("/puerta", doorRoutes(now, fetcher));
 
   app.get("/", async (c) => {
@@ -224,15 +221,17 @@ export function createApp(options: AppOptions = {}) {
 
   app.post("/entrada/:token/perfil", async (c) => {
     const token = c.req.param("token");
-    if (!(await findTicket(c.env.DB, token))) return notFound(c, "ticket");
-    await openProfile(c.env.DB, token);
+    const ticket = await findTicket(c.env.DB, token);
+    if (!ticket) return notFound(c, "ticket");
+    await openProfile(c.env.DB, ticket.personId);
     return c.redirect(`/entrada/${token}#perfil`, 303);
   });
 
   app.post("/entrada/:token/perfil/ocultar", async (c) => {
     const token = c.req.param("token");
-    if (!(await findTicket(c.env.DB, token))) return notFound(c, "ticket");
-    await closeProfile(c.env.DB, token);
+    const ticket = await findTicket(c.env.DB, token);
+    if (!ticket) return notFound(c, "ticket");
+    await closeProfile(c.env.DB, ticket.personId);
     return c.redirect(`/entrada/${token}#perfil`, 303);
   });
 
@@ -356,7 +355,20 @@ export function createApp(options: AppOptions = {}) {
   app.get("/:slug", async (c) => {
     const event = await visibleEvent(c, c.req.param("slug"));
     if (!event) return notFound(c);
-    return eventPage(c, event, emptyForm, null);
+
+    // A signed-in person finds the form filled with what the account holds.
+    const account = c.get("account");
+    const form = account
+      ? {
+          values: {
+            name: account.name,
+            email: account.email ?? "",
+            phone: (await phoneOf(c.env.DB, account.id)) ?? "",
+          },
+          errors: {},
+        }
+      : emptyForm;
+    return eventPage(c, event, form, null);
   });
 
   app.post("/:slug", async (c) => {
@@ -370,6 +382,7 @@ export function createApp(options: AppOptions = {}) {
         fetch: fetcher,
         now: now(),
         turnstileSecret: humanCheck(c)?.secret ?? null,
+        provenEmail: c.get("account")?.email ?? null,
       },
       event,
       await c.req.formData(),
@@ -382,6 +395,7 @@ export function createApp(options: AppOptions = {}) {
       case "refused":
         return eventPage(c, event, outcome.form, null, 422);
       case "exists":
+        if (outcome.own) return c.redirect(`/entrada/${outcome.token}`, 303);
         if (outcome.notify)
           await after(
             c,

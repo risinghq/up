@@ -12,12 +12,12 @@ Spanish.
 ```sh
 bun install
 bun run db:migrate:local
-bun run admin:invite --name Ana
 bun run dev
 ```
 
-Open the printed invite link, create a passkey, and add an event from
-`http://localhost:5173/admin`.
+Sign in at `http://localhost:5173/entrar` with the code the dev server prints,
+then make yourself an admin with `bun run admin:grant --email <you>` and add an
+event from `/admin`.
 
 ## Features
 
@@ -37,10 +37,13 @@ Open the printed invite link, create a passkey, and add an event from
   Meet call, shown on the tickets that hold a seat.
 - Light and dark schemes: the system's, or the one picked in the header.
 - Recorded consent: the privacy policy is required and WhatsApp news is opt-in.
-- An admin area with passkey sign-in: upcoming and past events, a page per event
-  with its seat count and share link, an editor with a kind, an accent color, a
-  backdrop, a cover and a featured spot on the home page, a registrant list with
-  CSV export, and settings for admin invites and the Google account.
+- Accounts that sign in with a mailed code or a passkey, and list their own
+  tickets at `/cuenta`.
+- An admin area for accounts with the admin flag: upcoming and past events, a
+  page per event with its seat count and share link, an editor with a kind, an
+  accent color, a backdrop, a cover and a featured spot on the home page, a
+  registrant list with CSV export, and settings for admins and the Google
+  account.
 
 ## More
 

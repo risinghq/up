@@ -19,7 +19,7 @@ export type Community = { whatsapp: string; instagram: string };
 
 /** The admin header. Without `name` (signed out), it holds the logo only. */
 export type AdminShell = {
-  name?: string;
+  name: string;
   /** The current admin section, marked in the nav. */
   section?: "eventos" | "ajustes";
 };
@@ -140,6 +140,7 @@ export const Lockup = () => (
 function SiteHeader(props: {
   community: Community;
   admin: boolean;
+  signedIn: boolean;
   sticky: boolean;
 }) {
   const { community } = props;
@@ -154,6 +155,11 @@ function SiteHeader(props: {
         </a>
         {props.admin && <a href="/admin">Admin</a>}
         {community.instagram && <a href={community.instagram}>Instagram</a>}
+        {props.signedIn ? (
+          <a href="/cuenta">Cuenta</a>
+        ) : (
+          <a href="/entrar">Entrar</a>
+        )}
         <SchemeToggle />
         {community.whatsapp && (
           <a
@@ -197,9 +203,10 @@ function AdminMenu({ shell, name }: { shell: AdminShell; name: string }) {
         >
           Ajustes
         </a>
+        <a href="/cuenta">Mi cuenta</a>
         <a href="/">Ver sitio</a>
         <SchemeToggle labeled />
-        <form method="post" action="/admin/salir">
+        <form method="post" action="/salir">
           <button type="submit">Salir</button>
         </form>
       </nav>
@@ -212,37 +219,28 @@ function AdminHeader({ shell }: { shell: AdminShell }) {
     <header class="site-nav sticky admin-nav">
       <a
         class="site-logo"
-        href={shell.name ? "/admin" : "/"}
+        href="/admin"
         aria-label="up.rising.sh admin, inicio"
       >
         <Lockup /> <span class="admin-badge">admin</span>
       </a>
-      {shell.name ? (
-        <>
-          <nav class="admin-sections" aria-label="Admin">
-            <a href="/admin" aria-current={current(shell, "eventos")}>
-              Eventos
-            </a>
-            <a href="/admin/ajustes" aria-current={current(shell, "ajustes")}>
-              Ajustes
-            </a>
-          </nav>
-          <div class="site-links">
-            <a
-              class="button button-light button-small button-round"
-              href="/admin/eventos/nuevo"
-            >
-              Crear<span class="admin-wide"> evento</span>
-            </a>
-            <AdminMenu shell={shell} name={shell.name} />
-          </div>
-        </>
-      ) : (
-        <nav class="site-links" aria-label="Sitio">
-          <a href="/">Volver al sitio</a>
-          <SchemeToggle />
-        </nav>
-      )}
+      <nav class="admin-sections" aria-label="Admin">
+        <a href="/admin" aria-current={current(shell, "eventos")}>
+          Eventos
+        </a>
+        <a href="/admin/ajustes" aria-current={current(shell, "ajustes")}>
+          Ajustes
+        </a>
+      </nav>
+      <div class="site-links">
+        <a
+          class="button button-light button-small button-round"
+          href="/admin/eventos/nuevo"
+        >
+          Crear<span class="admin-wide"> evento</span>
+        </a>
+        <AdminMenu shell={shell} name={shell.name} />
+      </div>
     </header>
   );
 }
@@ -252,7 +250,9 @@ export function Layout(props: {
   community: Community;
   /** A signed-in admin gets a link to the admin on public pages. */
   admin: boolean;
-  /** Loads the passkey script for the admin sign-in and invite pages. */
+  /** Shows Cuenta in place of Entrar. */
+  signedIn: boolean;
+  /** Loads the passkey script for the sign-in and account pages. */
   passkeys: boolean;
   /** An admin page: the admin header and no public footer. */
   shell?: AdminShell;
@@ -310,7 +310,7 @@ export function Layout(props: {
             <script type="module" src="/@vite/client" />
             <script type="module" src="/src/client/main.ts" />
             {props.passkeys && (
-              <script type="module" src="/src/client/admin.ts" />
+              <script type="module" src="/src/client/passkey.ts" />
             )}
           </>
         ) : (
@@ -325,7 +325,7 @@ export function Layout(props: {
             <link rel="stylesheet" href={asset("client", ".css")} />
             <script type="module" src={asset("client", ".js")} />
             {props.passkeys && (
-              <script type="module" src={asset("admin", ".js")} />
+              <script type="module" src={asset("passkey", ".js")} />
             )}
           </>
         )}
@@ -344,6 +344,7 @@ export function Layout(props: {
           <SiteHeader
             community={community}
             admin={props.admin}
+            signedIn={props.signedIn}
             sticky={!theme}
           />
         )}

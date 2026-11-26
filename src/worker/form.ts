@@ -14,6 +14,8 @@ export type FormState = {
   errors: Record<string, string>;
 };
 
+export const emptyForm: FormState = { values: {}, errors: {} };
+
 export type Parsed =
   | ({ ok: true; value: Registration } & FormState)
   | ({ ok: false } & FormState);

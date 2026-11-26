@@ -46,6 +46,40 @@ export function Field(props: {
   );
 }
 
+/**
+ * The Turnstile widget's place. main.ts renders it when its form shows.
+ * `action` finishes "Activa JavaScript para …".
+ */
+export function HumanCheck(props: {
+  siteKey: string;
+  error: string | undefined;
+  focus: boolean;
+  action: string;
+}) {
+  return (
+    <div class="human-check">
+      <div class="turnstile" data-sitekey={props.siteKey} />
+      {props.error ? (
+        <p
+          class="error"
+          role="alert"
+          tabIndex={props.focus ? -1 : undefined}
+          autoFocus={props.focus}
+        >
+          {props.error}
+        </p>
+      ) : (
+        <noscript>
+          <p class="hint">
+            Activa JavaScript para {props.action}: lo usamos para frenar a los
+            bots.
+          </p>
+        </noscript>
+      )}
+    </div>
+  );
+}
+
 export function Check(props: {
   name: string;
   form: FormState;

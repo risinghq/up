@@ -13,7 +13,7 @@
     "check": "bun run lint && bun run typecheck && bun run test && bun run build",
     "db:migrate:local": "wrangler d1 migrations apply up --local",
     "db:migrate:remote": "wrangler d1 migrations apply up --remote",
-    "admin:invite": "bun scripts/admin-invite.ts",
+    "admin:grant": "bun scripts/admin-grant.ts",
     "deploy": "bun run build && wrangler deploy"
   },
   "dependencies": {

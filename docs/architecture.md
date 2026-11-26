@@ -2,8 +2,8 @@
 
 up is one Cloudflare Worker. It renders every page with Preact on the server and
 answers every form with a redirect or a re-rendered page, so the site works
-without JavaScript. Two exceptions: the admin passkey ceremony needs the
-browser's WebAuthn API, and registering needs the Turnstile widget that
+without JavaScript. Two exceptions: a passkey ceremony needs the browser's
+WebAuthn API, and registering needs the Turnstile widget that
 [`src/client/turnstile.ts`](../src/client/turnstile.ts) renders.
 
 ## A registration, from form to ticket
@@ -28,7 +28,8 @@ browser's WebAuthn API, and registering needs the Turnstile widget that
    outage lets the registration through.
 4. `register` in [`src/worker/registrations.ts`](../src/worker/registrations.ts)
    upserts the person by email with `upsertPerson` in
-   [`src/worker/people.ts`](../src/worker/people.ts), then inserts the
+   [`src/worker/people.ts`](../src/worker/people.ts). The name and phone change
+   only when the signed-in account holds that email. Then it inserts the
    registration with a fresh ticket token. One `INSERT ... SELECT` takes the
    next number and decides `going` or `waitlist` against the seats taken, so two
    registrations at once cannot both take the last seat. An email that already
@@ -115,12 +116,14 @@ notifies each seated ticket of an event that starts within a day and marks
 
 ## An edit, from editor to page
 
-1. Every request passes a middleware in `createApp` that reads the `up_admin`
-   cookie and looks up its session with `sessionAdmin` in
+1. Every request passes a middleware in `createApp` that reads the `up_session`
+   cookie and looks up its account with `sessionAccount` in
    [`src/worker/auth.ts`](../src/worker/auth.ts).
 2. `adminRoutes` in [`src/worker/admin.tsx`](../src/worker/admin.tsx) serves
-   `/admin`. Without a session, a GET redirects to `/admin/entrar` and a POST
-   answers 403. A form post whose `Origin` is not `SITE_URL` is refused.
+   `/admin` to an account with the admin flag. Without a session, a GET
+   redirects to `/entrar?volver=<path>` and a POST answers 403. A signed-in
+   person who is not an admin gets 404. A form post whose `Origin` is not
+   `SITE_URL` is refused.
 3. `POST /admin/eventos/<slug>/editar` reads the editor with `parseEventForm` in
    [`src/worker/eventForm.ts`](../src/worker/eventForm.ts). It turns Lima
    datetimes into ISO, the questions text into `Question[]` with
@@ -139,11 +142,16 @@ notifies each seated ticket of an event that starts within a day and marks
    [`src/client/styles.css`](../src/client/styles.css) derives text, dividers
    and buttons from the palette, once for light and once under `.dark`.
 
-Sign-in uses passkeys through
-[`src/worker/passkeys.ts`](../src/worker/passkeys.ts). The server stores each
-challenge in D1 and takes it once.
-[`src/client/admin.ts`](../src/client/admin.ts) runs the ceremony in the
-browser, and it loads only on the sign-in and invite pages.
+`accountRoutes` in [`src/worker/account.tsx`](../src/worker/account.tsx) serves
+`/entrar`, `/salir` and `/cuenta`. A code sign-in goes through
+[`src/worker/codes.ts`](../src/worker/codes.ts): `requestCode` stores one code's
+hash per email, `checkCode` counts every try, and `issueVerified` hands an email
+with no account a one-use token for the new-account form. `startSession` in
+[`src/worker/session.ts`](../src/worker/session.ts) sets the cookie. Passkeys go
+through [`src/worker/passkeys.ts`](../src/worker/passkeys.ts); the server stores
+each challenge in D1 and takes it once.
+[`src/client/passkey.ts`](../src/client/passkey.ts) runs the ceremony in the
+browser, and it loads only on the account pages.
 [`src/client/map.ts`](../src/client/map.ts) draws a venue's map with MapLibre
 and OpenFreeMap tiles. `main.ts` imports it when the map nears the viewport, so
 its chunk and worker load only on an event page with a point.
@@ -172,18 +180,17 @@ schema.
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.                                                                                    |
 | `event_roles`    | One person's role at one event: name, optional email, role, position, a voluntario's door link hash and the `certificate_id`. It follows the event's slug and dies with the event. |
-| `people`         | One email, with the latest name and phone, the consent dates and the public profile's `profile_id`.                                                                                |
+| `people`         | One person and account: an optional email, name and phone, the consent dates, the public profile's `profile_id` and the `admin` flag.                                              |
 | `registrations`  | One person at one event: the ticket token as `id`, the number, the status, the answers as JSON, the share link's `share_id` and, once checked in, the `certificate_id`.            |
-| `admins`         | One admin's name.                                                                                                                                                                  |
-| `credentials`    | One passkey of one admin.                                                                                                                                                          |
-| `invites`        | One admin invite, by token hash, until it is used or expires.                                                                                                                      |
-| `sessions`       | One signed-in browser, by token hash.                                                                                                                                              |
+| `credentials`    | One passkey of one person.                                                                                                                                                         |
+| `sessions`       | One signed-in browser of one person, by token hash.                                                                                                                                |
+| `sign_in_codes`  | The pending code of one email, by hash, with its tries; once checked for an email with no account, the hash of the new-account token.                                              |
 | `challenges`     | One WebAuthn challenge between its options request and its verification.                                                                                                           |
 | `google_account` | The one connected Google account: its email and refresh token.                                                                                                                     |
 
-The ticket token is the registrant's only key. Anyone with the link can see and
-cancel the ticket, and registrants have no accounts. Invite and session tokens
-are stored as their SHA-256 only.
+The ticket token is a key of its own. Anyone with the link can see and cancel
+the ticket, with or without an account. Session tokens and codes are stored as
+their SHA-256 only.
 
 ## Files
 
@@ -202,7 +209,11 @@ are stored as their SHA-256 only.
 | [`src/worker/form.ts`](../src/worker/form.ts)                   | Registration parsing and phone normalization.                               |
 | [`src/worker/signup.ts`](../src/worker/signup.ts)               | A register post, from the bot checks to the stored registration.            |
 | [`src/worker/registrations.ts`](../src/worker/registrations.ts) | Seats, the waitlist, cancelling, check-in and reminders of one ticket.      |
-| [`src/worker/people.ts`](../src/worker/people.ts)               | People by email.                                                            |
+| [`src/worker/people.ts`](../src/worker/people.ts)               | People by email and their contact details.                                  |
+| [`src/worker/accounts.ts`](../src/worker/accounts.ts)           | Accounts, the email an account proves, and the admin flag.                  |
+| [`src/worker/account.tsx`](../src/worker/account.tsx)           | The `/entrar`, `/salir` and `/cuenta` routes.                               |
+| [`src/worker/codes.ts`](../src/worker/codes.ts)                 | Sign-in codes and the new-account token.                                    |
+| [`src/worker/session.ts`](../src/worker/session.ts)             | The session cookie and the return path after sign-in.                       |
 | [`src/worker/registrants.ts`](../src/worker/registrants.ts)     | An event's registrant list and counts, for the admin.                       |
 | [`src/worker/shares.ts`](../src/worker/shares.ts)               | The share link of a ticket.                                                 |
 | [`src/worker/profiles.ts`](../src/worker/profiles.ts)           | Public profiles and the events a person attended.                           |
@@ -213,7 +224,7 @@ are stored as their SHA-256 only.
 | [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts)           | The WhatsApp templates and their sending.                                   |
 | [`src/worker/notify.ts`](../src/worker/notify.ts)               | Sends a ticket's email and WhatsApp message together.                       |
 | [`src/worker/reminders.ts`](../src/worker/reminders.ts)         | The day-before reminders the hourly cron sends.                             |
-| [`src/worker/auth.ts`](../src/worker/auth.ts)                   | Admin, invite, session and challenge queries.                               |
+| [`src/worker/auth.ts`](../src/worker/auth.ts)                   | Passkey, session and challenge queries.                                     |
 | [`src/worker/passkeys.ts`](../src/worker/passkeys.ts)           | WebAuthn options and verification.                                          |
 | [`src/worker/tokens.ts`](../src/worker/tokens.ts)               | Random tokens and their hashes.                                             |
 | [`src/worker/csv.ts`](../src/worker/csv.ts)                     | The registrants export.                                                     |
@@ -226,7 +237,7 @@ are stored as their SHA-256 only.
 | [`scripts/card-fonts.sh`](../scripts/card-fonts.sh)             | Writes those fonts from `@fontsource/geist`.                                |
 | [`src/pages/`](../src/pages/)                                   | The page components; [`admin/`](../src/pages/admin/) holds the admin pages. |
 | [`src/client/`](../src/client/)                                 | The stylesheets and the client scripts.                                     |
-| [`scripts/admin-invite.ts`](../scripts/admin-invite.ts)         | The first-admin invite.                                                     |
+| [`scripts/admin-grant.ts`](../scripts/admin-grant.ts)           | Makes an account the first admin.                                           |
 
 [`vite.config.ts`](../vite.config.ts) builds the client to
 `/assets/client-<build>.css`, `/assets/client-<build>.js` and

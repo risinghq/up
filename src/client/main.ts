@@ -68,6 +68,9 @@ if (signup) {
   });
 }
 
+for (const human of document.querySelectorAll<HTMLElement>(".turnstile"))
+  if (!human.closest("#inscripcion")) showTurnstile(human);
+
 const nav = document.querySelector<HTMLElement>(".site-nav.sticky");
 if (nav) {
   // Luma shows the divider past 1.5 root font sizes of scroll.

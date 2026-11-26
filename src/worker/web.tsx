@@ -8,7 +8,7 @@ import {
   type Head,
 } from "../pages/Layout";
 import { NotFound } from "../pages/NotFound";
-import type { Admin } from "./auth";
+import type { Account } from "./accounts";
 import type { WhatsAppEnv } from "./whatsapp";
 
 export type Env = {
@@ -33,8 +33,10 @@ export type Env = {
 export type AppEnv = {
   Bindings: Env;
   Variables: {
-    /** The admin whose session cookie came with the request, or null. */
-    admin: Admin | null;
+    /** The person whose session cookie came with the request, or null. */
+    account: Account | null;
+    /** The same person when they are an admin, or null. */
+    admin: Account | null;
     /** The slug of the event whose door the request's door cookie opens, or null. */
     door: string | null;
   };
@@ -46,6 +48,13 @@ export const description =
   "Eventos de rising.sh en Lima: mini hackathons, talleres y charlas. Inscríbete y únete a la comunidad.";
 
 export const site = (c: Ctx) => c.env.SITE_URL.replace(/\/$/, "");
+
+/** The Turnstile keys, when both are set. */
+export function humanCheck(c: Ctx) {
+  const siteKey = c.env.TURNSTILE_SITE_KEY;
+  const secret = c.env.TURNSTILE_SECRET_KEY;
+  return siteKey && secret ? { siteKey, secret } : null;
+}
 
 /**
  * Finishes `work` after the response is sent. A request without an execution
@@ -68,7 +77,7 @@ const community = (c: Ctx): Community => ({
 });
 
 export type PageOptions = {
-  /** Loads the admin passkey script. */
+  /** Loads the passkey script. */
   passkeys?: boolean;
   /** Renders the admin header in place of the public one. */
   shell?: AdminShell;
@@ -87,6 +96,7 @@ export function page(
       head={head}
       community={community(c)}
       admin={Boolean(c.get("admin"))}
+      signedIn={Boolean(c.get("account"))}
       passkeys={options.passkeys ?? false}
       shell={options.shell}
     >

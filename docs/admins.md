@@ -1,31 +1,36 @@
 # Admins
 
-An admin signs in at `/admin/entrar` with a passkey and has no password. A new
-admin needs an invite link. The link works once and expires after 7 days.
+An admin is an account with the admin flag. Anyone can make an account at
+`/entrar` with a code mailed to their email, and add a passkey from `/cuenta`.
+There is no password and no invite.
 
 ## The first admin
 
+Make an account at `/entrar`, then grant it:
+
 ```sh
-bun run admin:invite --name David --remote
+bun run admin:grant --email ana@example.com --remote
 ```
 
 ```text
-https://up.rising.sh/admin/invitacion/3q2…
-One use, expires 2026-12-01T15:04:05.000Z.
+ana@example.com is an admin.
 ```
 
-Open the link and choose **Crear mi passkey**. The browser creates the passkey
-and the site opens the event list. Without `--remote`, the script writes to the
-local D1 and prints a `localhost` link. With it, the script needs the
-[Cloudflare credentials](deploy.md#by-hand).
+Without `--remote`, the script writes to the local D1. With it, the script needs
+the [Cloudflare credentials](deploy.md#by-hand). It fails when no account has
+that email.
 
 ## More admins
 
-In **Ajustes** (`/admin/ajustes`), **Invitar a un admin** takes a name and shows
-the invite link to send. Every admin can invite.
+In **Ajustes** (`/admin/ajustes`), **Hacer admin** takes the email of an
+account. The person must have signed in once. **Quitar** removes the flag. An
+admin cannot remove their own.
 
 ## Sessions
 
-Sign-in sets the `up_admin` cookie for 30 days. **Salir** in the admin header
-ends the session. Signing in and creating a passkey need JavaScript; every other
-admin page works without it.
+Signing in sets the `up_session` cookie for 30 days. **Salir** in the menu ends
+the session. A visitor who opens `/admin` is sent to `/entrar` and comes back
+after signing in. A signed-in person who is not an admin gets a 404.
+
+Signing in with a passkey and adding one need JavaScript; the code sign-in and
+every other page work without it.

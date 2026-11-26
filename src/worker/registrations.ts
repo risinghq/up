@@ -7,6 +7,7 @@ export type Status = "going" | "waitlist" | "cancelled";
 
 export type Ticket = {
   token: string;
+  personId: string;
   eventSlug: string;
   number: number;
   status: Status;
@@ -65,8 +66,9 @@ export async function register(
   event: EventMeta,
   r: Registration,
   now: string,
+  proven = false,
 ): Promise<RegisterResult> {
-  const personId = await upsertPerson(db, r, now);
+  const personId = await upsertPerson(db, r, now, proven);
   const existing = await db
     .prepare(
       "SELECT id, status FROM registrations WHERE event_slug = ? AND person_id = ?",
@@ -111,7 +113,7 @@ export async function findTicket(
 ): Promise<Ticket | null> {
   return db
     .prepare(
-      `SELECT r.id AS token, r.event_slug AS eventSlug, r.number, r.status, p.name, p.email, p.phone,
+      `SELECT r.id AS token, r.person_id AS personId, r.event_slug AS eventSlug, r.number, r.status, p.name, p.email, p.phone,
               r.created_at AS createdAt, r.checked_in_at AS checkedInAt, r.share_id AS shareId,
               p.profile_id AS profileId, r.certificate_id AS certificateId
        FROM registrations r JOIN people p ON p.id = r.person_id
@@ -278,4 +280,30 @@ export async function markReminded(
     .prepare("UPDATE registrations SET reminded_at = ? WHERE id = ?")
     .bind(now, token)
     .run();
+}
+
+/** A ticket as the account page lists it. */
+export type AccountTicket = {
+  token: string;
+  slug: string;
+  title: string;
+  start: string;
+  status: "going" | "waitlist";
+};
+
+/** The person's live tickets, newest event first. */
+export async function ticketsOf(
+  db: D1Database,
+  personId: string,
+): Promise<AccountTicket[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT r.id AS token, e.slug, e.title, e.start_at AS start, r.status
+       FROM registrations r JOIN events e ON e.slug = r.event_slug
+       WHERE r.person_id = ? AND r.status != 'cancelled'
+       ORDER BY e.start_at DESC`,
+    )
+    .bind(personId)
+    .all<AccountTicket>();
+  return results;
 }

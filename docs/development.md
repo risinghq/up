@@ -5,22 +5,26 @@
 ```sh
 bun install
 bun run db:migrate:local          # creates the local D1 under .wrangler/
-bun run admin:invite --name Ana   # prints a local admin invite link
 bun run dev                       # http://localhost:5173
 ```
 
-Open the invite link, create a passkey and add an event from `/admin`
-([Add an event](add-an-event.md)).
+Sign in at `/entrar`. The local Worker sends no mail: the dev server prints each
+message, and the subject starts with the code. Then make the account an admin
+and add an event from `/admin` ([Add an event](add-an-event.md)):
 
-| Command                              | Does                                                                     |
-| ------------------------------------ | ------------------------------------------------------------------------ |
-| `bun run dev`                        | The Vite dev server, with the Worker in workerd and the local D1 and R2. |
-| `bun run check`                      | Lint, format check, typecheck, tests and build. CI runs it.              |
-| `bun run test`                       | The tests in `tests/`, against a migrated D1 and R2 in Miniflare.        |
-| `bun run fix`                        | Format every file with oxfmt.                                            |
-| `bun run build`                      | Build the Worker and the client into `dist/`.                            |
-| `bun run preview`                    | Serve the build locally.                                                 |
-| `bun run admin:invite --name <name>` | Print a one-use [admin invite](admins.md) for the local D1.              |
+```sh
+bun run admin:grant --email ana@example.com
+```
+
+| Command                               | Does                                                                     |
+| ------------------------------------- | ------------------------------------------------------------------------ |
+| `bun run dev`                         | The Vite dev server, with the Worker in workerd and the local D1 and R2. |
+| `bun run check`                       | Lint, format check, typecheck, tests and build. CI runs it.              |
+| `bun run test`                        | The tests in `tests/`, against a migrated D1 and R2 in Miniflare.        |
+| `bun run fix`                         | Format every file with oxfmt.                                            |
+| `bun run build`                       | Build the Worker and the client into `dist/`.                            |
+| `bun run preview`                     | Serve the build locally.                                                 |
+| `bun run admin:grant --email <email>` | Make an account in the local D1 an [admin](admins.md).                   |
 
 [`.dev.vars`](../.dev.vars) sets the local [configuration](configuration.md).
 
@@ -41,7 +45,8 @@ The tests check behaviour at three layers, each against a fixed clock:
   Testing Library.
 
 [`tests/support.tsx`](../tests/support.tsx) holds the migrated D1 and R2, the
-event fixture, the seeding, the outbox and an admin session cookie.
+event fixture, the seeding, the outbox, and `signedIn`, which makes an account
+and returns its session cookie.
 [`tests/authenticator.ts`](../tests/authenticator.ts) is a software passkey that
 answers the WebAuthn ceremonies.
 

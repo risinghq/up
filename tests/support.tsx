@@ -149,16 +149,35 @@ export async function seed(DB: D1Database, events: EventMeta[]) {
 }
 
 /**
- * Creates an admin and returns the Cookie header of a session opened at
- * `now`, which must fall within 30 days before the test's clock.
+ * Creates an account and returns its id and the Cookie header of a session
+ * opened at `now`, which must fall within 30 days before the test's clock.
  */
-export async function adminCookie(DB: D1Database, now: Date, name = "David") {
+export async function signedIn(
+  DB: D1Database,
+  now: Date,
+  person: { name?: string; email?: string; admin?: boolean } = {},
+) {
   const id = crypto.randomUUID();
-  await DB.prepare("INSERT INTO admins (id, name, created_at) VALUES (?, ?, ?)")
-    .bind(id, name, now.toISOString())
+  const at = now.toISOString();
+  await DB.prepare(
+    "INSERT INTO people (id, email, name, admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+  )
+    .bind(
+      id,
+      person.email ?? null,
+      person.name ?? "David",
+      person.admin ? 1 : 0,
+      at,
+      at,
+    )
     .run();
-  const token = await createSession(DB, id, now.toISOString());
-  return `up_admin=${token}`;
+  const token = await createSession(DB, id, at);
+  return { id, cookie: `up_session=${token}` };
+}
+
+/** Creates an admin and returns the Cookie header of their session. */
+export async function adminCookie(DB: D1Database, now: Date, name = "David") {
+  return (await signedIn(DB, now, { name, admin: true })).cookie;
 }
 
 /** A form body that registers; `overrides` replaces or adds fields. */

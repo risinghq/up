@@ -3,7 +3,7 @@ import { deleteCookie, setCookie } from "hono/cookie";
 import { csrf } from "hono/csrf";
 import { DoorPage, type Arrival } from "../pages/Door";
 import { findEvent, hasEnded, type EventMeta } from "./events";
-import { parseRegistration, type FormState } from "./form";
+import { emptyForm, parseRegistration, type FormState } from "./form";
 import type { Fetch } from "./google";
 import { notifyTickets } from "./notify";
 import { checkedInCount } from "./registrants";
@@ -20,8 +20,6 @@ import { after, notFound, page, site, type AppEnv, type Ctx } from "./web";
 
 export const DOOR_COOKIE = "up_door";
 const DOOR_DAYS = 7;
-
-const emptyForm: FormState = { values: {}, errors: {} };
 
 /**
  * Whether the request may work the event's door: an admin always, a
