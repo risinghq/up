@@ -8,6 +8,7 @@ import {
   type RegistrationResponseJSON,
 } from "@simplewebauthn/server";
 import { isoBase64URL } from "@simplewebauthn/server/helpers";
+import type { Account } from "./accounts";
 import type { NewCredential, StoredCredential } from "./auth";
 
 /** The relying party is the site's own origin, from SITE_URL. */
@@ -18,12 +19,23 @@ export const relyingParty = (siteUrl: string): RelyingParty => {
   return { id: url.hostname, origin: url.origin };
 };
 
-export function registrationOptions(rp: RelyingParty, name: string) {
+/**
+ * Options for a new passkey on `account`. The user handle is the account id,
+ * so a device keeps one passkey per account, and the account's own passkeys
+ * are excluded so a device that has one is not offered a second.
+ */
+export function registrationOptions(
+  rp: RelyingParty,
+  account: Pick<Account, "id" | "name" | "email">,
+  existing: string[],
+) {
   return generateRegistrationOptions({
     rpName: "up · rising.sh",
     rpID: rp.id,
-    userName: name,
-    userDisplayName: name,
+    userID: new TextEncoder().encode(account.id),
+    userName: account.email ?? account.name,
+    userDisplayName: account.name,
+    excludeCredentials: existing.map((id) => ({ id })),
     attestationType: "none",
     // A discoverable passkey lets sign-in skip the username.
     authenticatorSelection: {

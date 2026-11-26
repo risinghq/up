@@ -99,6 +99,41 @@ ${p(escape(footer), "margin:0;font-size:14px;color:#5f6164")}
   };
 }
 
+/** What a mailed code proves: a sign-in, or an email added to an account. */
+export type CodePurpose = "sign-in" | "add-email";
+
+/**
+ * The email that carries a code. The code leads the subject, so a phone's
+ * notification shows it without opening the mail.
+ */
+export function codeMail(
+  to: string,
+  code: string,
+  purpose: CodePurpose,
+  minutes: number,
+): Mail {
+  const lead =
+    purpose === "sign-in"
+      ? "Usa este código para entrar a up.rising.sh."
+      : "Usa este código para agregar este correo a tu cuenta de up.rising.sh.";
+  const footer = `Vence en ${minutes} minutos. Si no lo pediste, ignora este correo.`;
+
+  const html = `<!doctype html><html lang="es"><body style="margin:0;padding:24px 16px;background:#f4f5f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;font-size:16px;line-height:1.5;color:#131517">
+<div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;padding:24px">
+<p style="margin:0 0 16px">${escape(lead)}</p>
+<p style="margin:0 0 16px;font-size:32px;font-weight:600;letter-spacing:6px;font-variant-numeric:tabular-nums">${code}</p>
+<p style="margin:0;font-size:14px;color:#5f6164">${escape(footer)}</p>
+</div>
+</body></html>`;
+
+  return {
+    to,
+    subject: `${code} es tu código de up.rising.sh`,
+    html,
+    text: [lead, code, footer].join("\n\n"),
+  };
+}
+
 /**
  * Sends one email. A failure is logged and returns false: an email is never
  * worth failing the request that caused it. Without the binding, as in tests
@@ -113,7 +148,7 @@ export async function sendMail(
     await binding.send({ from, replyTo, ...mail });
     return true;
   } catch (error) {
-    console.error("email to a ticket holder failed", error);
+    console.error("email failed", error);
     return false;
   }
 }

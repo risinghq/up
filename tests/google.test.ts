@@ -208,10 +208,10 @@ describe("connecting", () => {
 
   test("a visitor cannot start or finish the flow", async () => {
     expect(location(await get("/admin/google/conectar", {}))).toBe(
-      "/admin/entrar",
+      "/entrar?volver=%2Fadmin%2Fgoogle%2Fconectar",
     );
     expect(location(await get("/admin/google/vuelta?code=good", {}))).toBe(
-      "/admin/entrar",
+      "/entrar?volver=%2Fadmin%2Fgoogle%2Fvuelta",
     );
   });
 

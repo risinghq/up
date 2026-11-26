@@ -26,6 +26,7 @@ const online = event({
 function ticket(overrides: Partial<Ticket> = {}): Ticket {
   return {
     token: "T".repeat(22),
+    personId: "p1",
     eventSlug: "charla",
     number: 1,
     status: "going",

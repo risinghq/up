@@ -4,8 +4,8 @@ import {
   startRegistration,
 } from "@simplewebauthn/browser";
 
-// Runs the passkey ceremony behind the sign-in and invite buttons. The server
-// stores each challenge and answers with JSON: { redirect } or { error }.
+// Runs the passkey ceremony behind the sign-in and add-passkey buttons. The
+// server stores each challenge and answers with JSON: { redirect } or { error }.
 
 type Answer = { redirect?: string; error?: string };
 
@@ -23,38 +23,40 @@ async function post<T>(path: string, body: unknown): Promise<T & Answer> {
 
 type Options<O> = { challengeId: string; options: O };
 
-async function signIn(): Promise<Answer> {
+async function signIn(volver: string): Promise<Answer> {
   const start = await post<
     Options<Parameters<typeof startAuthentication>[0]["optionsJSON"]>
-  >("/admin/passkey/entrar/opciones", {});
+  >("/entrar/passkey/opciones", {});
   if (start.error) return start;
+
   const response = await startAuthentication({ optionsJSON: start.options });
-  return post("/admin/passkey/entrar", {
+  return post("/entrar/passkey", {
     challengeId: start.challengeId,
     response,
+    volver,
   });
 }
 
-async function register(invite: string): Promise<Answer> {
+async function add(): Promise<Answer> {
   const start = await post<
     Options<Parameters<typeof startRegistration>[0]["optionsJSON"]>
-  >("/admin/passkey/registro/opciones", { invite });
+  >("/cuenta/passkeys/opciones", {});
   if (start.error) return start;
+
   const response = await startRegistration({ optionsJSON: start.options });
-  return post("/admin/passkey/registro", {
-    invite,
+  return post("/cuenta/passkeys", {
     challengeId: start.challengeId,
     response,
   });
 }
 
-/** The browser's reason, in words an admin can act on. */
+/** The browser's reason, in words a person can act on. */
 function explain(error: unknown): string {
   const name = error instanceof Error ? error.name : "";
   if (name === "NotAllowedError")
     return "Cancelaste o se acabó el tiempo. Inténtalo de nuevo.";
   if (name === "InvalidStateError")
-    return "Este dispositivo ya tiene una passkey para up. Entra con ella.";
+    return "Este dispositivo ya tiene una passkey para tu cuenta.";
   return "Tu navegador no pudo usar la passkey.";
 }
 
@@ -67,18 +69,19 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(
   "[data-passkey]",
 )) {
   if (!browserSupportsWebAuthn()) {
-    say("Este navegador no admite passkeys. Prueba con otro.");
+    say("Este navegador no admite passkeys. Usa el código por correo.");
     continue;
   }
+
   button.disabled = false;
   button.addEventListener("click", async () => {
     button.disabled = true;
     say("Esperando tu passkey…");
     try {
       const answer =
-        button.dataset.passkey === "registro"
-          ? await register(button.dataset.invite ?? "")
-          : await signIn();
+        button.dataset.passkey === "agregar"
+          ? await add()
+          : await signIn(button.dataset.volver ?? "");
       if (answer.redirect) {
         say("Listo.");
         location.assign(answer.redirect);

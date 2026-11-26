@@ -8,11 +8,9 @@ import {
 } from "bun:test";
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
-import { createInvite } from "../src/worker/auth";
 import { findEvent } from "../src/worker/events";
 import { register } from "../src/worker/registrations";
 import { addRole, eventRoles } from "../src/worker/roles";
-import { softPasskey } from "./authenticator";
 import { page, type Page } from "./dom";
 import {
   adminCookie,
@@ -22,6 +20,7 @@ import {
   migratedDb,
   ORIGIN,
   seed,
+  signedIn,
   testEnv,
 } from "./support";
 
@@ -69,24 +68,6 @@ const open = async (path: string, headers?: Record<string, string>) =>
 /** Opens a page as a visitor. */
 const visit = (path: string) => open(path, {});
 
-const postJson = (path: string, body: unknown) =>
-  app.request(
-    path,
-    {
-      method: "POST",
-      body: JSON.stringify(body),
-      headers: { "content-type": "application/json" },
-    },
-    env,
-  );
-
-/** Starts a passkey ceremony and returns the challenge to answer. */
-const begin = async (path: string, body: unknown) =>
-  (await (await postJson(path, body)).json()) as {
-    challengeId: string;
-    options: { challenge: string };
-  };
-
 /** The editor's fields for a valid event; `overrides` replaces fields. */
 function eventForm(overrides: Record<string, string | File> = {}) {
   const data = new FormData();
@@ -130,7 +111,7 @@ describe("access", () => {
   test("a visitor is sent to sign in, and a post without a session is refused", async () => {
     const res = await get("/admin", {});
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("/admin/entrar");
+    expect(res.headers.get("location")).toBe("/entrar?volver=%2Fadmin");
     const refused = await post("/admin/eventos/nuevo", eventForm(), {
       origin: ORIGIN,
     });
@@ -513,7 +494,7 @@ describe("team", () => {
   test("a visitor can neither see nor change the team", async () => {
     const res = await get(team, {});
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("/admin/entrar");
+    expect(res.headers.get("location")).toStartWith("/entrar?volver=");
 
     const refused = await post(
       team,
@@ -820,81 +801,53 @@ describe("the door", () => {
   });
 });
 
-describe("passkeys", () => {
-  test("an invite makes an admin who then signs in", async () => {
-    const unnamed = await post("/admin/invitaciones", new FormData());
-    expect(unnamed.status).toBe(422);
-    const invited = new FormData();
-    invited.set("name", "Pedro");
-    const settings = await page(await post("/admin/invitaciones", invited));
-    const url = settings.text(".invite-url code") ?? "";
-    expect(url).toMatch(/^https:\/\/up\.test\/admin\/invitacion\/[\w-]+$/);
-    const token = url.split("/").pop() ?? "";
-    const welcome = await visit(`/admin/invitacion/${token}`);
-    expect(welcome.screen.getByRole("heading", { level: 1 }).textContent).toBe(
-      "Hola, Pedro",
+describe("admins", () => {
+  test("an admin adds a person with an account and removes them", async () => {
+    const ines = await signedIn(DB, now, {
+      name: "Inés",
+      email: "ines@example.com",
+    });
+    expect((await get("/admin", { cookie: ines.cookie })).status).toBe(404);
+
+    const unknown = new FormData();
+    unknown.set("email", "nadie@example.com");
+    const refused = await page(await post("/admin/admins", unknown));
+    expect(refused.status).toBe(422);
+    expect(described(refused, "Hacer admin")).toMatch(/aún no tiene cuenta/);
+
+    const known = new FormData();
+    known.set("email", "INES@example.com");
+    const added = await post("/admin/admins", known);
+    expect(added.headers.get("location")).toBe(
+      "/admin/ajustes?admins=agregado#admins-title",
     );
+    expect((await get("/admin", { cookie: ines.cookie })).status).toBe(200);
 
-    const key = await softPasskey(ORIGIN);
-    const start = await begin("/admin/passkey/registro/opciones", {
-      invite: token,
-    });
-    const created = await postJson("/admin/passkey/registro", {
-      invite: token,
-      challengeId: start.challengeId,
-      response: await key.create(start.options.challenge),
-    });
-    expect(await created.json()).toEqual({ redirect: "/admin" });
-    expect(created.headers.get("set-cookie")).toContain("up_admin=");
-    expect(created.headers.get("set-cookie")).toContain("HttpOnly");
-
-    // The invite is spent.
-    const again = await postJson("/admin/passkey/registro/opciones", {
-      invite: token,
-    });
-    expect(again.status).toBe(410);
-    expect((await get(`/admin/invitacion/${token}`, {})).status).toBe(404);
-
-    const signIn = await begin("/admin/passkey/entrar/opciones", {});
-    const signedIn = await postJson("/admin/passkey/entrar", {
-      challengeId: signIn.challengeId,
-      response: await key.get(signIn.options.challenge),
-    });
-    expect(await signedIn.json()).toEqual({ redirect: "/admin" });
-    const session = (signedIn.headers.get("set-cookie") ?? "").split(";")[0];
-    const admin = await open("/admin", { cookie: session ?? "" });
-    expect(admin.text(".admin-menu-name")).toBe("Pedro");
-
-    // A challenge answers once.
-    const replay = await postJson("/admin/passkey/entrar", {
-      challengeId: signIn.challengeId,
-      response: await key.get(signIn.options.challenge),
-    });
-    expect(replay.status).toBe(401);
+    const removed = await post(
+      `/admin/admins/${ines.id}/quitar`,
+      new FormData(),
+    );
+    expect(removed.status).toBe(303);
+    expect((await get("/admin", { cookie: ines.cookie })).status).toBe(404);
   });
 
-  test("an unknown passkey is refused", async () => {
-    const key = await softPasskey(ORIGIN);
-    const start = await begin("/admin/passkey/entrar/opciones", {});
-    const res = await postJson("/admin/passkey/entrar", {
-      challengeId: start.challengeId,
-      response: await key.get(start.options.challenge),
-    });
-    expect(res.status).toBe(401);
-  });
-
-  test("an expired invite shows the gone page", async () => {
-    const token = await createInvite(DB, "Tarde", "2026-11-01T00:00:00.000Z");
-    expect((await get(`/admin/invitacion/${token}`, {})).status).toBe(404);
-  });
-
-  test("signing out ends the session", async () => {
-    const own = await adminCookie(DB, now, "Sale");
-    const res = await post("/admin/salir", new FormData(), {
-      cookie: own,
+  test("an admin cannot remove themself", async () => {
+    const own = await signedIn(DB, now, { name: "Solo", admin: true });
+    await post(`/admin/admins/${own.id}/quitar`, new FormData(), {
+      cookie: own.cookie,
       origin: ORIGIN,
     });
-    expect(res.status).toBe(303);
-    expect((await get("/admin", { cookie: own })).status).toBe(303);
+    const settings = await open("/admin/ajustes", { cookie: own.cookie });
+    expect(settings.status).toBe(200);
+    expect(settings.screen.getByText("Tú")).toBeTruthy();
+  });
+
+  test("a signed-in person who is not an admin cannot post", async () => {
+    const plain = await signedIn(DB, now, { name: "Pepe" });
+    const res = await post("/admin/eventos/nuevo", eventForm(), {
+      cookie: plain.cookie,
+      origin: ORIGIN,
+    });
+    expect(res.status).toBe(403);
   });
 });

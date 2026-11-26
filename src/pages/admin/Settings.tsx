@@ -1,7 +1,5 @@
-import type { Admin } from "../../worker/auth";
+import type { Account } from "../../worker/accounts";
 import type { WhatsAppMode } from "../../worker/whatsapp";
-
-export type NewInvite = { name: string; url: string };
 
 /** The Google Calendar connection. Absent when the site has no OAuth client. */
 export type GooglePanel = {
@@ -86,65 +84,92 @@ function WhatsAppSection({ mode }: { mode: WhatsAppMode }) {
   );
 }
 
-function AdminsSection(props: {
-  admins: Admin[];
-  invite?: NewInvite;
-  inviteError?: string;
-}) {
+export type AdminsNotice = "agregado" | "quitado";
+
+const adminsNotice: Record<AdminsNotice, string> = {
+  agregado: "Listo: ya es admin.",
+  quitado: "Ya no es admin.",
+};
+
+export type AdminsPanel = {
+  admins: Account[];
+  /** The signed-in admin, who cannot remove themself. */
+  selfId: string;
+  email: string;
+  error?: string;
+  notice?: AdminsNotice;
+};
+
+function AdminsSection(props: AdminsPanel) {
   return (
     <section class="settings-section" aria-labelledby="admins-title">
       <div class="settings-label">
         <h2 id="admins-title">Admins</h2>
         <p class="hint">
-          Los admins crean y editan eventos y ven a los inscritos. Cada uno
-          entra con su passkey.
+          Los admins crean y editan eventos y ven a los inscritos. Para sumar a
+          alguien, primero debe crear su cuenta en /entrar.
         </p>
       </div>
       <div class="manage-card">
-        <ul class="admin-people">
+        {props.notice && (
+          <p class="notice" role="status">
+            {adminsNotice[props.notice]}
+          </p>
+        )}
+        <ul class="team-list">
           {props.admins.map((a) => (
-            <li key={a.id}>{a.name}</li>
+            <li key={a.id} class="team-member">
+              <span>
+                {a.name}
+                {a.email && (
+                  <>
+                    <br />
+                    <span class="team-email">{a.email}</span>
+                  </>
+                )}
+              </span>
+              {a.id === props.selfId ? (
+                <span class="team-email">Tú</span>
+              ) : (
+                <form
+                  method="post"
+                  action={`/admin/admins/${a.id}/quitar`}
+                  data-confirm={`¿Quitarle el acceso de admin a ${a.name}?`}
+                >
+                  <button
+                    class="button button-small button-quiet"
+                    type="submit"
+                  >
+                    Quitar
+                  </button>
+                </form>
+              )}
+            </li>
           ))}
         </ul>
-        {props.invite && (
-          <div class="notice" role="status">
-            <p>
-              Envía este enlace a {props.invite.name}. Sirve una vez y vence en
-              7 días:
-            </p>
-            <p class="invite-url">
-              <code>{props.invite.url}</code>{" "}
-              <button
-                class="button button-small button-quiet"
-                type="button"
-                data-copy={props.invite.url}
-                hidden
-              >
-                Copiar
-              </button>
-            </p>
-          </div>
-        )}
-        <form method="post" action="/admin/invitaciones" class="inline-form">
+        <form method="post" action="/admin/admins" class="inline-form">
           <div class="field">
-            <label for="a-invite-name">Invitar a un admin</label>
+            <label for="a-admin-email">Hacer admin</label>
             <input
-              id="a-invite-name"
-              name="name"
-              placeholder="Nombre"
-              aria-invalid={props.inviteError ? "true" : undefined}
-              aria-describedby={
-                props.inviteError ? "a-invite-name-error" : undefined
-              }
+              id="a-admin-email"
+              name="email"
+              type="email"
+              inputMode="email"
+              placeholder="correo@ejemplo.com"
+              value={props.email}
+              required
+              autoFocus={Boolean(props.error)}
+              aria-invalid={props.error ? "true" : undefined}
+              aria-describedby={props.error ? "a-admin-email-error" : undefined}
             />
-            {props.inviteError && (
-              <p class="error" id="a-invite-name-error">
-                {props.inviteError}
+            {props.error && (
+              <p class="error" id="a-admin-email-error">
+                {props.error}
               </p>
             )}
           </div>
           <button class="button button-quiet" type="submit">
-            Crear invitación
+            Hacer admin
           </button>
         </form>
       </div>
@@ -153,11 +178,9 @@ function AdminsSection(props: {
 }
 
 export function Settings(props: {
-  admins: Admin[];
+  admins: AdminsPanel;
   google?: GooglePanel;
   whatsapp: WhatsAppMode;
-  invite?: NewInvite;
-  inviteError?: string;
 }) {
   return (
     <div class="admin">
@@ -166,11 +189,7 @@ export function Settings(props: {
       </div>
       {props.google && <GoogleSection google={props.google} />}
       <WhatsAppSection mode={props.whatsapp} />
-      <AdminsSection
-        admins={props.admins}
-        invite={props.invite}
-        inviteError={props.inviteError}
-      />
+      <AdminsSection {...props.admins} />
     </div>
   );
 }

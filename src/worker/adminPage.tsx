@@ -10,7 +10,6 @@ export function adminPage(
   body: ComponentChildren,
   options: {
     status?: number;
-    passkeys?: boolean;
     section?: AdminShell["section"];
   } = {},
 ) {
@@ -26,9 +25,8 @@ export function adminPage(
     body,
     options.status,
     {
-      passkeys: options.passkeys,
       shell: {
-        name: c.get("admin")?.name,
+        name: c.get("admin")?.name ?? "",
         section: options.section ?? "eventos",
       },
     },

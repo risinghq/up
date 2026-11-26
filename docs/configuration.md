@@ -3,13 +3,13 @@
 The variables live under `vars` in [`wrangler.jsonc`](../wrangler.jsonc), with
 the production values. [`.dev.vars`](../.dev.vars) overrides them locally.
 
-| Variable                   | Meaning                                                                                                                          |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `SITE_URL`                 | The origin in canonical links, link previews, calendar entries, ticket links and admin invites. Passkeys are bound to its host.  |
-| `WHATSAPP_COMMUNITY_URL`   | The WhatsApp Community invite. When set, the header, the home page and the ticket link to it.                                    |
-| `INSTAGRAM_URL`            | The Instagram profile. When set, the header and the home page link to it.                                                        |
-| `TURNSTILE_SITE_KEY`       | The site key of the Turnstile widget `up`. With `TURNSTILE_SECRET_KEY`, the register form asks Turnstile whether it is a person. |
-| `WHATSAPP_PHONE_NUMBER_ID` | The Cloud API sender, or `mock` to log the messages ([WhatsApp](whatsapp.md)). Unset, nothing is sent.                           |
+| Variable                   | Meaning                                                                                                                                                                  |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SITE_URL`                 | The origin in canonical links, link previews, calendar entries and ticket links, and the only origin the account and admin forms accept. Passkeys are bound to its host. |
+| `WHATSAPP_COMMUNITY_URL`   | The WhatsApp Community invite. When set, the header, the home page and the ticket link to it.                                                                            |
+| `INSTAGRAM_URL`            | The Instagram profile. When set, the header and the home page link to it.                                                                                                |
+| `TURNSTILE_SITE_KEY`       | The site key of the Turnstile widget `up`. With `TURNSTILE_SECRET_KEY`, the register and sign-in forms ask Turnstile whether it is a person.                             |
+| `WHATSAPP_PHONE_NUMBER_ID` | The Cloud API sender, or `mock` to log the messages ([WhatsApp](whatsapp.md)). Unset, nothing is sent.                                                                   |
 
 ## Secrets
 

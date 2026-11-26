@@ -2,7 +2,7 @@ import type { EventMeta } from "./events";
 import { parseRegistration, type FormState } from "./form";
 import type { Fetch } from "./google";
 import { claimResend, register } from "./registrations";
-import { TOKEN_FIELD, verifyHuman } from "./turnstile";
+import { TOKEN_FIELD, verifyHuman, type Verdict } from "./turnstile";
 
 export type SignupDeps = {
   db: D1Database;
@@ -10,25 +10,32 @@ export type SignupDeps = {
   now: Date;
   /** The Turnstile secret; without it no check runs. */
   turnstileSecret: string | null;
+  /** The email the signed-in account proved, or null. */
+  provenEmail: string | null;
 };
 
 /**
  * What a register post came to. `notify` names the message the holder is
- * owed, or null when none is: a repeat inside the resend cooldown.
+ * owed, or null when none is: a repeat inside the resend cooldown. `own`
+ * marks a ticket the signed-in account holds, which the caller may open.
  */
 export type SignupOutcome =
   | { kind: "trapped" }
   | { kind: "refused"; form: FormState }
   | { kind: "created"; token: string; notify: "going" | "waitlist" }
-  | { kind: "exists"; token: string; notify: "again" | null };
+  | { kind: "exists"; token: string; notify: "again" | null; own: boolean };
 
-const humanErrors = {
+export const humanErrors: Record<Exclude<Verdict, "human">, string> = {
   missing:
     "No pudimos confirmar que eres una persona. Activa JavaScript o recarga la página.",
   refused: "No pudimos confirmar que eres una persona. Inténtalo otra vez.",
 };
 
-/** Takes a register form through the bot checks to a stored registration. */
+/**
+ * Takes a register form through the bot checks to a stored registration. A
+ * signed-in person registering with their own email skips the human check:
+ * the emailed code already proved them.
+ */
 export async function signUp(
   deps: SignupDeps,
   event: EventMeta,
@@ -41,7 +48,9 @@ export async function signUp(
   const parsed = parseRegistration(form, event);
   if (!parsed.ok) return { kind: "refused", form: parsed };
 
-  if (deps.turnstileSecret) {
+  const proven = parsed.value.email === deps.provenEmail;
+
+  if (deps.turnstileSecret && !proven) {
     const verdict = await verifyHuman(
       deps.fetch,
       deps.turnstileSecret,
@@ -63,14 +72,19 @@ export async function signUp(
     event,
     parsed.value,
     deps.now.toISOString(),
+    proven,
   );
   if (result.kind === "created")
     return { kind: "created", token: result.token, notify: result.status };
+
+  if (proven)
+    return { kind: "exists", token: result.token, notify: null, own: true };
 
   const resend = await claimResend(deps.db, result.token, deps.now);
   return {
     kind: "exists",
     token: result.token,
     notify: resend ? "again" : null,
+    own: false,
   };
 }

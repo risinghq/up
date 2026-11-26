@@ -4,7 +4,7 @@ import { kindTag, type EventMeta, type Question } from "../worker/events";
 import type { FormState } from "../worker/form";
 import type { Role } from "../worker/roles";
 import { ArrowIcon, Cover, DateRow, PlaceRow, VenueCard } from "./EventCard";
-import { Check, Field } from "./FormFields";
+import { Check, Field, HumanCheck } from "./FormFields";
 
 /** Why the register card shows what it shows. */
 export type Notice = "exists" | null;
@@ -77,36 +77,6 @@ function QuestionField({
         <p class="error" id={`${id}-error`}>
           {error}
         </p>
-      )}
-    </div>
-  );
-}
-
-/** The Turnstile widget's place. main.ts renders it when the form opens. */
-function HumanCheck(props: {
-  siteKey: string;
-  error: string | undefined;
-  focus: boolean;
-}) {
-  return (
-    <div class="human-check">
-      <div class="turnstile" data-sitekey={props.siteKey} />
-      {props.error ? (
-        <p
-          class="error"
-          role="alert"
-          tabIndex={props.focus ? -1 : undefined}
-          autoFocus={props.focus}
-        >
-          {props.error}
-        </p>
-      ) : (
-        <noscript>
-          <p class="hint">
-            Activa JavaScript para inscribirte: lo usamos para frenar a los
-            bots.
-          </p>
-        </noscript>
       )}
     </div>
   );
@@ -290,6 +260,7 @@ function RegisterForm({
           siteKey={view.turnstileKey}
           error={view.form.errors.human}
           focus={focus === "human"}
+          action="inscribirte"
         />
       )}
       <button class="button button-primary button-full" type="submit">

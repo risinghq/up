@@ -1,45 +1,12 @@
+import type { Account } from "./accounts";
 import { hashToken, newToken } from "./tokens";
 
-export type Admin = { id: string; name: string };
-
 const DAY = 24 * 60 * 60 * 1000;
-export const INVITE_DAYS = 7;
 export const SESSION_DAYS = 30;
 const CHALLENGE_MS = 5 * 60 * 1000;
 
 const later = (now: string, ms: number) =>
   new Date(Date.parse(now) + ms).toISOString();
-
-/** Creates a one-time invite and returns its token. */
-export async function createInvite(
-  db: D1Database,
-  name: string,
-  now: string,
-): Promise<string> {
-  const token = newToken();
-  await db
-    .prepare(
-      "INSERT INTO invites (token_hash, name, created_at, expires_at) VALUES (?, ?, ?, ?)",
-    )
-    .bind(await hashToken(token), name, now, later(now, INVITE_DAYS * DAY))
-    .run();
-  return token;
-}
-
-/** The name on an unused, unexpired invite. */
-export async function findInvite(
-  db: D1Database,
-  token: string,
-  now: string,
-): Promise<string | null> {
-  const row = await db
-    .prepare(
-      "SELECT name FROM invites WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?",
-    )
-    .bind(await hashToken(token), now)
-    .first<{ name: string }>();
-  return row?.name ?? null;
-}
 
 export type NewCredential = {
   id: string;
@@ -48,48 +15,62 @@ export type NewCredential = {
   transports: string[];
 };
 
-/**
- * Spends an invite on a new admin and their first passkey. Returns null when
- * the invite was spent first, so one link makes at most one admin.
- */
-export async function acceptInvite(
+export type StoredCredential = NewCredential & { personId: string };
+
+/** A passkey as the account page lists it. */
+export type Passkey = {
+  id: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+};
+
+export async function addCredential(
   db: D1Database,
-  token: string,
+  personId: string,
   credential: NewCredential,
   now: string,
-): Promise<Admin | null> {
-  const hash = await hashToken(token);
-  const spent = await db
+) {
+  await db
     .prepare(
-      `UPDATE invites SET used_at = ? WHERE token_hash = ? AND used_at IS NULL AND expires_at > ?
-       RETURNING name`,
+      `INSERT INTO credentials (id, person_id, public_key, counter, transports, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     )
-    .bind(now, hash, now)
-    .first<{ name: string }>();
-  if (!spent) return null;
-  const admin = { id: crypto.randomUUID(), name: spent.name };
-  await db.batch([
-    db
-      .prepare("INSERT INTO admins (id, name, created_at) VALUES (?, ?, ?)")
-      .bind(admin.id, admin.name, now),
-    db
-      .prepare(
-        `INSERT INTO credentials (id, admin_id, public_key, counter, transports, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-      )
-      .bind(
-        credential.id,
-        admin.id,
-        credential.publicKey,
-        credential.counter,
-        JSON.stringify(credential.transports),
-        now,
-      ),
-  ]);
-  return admin;
+    .bind(
+      credential.id,
+      personId,
+      credential.publicKey,
+      credential.counter,
+      JSON.stringify(credential.transports),
+      now,
+    )
+    .run();
 }
 
-export type StoredCredential = NewCredential & { adminId: string };
+export async function listPasskeys(
+  db: D1Database,
+  personId: string,
+): Promise<Passkey[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT id, created_at AS createdAt, last_used_at AS lastUsedAt
+       FROM credentials WHERE person_id = ? ORDER BY created_at`,
+    )
+    .bind(personId)
+    .all<Passkey>();
+  return results;
+}
+
+/** Deletes one of the account's passkeys; another account's id does nothing. */
+export async function removeCredential(
+  db: D1Database,
+  personId: string,
+  id: string,
+) {
+  await db
+    .prepare("DELETE FROM credentials WHERE id = ? AND person_id = ?")
+    .bind(id, personId)
+    .run();
+}
 
 export async function findCredential(
   db: D1Database,
@@ -97,12 +78,12 @@ export async function findCredential(
 ): Promise<StoredCredential | null> {
   const row = await db
     .prepare(
-      "SELECT id, admin_id, public_key, counter, transports FROM credentials WHERE id = ?",
+      "SELECT id, person_id, public_key, counter, transports FROM credentials WHERE id = ?",
     )
     .bind(id)
     .first<{
       id: string;
-      admin_id: string;
+      person_id: string;
       public_key: string;
       counter: number;
       transports: string;
@@ -110,7 +91,7 @@ export async function findCredential(
   return (
     row && {
       id: row.id,
-      adminId: row.admin_id,
+      personId: row.person_id,
       publicKey: row.public_key,
       counter: row.counter,
       transports: JSON.parse(row.transports),
@@ -134,31 +115,32 @@ export async function touchCredential(
 
 export async function createSession(
   db: D1Database,
-  adminId: string,
+  personId: string,
   now: string,
 ): Promise<string> {
   const token = newToken();
   await db
     .prepare(
-      "INSERT INTO sessions (token_hash, admin_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+      "INSERT INTO sessions (token_hash, person_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
     )
-    .bind(await hashToken(token), adminId, now, later(now, SESSION_DAYS * DAY))
+    .bind(await hashToken(token), personId, now, later(now, SESSION_DAYS * DAY))
     .run();
   return token;
 }
 
-export async function sessionAdmin(
+export async function sessionAccount(
   db: D1Database,
   token: string,
   now: string,
-): Promise<Admin | null> {
-  return db
+): Promise<Account | null> {
+  const row = await db
     .prepare(
-      `SELECT a.id, a.name FROM sessions s JOIN admins a ON a.id = s.admin_id
+      `SELECT p.id, p.name, p.email, p.admin FROM sessions s JOIN people p ON p.id = s.person_id
        WHERE s.token_hash = ? AND s.expires_at > ?`,
     )
     .bind(await hashToken(token), now)
-    .first<Admin>();
+    .first<{ id: string; name: string; email: string | null; admin: number }>();
+  return row && { ...row, admin: row.admin === 1 };
 }
 
 export async function endSession(db: D1Database, token: string) {
@@ -166,13 +148,6 @@ export async function endSession(db: D1Database, token: string) {
     .prepare("DELETE FROM sessions WHERE token_hash = ?")
     .bind(await hashToken(token))
     .run();
-}
-
-export async function listAdmins(db: D1Database): Promise<Admin[]> {
-  const { results } = await db
-    .prepare("SELECT id, name FROM admins ORDER BY created_at")
-    .all<Admin>();
-  return results;
 }
 
 /** Stores a WebAuthn challenge and returns the id the browser sends back. */

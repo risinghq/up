@@ -12,32 +12,40 @@ export type Profile = {
   roles: { slug: string; role: Role }[];
 };
 
-/** Opens the public profile of the ticket's holder; a second call keeps it. */
+/** Opens the person's public profile; a second call keeps its link. */
 export async function openProfile(
   db: D1Database,
-  token: string,
+  personId: string,
 ): Promise<void> {
   await db
     .prepare(
-      `UPDATE people SET profile_id = COALESCE(profile_id, ?)
-       WHERE id = (SELECT person_id FROM registrations WHERE id = ?)`,
+      "UPDATE people SET profile_id = COALESCE(profile_id, ?) WHERE id = ?",
     )
-    .bind(newToken(), token)
+    .bind(newToken(), personId)
     .run();
 }
 
-/** Hides the holder's profile; its link stops working. */
+/** Hides the person's profile; its link stops working. */
 export async function closeProfile(
   db: D1Database,
-  token: string,
+  personId: string,
 ): Promise<void> {
   await db
-    .prepare(
-      `UPDATE people SET profile_id = NULL
-       WHERE id = (SELECT person_id FROM registrations WHERE id = ?)`,
-    )
-    .bind(token)
+    .prepare("UPDATE people SET profile_id = NULL WHERE id = ?")
+    .bind(personId)
     .run();
+}
+
+/** The person's profile id, or null while the profile is hidden. */
+export async function profileIdOf(
+  db: D1Database,
+  personId: string,
+): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT profile_id AS profileId FROM people WHERE id = ?")
+    .bind(personId)
+    .first<{ profileId: string | null }>();
+  return row?.profileId ?? null;
 }
 
 /** The public profile of each email that has one, by email. */
@@ -68,7 +76,12 @@ export async function findProfile(
       "SELECT id, name, email, created_at FROM people WHERE profile_id = ?",
     )
     .bind(profileId)
-    .first<{ id: string; name: string; email: string; created_at: string }>();
+    .first<{
+      id: string;
+      name: string;
+      email: string | null;
+      created_at: string;
+    }>();
   if (!person) return null;
 
   const { results } = await db
@@ -85,6 +98,6 @@ export async function findProfile(
     firstName: firstName(person.name),
     since: person.created_at,
     attended: results.map((r) => r.slug),
-    roles: await rolesOf(db, person.email),
+    roles: person.email ? await rolesOf(db, person.email) : [],
   };
 }

@@ -33,7 +33,7 @@ export default defineConfig({
         rolldownOptions: {
           input: {
             client: "src/client/main.ts",
-            admin: "src/client/admin.ts",
+            passkey: "src/client/passkey.ts",
           },
           output: {
             entryFileNames: `assets/[name]-${build}.js`,
