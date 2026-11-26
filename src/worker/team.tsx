@@ -1,10 +1,17 @@
 import { Hono } from "hono";
-import { Team } from "../pages/admin/Team";
+import { Team, type DoorLink } from "../pages/admin/Team";
 import type { EventMeta } from "./events";
 import { emailPattern, type FormState } from "./form";
 import { adminPage, withEvent } from "./adminPage";
-import { addRole, eventRoles, isRole, removeRole, type NewRole } from "./roles";
-import type { AppEnv, Ctx } from "./web";
+import {
+  addRole,
+  eventRoles,
+  isRole,
+  openDoor,
+  removeRole,
+  type NewRole,
+} from "./roles";
+import { site, type AppEnv, type Ctx } from "./web";
 
 type ParsedRole = ({ ok: true; value: NewRole } | { ok: false }) & FormState;
 
@@ -37,12 +44,13 @@ async function teamPage(
   event: EventMeta,
   form: FormState = { values: { role: "organiza" }, errors: {} },
   status?: number,
+  doorLink?: DoorLink,
 ) {
   const team = await eventRoles(c.env.DB, event.slug);
   return adminPage(
     c,
     `Equipo · ${event.title}`,
-    <Team event={event} team={team} form={form} />,
+    <Team event={event} team={team} form={form} doorLink={doorLink} />,
     { status },
   );
 }
@@ -70,6 +78,24 @@ export function teamRoutes() {
       }
 
       return back(c, event);
+    }),
+  );
+
+  // The link is shown on this response only; the table keeps its hash.
+  team.post(
+    "/:id/puerta",
+    withEvent(async (c, event) => {
+      const id = Number(c.req.param("id"));
+      const person = (await eventRoles(c.env.DB, event.slug)).find(
+        (p) => p.id === id,
+      );
+      const token = person && (await openDoor(c.env.DB, event.slug, id));
+      if (!person || !token) return back(c, event);
+
+      return teamPage(c, event, undefined, undefined, {
+        name: person.name,
+        url: `${site(c)}/puerta/abrir/${token}`,
+      });
     }),
   );
 

@@ -64,13 +64,7 @@ import {
   verifyAuthentication,
   verifyRegistration,
 } from "./passkeys";
-import {
-  checkIn,
-  fillSeats,
-  findTicket,
-  goingCount,
-  undoCheckIn,
-} from "./registrations";
+import { fillSeats, goingCount } from "./registrations";
 import {
   listRegistrants,
   registrationCount,
@@ -640,29 +634,6 @@ export function adminRoutes(now: () => Date, fetcher: Fetch) {
       });
     }),
   );
-
-  // The door: an admin scans a ticket's QR, which opens the ticket page, and
-  // checks the holder in from there or from the registrants list. The form's
-  // `volver` field picks which page the admin returns to.
-  const doorRoute = (act: (db: D1Database, token: string) => Promise<void>) =>
-    async function (c: Ctx) {
-      const ticket = await findTicket(c.env.DB, c.req.param("token") ?? "");
-      if (!ticket) return notFound(c, "ticket");
-      await act(c.env.DB, ticket.token);
-      const form = await c.req.formData();
-      return c.redirect(
-        form.get("volver") === "inscritos"
-          ? `/admin/eventos/${ticket.eventSlug}/inscritos#n${ticket.number}`
-          : `/entrada/${ticket.token}`,
-        303,
-      );
-    };
-
-  admin.post(
-    "/entrada/:token/ingreso",
-    doorRoute((db, token) => checkIn(db, token, iso())),
-  );
-  admin.post("/entrada/:token/ingreso/deshacer", doorRoute(undoCheckIn));
 
   admin.route("/eventos/:slug/equipo", teamRoutes());
 

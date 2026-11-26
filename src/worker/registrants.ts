@@ -47,6 +47,21 @@ export async function statusCounts(
   return counts;
 }
 
+/** How many of the event's people have come in. */
+export async function checkedInCount(
+  db: D1Database,
+  slug: string,
+): Promise<number> {
+  const row = await db
+    .prepare(
+      "SELECT COUNT(*) AS n FROM registrations WHERE event_slug = ? AND checked_in_at IS NOT NULL",
+    )
+    .bind(slug)
+    .first<{ n: number }>();
+
+  return row?.n ?? 0;
+}
+
 export async function listRegistrants(
   db: D1Database,
   slug: string,

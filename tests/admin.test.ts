@@ -10,6 +10,7 @@ import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
 import { createInvite } from "../src/worker/auth";
 import { findEvent } from "../src/worker/events";
+import { register } from "../src/worker/registrations";
 import { addRole, eventRoles } from "../src/worker/roles";
 import { softPasskey } from "./authenticator";
 import { page, type Page } from "./dom";
@@ -492,32 +493,37 @@ describe("registrants", () => {
     );
   });
 
-  test("the list links each WhatsApp number", async () => {
+  test("the list links each WhatsApp number and the door", async () => {
     const p = await open("/admin/eventos/estrella/inscritos");
     expect(
       p.screen.getByRole("link", { name: "+51987654321" }).getAttribute("href"),
     ).toBe("https://wa.me/51987654321");
+    expect(
+      p.screen.getByRole("link", { name: "Puerta" }).getAttribute("href"),
+    ).toBe("/puerta/estrella");
   });
 });
 
+/** A check-in form; `to` names the page to return to. */
+const volver = (to = "") => {
+  const data = new FormData();
+  if (to) data.set("volver", to);
+  return data;
+};
+
 describe("check-in", () => {
-  beforeAll(() => seed(DB, [event({ slug: "puerta" })]));
+  beforeAll(() => seed(DB, [event({ slug: "recepcion" })]));
 
   /** Registers `email` for the door's event and returns the ticket's token. */
   const register = async (email: string) => {
     const res = await app.request(
-      "/puerta",
+      "/recepcion",
       { method: "POST", body: form({ email }) },
       env,
     );
     return (res.headers.get("location") ?? "").match(
       /\/entrada\/([\w-]+)/,
     )?.[1] as string;
-  };
-  const volver = (to = "") => {
-    const data = new FormData();
-    if (to) data.set("volver", to);
-    return data;
   };
 
   /** The door's verdict on the ticket: its seat, or what it lacks. */
@@ -535,23 +541,24 @@ describe("check-in", () => {
     const admin = await open(`/entrada/${token}`);
     expect(door(admin)).toBe("Tiene cupo");
     expect(admin.button("Registrar ingreso")?.closest("form")?.action).toBe(
-      `https://up.test/admin/entrada/${token}/ingreso`,
+      `https://up.test/puerta/recepcion/ingreso/${token}`,
     );
   });
 
-  test("only an admin checks a ticket in", async () => {
+  test("a visitor cannot open the door or check a ticket in", async () => {
     const token = await register("intruso@example.com");
-    const refused = await post(`/admin/entrada/${token}/ingreso`, volver(), {
+    expect((await get("/puerta/recepcion", {})).status).toBe(404);
+    const refused = await post(`/puerta/recepcion/ingreso/${token}`, volver(), {
       origin: ORIGIN,
     });
-    expect(refused.status).toBe(403);
+    expect(refused.status).toBe(404);
     const p = await visit(`/entrada/${token}`);
     expect(p.screen.queryByText(/^Ingresaste/)).toBeNull();
   });
 
   test("a check-in shows on the ticket and keeps the seat", async () => {
     const token = await register("llego@example.com");
-    const res = await post(`/admin/entrada/${token}/ingreso`, volver());
+    const res = await post(`/puerta/recepcion/ingreso/${token}`, volver());
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toBe(`/entrada/${token}`);
 
@@ -570,19 +577,19 @@ describe("check-in", () => {
   test("the list checks a ticket in and counts it", async () => {
     const token = await register("lista@example.com");
     const res = await post(
-      `/admin/entrada/${token}/ingreso`,
+      `/puerta/recepcion/ingreso/${token}`,
       volver("inscritos"),
     );
     const location = res.headers.get("location") ?? "";
-    expect(location).toMatch(/^\/admin\/eventos\/puerta\/inscritos#n\d+$/);
+    expect(location).toMatch(/^\/admin\/eventos\/recepcion\/inscritos#n\d+$/);
 
-    const list = await open("/admin/eventos/puerta/inscritos");
+    const list = await open("/admin/eventos/recepcion/inscritos");
     expect(list.text(".section-head p")).toMatch(/ · [1-9]\d* ingresaron$/);
     const row = list.document.getElementById(location.split("#")[1] ?? "");
     const cell = row?.querySelector('[data-label="Ingreso"]');
     expect(cell?.textContent).toStartWith("12:00 p.");
 
-    await post(`/admin/entrada/${token}/ingreso/deshacer`, volver());
+    await post(`/puerta/recepcion/ingreso/${token}/deshacer`, volver());
     const after = await open(`/entrada/${token}`);
     expect(after.button("Registrar ingreso")).not.toBeNull();
   });
@@ -590,11 +597,170 @@ describe("check-in", () => {
   test("a cancelled ticket cannot check in", async () => {
     const token = await register("cancelo@example.com");
     await post(`/entrada/${token}/cancelar`, new FormData(), {});
-    await post(`/admin/entrada/${token}/ingreso`, volver());
+    await post(`/puerta/recepcion/ingreso/${token}`, volver());
     const p = await open(`/entrada/${token}`);
     expect(door(p)).toBe("Canceló su inscripción");
     expect(p.screen.queryByText(/^Ingresó a las/)).toBeNull();
     expect(p.button("Registrar ingreso")).toBeNull();
+  });
+});
+
+describe("the door", () => {
+  beforeAll(() =>
+    seed(DB, [
+      event({ slug: "feria", title: "Feria", capacity: 1 }),
+      event({ slug: "vecina", title: "Vecina" }),
+      event({
+        slug: "ayer",
+        title: "Ayer",
+        start: "2026-11-20T15:00:00-05:00",
+        end: "2026-11-20T19:00:00-05:00",
+      }),
+    ]),
+  );
+
+  /** A ticket for `slug`, made the way the register form makes one. */
+  const ticketAt = async (slug: string, email: string) => {
+    const e = await findEvent(DB, slug);
+    if (!e) throw new Error(`no event ${slug}`);
+    const r = await register(DB, e, { ...person, email }, now.toISOString());
+    return r.token;
+  };
+  const person = {
+    name: "Rosa Díaz",
+    email: "",
+    phone: "+51987654321",
+    newsOptIn: false,
+    answers: {},
+  };
+
+  /** Gives Vale the voluntario role at `slug` and returns her door link. */
+  const doorLink = async (slug: string) => {
+    await addRole(DB, slug, { name: "Vale", email: null, role: "voluntario" });
+    const vale = (await eventRoles(DB, slug)).find((p) => p.name === "Vale");
+    const team = await page(
+      await post(
+        `/admin/eventos/${slug}/equipo/${vale?.id}/puerta`,
+        new FormData(),
+      ),
+    );
+    expect(team.screen.getByRole("status").textContent).toContain(
+      "Envía este enlace a Vale",
+    );
+    return team.text(".invite-url code") ?? "";
+  };
+
+  /** Opens a door link and returns the cookie it sets. */
+  const openLink = async (url: string) => {
+    const res = await get(new URL(url).pathname, {});
+    expect(res.status).toBe(303);
+    expect(res.headers.get("location")).toMatch(/^\/puerta\/[\w-]+$/);
+    return (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
+  };
+
+  test("a voluntario's link opens the door of that event only", async () => {
+    const url = await doorLink("feria");
+    expect(url).toMatch(/^https:\/\/up\.test\/puerta\/abrir\/[\w-]+$/);
+    const vale = await openLink(url);
+
+    const door = await open("/puerta/feria", { cookie: vale });
+    expect(door.screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Feria",
+    );
+    expect(door.button("Salir de la puerta")).not.toBeNull();
+    expect((await get("/puerta/vecina", { cookie: vale })).status).toBe(404);
+
+    const mine = await ticketAt("feria", "rosa@example.com");
+    const scan = await open(`/entrada/${mine}`, { cookie: vale });
+    expect(scan.button("Registrar ingreso")).not.toBeNull();
+    const res = await post(
+      `/puerta/feria/ingreso/${mine}`,
+      volver("inscritos"),
+      {
+        cookie: vale,
+        origin: ORIGIN,
+      },
+    );
+    expect(res.headers.get("location")).toBe(`/entrada/${mine}`);
+    expect(
+      (await visit(`/entrada/${mine}`)).screen.getByText(/^Ingresaste a las/),
+    ).toBeTruthy();
+
+    const other = await ticketAt("vecina", "rosa@example.com");
+    const notHers = await open(`/entrada/${other}`, { cookie: vale });
+    expect(notHers.button("Registrar ingreso")).toBeNull();
+    const refused = await post(`/puerta/vecina/ingreso/${other}`, volver(), {
+      cookie: vale,
+      origin: ORIGIN,
+    });
+    expect(refused.status).toBe(404);
+    const crossed = await post(`/puerta/feria/ingreso/${other}`, volver(), {
+      cookie: vale,
+      origin: ORIGIN,
+    });
+    expect(crossed.status).toBe(404);
+  });
+
+  test("a new link revokes the old one, and leaving the door drops the cookie", async () => {
+    const old = await openLink(await doorLink("vecina"));
+    const fresh = await openLink(await doorLink("vecina"));
+    expect((await get("/puerta/vecina", { cookie: old })).status).toBe(404);
+    expect((await get("/puerta/vecina", { cookie: fresh })).status).toBe(200);
+
+    const out = await post("/puerta/salir", new FormData(), {
+      cookie: fresh,
+      origin: ORIGIN,
+    });
+    expect(out.headers.get("location")).toBe("/");
+    expect(out.headers.get("set-cookie")).toMatch(/^up_door=;.*Max-Age=0/);
+  });
+
+  test("a voluntario's door closes when the event ends", async () => {
+    const vale = await openLink(await doorLink("ayer"));
+    expect((await get("/puerta/ayer", { cookie: vale })).status).toBe(404);
+
+    const ended = await open("/puerta/ayer");
+    expect(
+      ended.screen.getByText("El evento terminó. La puerta está cerrada."),
+    ).toBeTruthy();
+    expect(ended.button("Registrar e ingresar")).toBeNull();
+    expect((await post("/puerta/ayer/llegada", form())).status).toBe(410);
+  });
+
+  test("a walk-in gets a seat past the capacity and is checked in", async () => {
+    const before = await open("/puerta/feria");
+    expect(before.button("Salir de la puerta")).toBeNull();
+
+    const missing = await page(
+      await post("/puerta/feria/llegada", form({ email: "" })),
+    );
+    expect(missing.status).toBe(422);
+    expect(missing.screen.getByRole("alert").textContent).toBe(
+      "Revisa los campos marcados.",
+    );
+
+    const walked = await page(
+      await post(
+        "/puerta/feria/llegada",
+        form({ name: "Lucho Paz", email: "lucho@example.com" }),
+      ),
+    );
+    expect(walked.status).toBe(200);
+    expect(walked.screen.getByRole("status").textContent).toMatch(
+      /^#\d+ Lucho Paz ingresó\. Le enviamos su entrada por correo\.$/,
+    );
+    expect(walked.text(".door-who")).toMatch(/^\d+ ingresaron · 2 con cupo$/);
+
+    const again = await page(
+      await post(
+        "/puerta/feria/llegada",
+        form({ name: "Lucho Paz", email: "lucho@example.com" }),
+      ),
+    );
+    expect(again.screen.getByRole("status").textContent).toMatch(
+      /^Lucho Paz ya estaba inscrito con la entrada #\d+\. Registramos su ingreso\.$/,
+    );
+    expect(again.text(".door-who")).toMatch(/ · 2 con cupo$/);
   });
 });
 

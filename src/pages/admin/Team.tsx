@@ -4,37 +4,75 @@ import { roleLabel, roles, type EventRole } from "../../worker/roles";
 import { Choice, Input } from "./fields";
 import { ManageFrame } from "./Manage";
 
+export type DoorLink = { name: string; url: string };
+
 export type TeamView = {
   event: EventMeta;
   team: EventRole[];
   form: FormState;
+  /** A door link just made; it is shown this once. */
+  doorLink?: DoorLink;
 };
 
 function Member({ slug, person }: { slug: string; person: EventRole }) {
+  const base = `/admin/eventos/${slug}/equipo/${person.id}`;
   return (
     <li class="team-member">
       <span>
         {person.name}
         {person.email && <span class="team-email"> · {person.email}</span>}
       </span>
-      <form
-        method="post"
-        action={`/admin/eventos/${slug}/equipo/${person.id}/quitar`}
-      >
-        <button
-          class="button button-small button-quiet"
-          type="submit"
-          aria-label={`Quitar a ${person.name} (${roleLabel[person.role].one})`}
-        >
-          Quitar
-        </button>
-      </form>
+      <span class="actions">
+        {person.role === "voluntario" && (
+          <form method="post" action={`${base}/puerta`}>
+            <button
+              class="button button-small button-light"
+              type="submit"
+              aria-label={`${person.door ? "Nuevo enlace de puerta" : "Crear enlace de puerta"} para ${person.name}`}
+            >
+              {person.door ? "Nuevo enlace" : "Enlace de puerta"}
+            </button>
+          </form>
+        )}
+        <form method="post" action={`${base}/quitar`}>
+          <button
+            class="button button-small button-quiet"
+            type="submit"
+            aria-label={`Quitar a ${person.name} (${roleLabel[person.role].one})`}
+          >
+            Quitar
+          </button>
+        </form>
+      </span>
     </li>
   );
 }
 
+function DoorLinkNotice({ name, url }: DoorLink) {
+  return (
+    <div class="notice" role="status">
+      <p>
+        Envía este enlace a {name}. Abre la puerta del evento en su teléfono
+        hasta que termine. Solo se muestra ahora; un enlace nuevo anula el
+        anterior.
+      </p>
+      <p class="invite-url">
+        <code>{url}</code>{" "}
+        <button
+          class="button button-small button-quiet"
+          type="button"
+          data-copy={url}
+          hidden
+        >
+          Copiar
+        </button>
+      </p>
+    </div>
+  );
+}
+
 /** The people of one event by role, and the form that gives someone a role. */
-export function Team({ event, team, form }: TeamView) {
+export function Team({ event, team, form, doorLink }: TeamView) {
   const groups = roles
     .map((role) => ({ role, people: team.filter((p) => p.role === role) }))
     .filter((group) => group.people.length);
@@ -42,6 +80,7 @@ export function Team({ event, team, form }: TeamView) {
 
   return (
     <ManageFrame slug={event.slug} title={event.title} tab="equipo">
+      {doorLink && <DoorLinkNotice {...doorLink} />}
       {groups.length ? (
         groups.map((group) => (
           <section

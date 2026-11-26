@@ -135,7 +135,14 @@ describe("eventView", () => {
       name: string,
       role: Role,
       email: string | null = null,
-    ): EventRole => ({ id, eventSlug: "charla", name, email, role });
+    ): EventRole => ({
+      id,
+      eventSlug: "charla",
+      name,
+      email,
+      role,
+      door: false,
+    });
     const v = eventView(before, {
       event: charla,
       going: 0,

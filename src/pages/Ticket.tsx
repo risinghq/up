@@ -19,7 +19,7 @@ const doorText = {
 } as const;
 
 function DoorPanel({ ticket }: { ticket: Ticket }) {
-  const action = `/admin/entrada/${ticket.token}/ingreso`;
+  const action = `/puerta/${ticket.eventSlug}/ingreso/${ticket.token}`;
   return (
     <section class="content-card door" aria-labelledby="door-title">
       <h2 class="card-title" id="door-title">

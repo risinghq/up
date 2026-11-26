@@ -17,6 +17,7 @@ const reservedSlugs = new Set([
   "admin",
   "entrada",
   "privacidad",
+  "puerta",
   "media",
   "assets",
 ]);

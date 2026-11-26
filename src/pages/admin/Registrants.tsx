@@ -4,11 +4,12 @@ import type { Status } from "../../worker/registrations";
 import { clock } from "../../worker/time";
 import { ManageFrame } from "./Manage";
 
-function CheckIn({ registrant: r }: { registrant: Registrant }) {
+function CheckIn(props: { slug: string; registrant: Registrant }) {
+  const r = props.registrant;
   if (r.checkedInAt) return <>{clock(r.checkedInAt)}</>;
   if (r.status === "cancelled") return null;
   return (
-    <form method="post" action={`/admin/entrada/${r.token}/ingreso`}>
+    <form method="post" action={`/puerta/${props.slug}/ingreso/${r.token}`}>
       <input type="hidden" name="volver" value="inscritos" />
       <button class="button button-light button-small" type="submit">
         Registrar
@@ -38,12 +39,20 @@ export function Registrants(props: {
           {count("waitlist")} en espera · {count("cancelled")} cancelaron ·{" "}
           {registrants.filter((r) => r.checkedInAt).length} ingresaron
         </p>
-        <a
-          class="button button-light button-small"
-          href={`/admin/eventos/${event.slug}/inscritos.csv`}
-        >
-          Descargar CSV
-        </a>
+        <span class="actions">
+          <a
+            class="button button-light button-small"
+            href={`/puerta/${event.slug}`}
+          >
+            Puerta
+          </a>
+          <a
+            class="button button-light button-small"
+            href={`/admin/eventos/${event.slug}/inscritos.csv`}
+          >
+            Descargar CSV
+          </a>
+        </span>
       </div>
       {registrants.length ? (
         <div class="table-wrap">
@@ -79,7 +88,7 @@ export function Registrants(props: {
                   <td class="registrant-email">{r.email}</td>
                   <td data-label="Estado">{statusLabel[r.status]}</td>
                   <td data-label="Ingreso">
-                    <CheckIn registrant={r} />
+                    <CheckIn slug={event.slug} registrant={r} />
                   </td>
                   {event.questions.map((q) => (
                     <td key={q.id} data-label={q.label}>

@@ -1,3 +1,5 @@
+import { hashToken, newToken } from "./tokens";
+
 export const roles = [
   "organiza",
   "ponente",
@@ -28,6 +30,8 @@ export type EventRole = {
   /** Ties the event to the person's profile; never shown. */
   email: string | null;
   role: Role;
+  /** True when the person holds a live door link. */
+  door: boolean;
 };
 
 export type NewRole = Pick<EventRole, "name" | "email" | "role">;
@@ -38,6 +42,7 @@ type Row = {
   name: string;
   email: string | null;
   role: Role;
+  door: number;
 };
 
 const fromRow = (r: Row): EventRole => ({
@@ -46,6 +51,7 @@ const fromRow = (r: Row): EventRole => ({
   name: r.name,
   email: r.email,
   role: r.role,
+  door: Boolean(r.door),
 });
 
 /** The event's people, grouped in the order of `roles`, each group as added. */
@@ -55,7 +61,7 @@ export async function eventRoles(
 ): Promise<EventRole[]> {
   const { results } = await db
     .prepare(
-      `SELECT id, event_slug, name, email, role FROM event_roles
+      `SELECT id, event_slug, name, email, role, door_hash IS NOT NULL AS door FROM event_roles
        WHERE event_slug = ? ORDER BY position`,
     )
     .bind(slug)
@@ -95,6 +101,41 @@ export async function removeRole(
     .prepare("DELETE FROM event_roles WHERE event_slug = ? AND id = ?")
     .bind(slug, id)
     .run();
+}
+
+/**
+ * Gives a voluntario a new door link and returns its token, or null when
+ * the id is not a voluntario of the event. The previous link stops working.
+ */
+export async function openDoor(
+  db: D1Database,
+  slug: string,
+  id: number,
+): Promise<string | null> {
+  const token = newToken();
+  const row = await db
+    .prepare(
+      `UPDATE event_roles SET door_hash = ?
+       WHERE event_slug = ? AND id = ? AND role = 'voluntario'
+       RETURNING id`,
+    )
+    .bind(await hashToken(token), slug, id)
+    .first();
+
+  return row ? token : null;
+}
+
+/** The slug of the event a door token opens, while its role exists. */
+export async function doorEvent(
+  db: D1Database,
+  token: string,
+): Promise<string | null> {
+  const row = await db
+    .prepare("SELECT event_slug FROM event_roles WHERE door_hash = ?")
+    .bind(await hashToken(token))
+    .first<{ event_slug: string }>();
+
+  return row?.event_slug ?? null;
 }
 
 /** Every role this email holds at a published event. */

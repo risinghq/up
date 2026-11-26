@@ -4,6 +4,7 @@ import { kindTag, type EventMeta, type Question } from "../worker/events";
 import type { FormState } from "../worker/form";
 import type { Role } from "../worker/roles";
 import { ArrowIcon, Cover, DateRow, PlaceRow, VenueCard } from "./EventCard";
+import { Check, Field } from "./FormFields";
 
 /** Why the register card shows what it shows. */
 export type Notice = "exists" | null;
@@ -27,50 +28,6 @@ export type EventView = {
   /** The Turnstile site key; with it, the form carries the widget. */
   turnstileKey: string | null;
 };
-
-function Field(props: {
-  name: string;
-  label: string;
-  form: FormState;
-  type?: "text" | "email" | "tel";
-  autocomplete?: string;
-  inputMode?: "tel" | "email" | "text";
-  hint?: string;
-  required?: boolean;
-  focus?: boolean;
-}) {
-  const error = props.form.errors[props.name];
-  const id = `f-${props.name}`;
-  return (
-    <div class="field">
-      <label for={id}>{props.label}</label>
-      <input
-        id={id}
-        name={props.name}
-        type={(props.type ?? "text") as "text"}
-        value={props.form.values[props.name] ?? ""}
-        autoComplete={props.autocomplete}
-        inputMode={props.inputMode}
-        required={props.required ?? true}
-        autoFocus={props.focus}
-        aria-invalid={error ? "true" : undefined}
-        aria-describedby={
-          error ? `${id}-error` : props.hint ? `${id}-hint` : undefined
-        }
-      />
-      {props.hint && !error && (
-        <p class="hint" id={`${id}-hint`}>
-          {props.hint}
-        </p>
-      )}
-      {error && (
-        <p class="error" id={`${id}-error`}>
-          {error}
-        </p>
-      )}
-    </div>
-  );
-}
 
 function QuestionField({
   q,
@@ -150,35 +107,6 @@ function HumanCheck(props: {
             bots.
           </p>
         </noscript>
-      )}
-    </div>
-  );
-}
-
-function Check(props: {
-  name: string;
-  form: FormState;
-  children: ComponentChildren;
-  focus?: boolean;
-}) {
-  const error = props.form.errors[props.name];
-  const id = `f-${props.name}`;
-  return (
-    <div class="check">
-      <input
-        id={id}
-        name={props.name}
-        type="checkbox"
-        checked={props.form.values[props.name] === "on"}
-        autoFocus={props.focus}
-        aria-invalid={error ? "true" : undefined}
-        aria-describedby={error ? `${id}-error` : undefined}
-      />
-      <label for={id}>{props.children}</label>
-      {error && (
-        <p class="error" id={`${id}-error`}>
-          {error}
-        </p>
       )}
     </div>
   );
