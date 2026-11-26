@@ -15,6 +15,27 @@ export const longDate = (iso: string) =>
 export const monthYear = (iso: string) =>
   parts(iso, { month: "long", year: "numeric" });
 
+/** "12 de diciembre de 2026" */
+export const fullDate = (iso: string) =>
+  parts(iso, { day: "numeric", month: "long", year: "numeric" });
+
+/**
+ * The days from start to end, saying the month and year once:
+ * "12 de diciembre de 2026", "del 12 al 13 de diciembre de 2026",
+ * "del 30 de noviembre al 2 de diciembre de 2026".
+ */
+export function dateSpan(start: string, end: string): string {
+  const year = (iso: string) => parts(iso, { year: "numeric" });
+  const month = (iso: string) => parts(iso, { month: "long" });
+  const last = fullDate(end);
+
+  if (fullDate(start) === last) return last;
+  if (year(start) !== year(end)) return `del ${fullDate(start)} al ${last}`;
+  if (month(start) !== month(end))
+    return `del ${parts(start, { day: "numeric", month: "long" })} al ${last}`;
+  return `del ${parts(start, { day: "numeric" })} al ${last}`;
+}
+
 /** "12 dic 2026" */
 export const shortDate = (iso: string) =>
   parts(iso, { day: "numeric", month: "short", year: "numeric" }).replace(

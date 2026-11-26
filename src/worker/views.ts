@@ -1,11 +1,13 @@
 import { renderSVG } from "uqr";
 import type { EventView, Notice, TeamGroup } from "../pages/Event";
 import { googleCalendarUrl } from "./calendar";
+import { issuesCertificates, type Certificate } from "./certificates";
 import { hasEnded, type EventMeta } from "./events";
 import type { FormState } from "./form";
 import type { Profile } from "./profiles";
 import type { Ticket } from "./registrations";
 import { roleLabel, roles, type EventRole, type Role } from "./roles";
+import { dateSpan } from "./time";
 
 /** What every view builder knows about the request. */
 export type ViewContext = {
@@ -66,7 +68,12 @@ export function eventView(
 }
 
 /** The panels under the ticket, in the order the page shows them. */
-export type TicketPanel = "next" | "venue" | "share" | "profile";
+export type TicketPanel =
+  | "certificate"
+  | "next"
+  | "venue"
+  | "share"
+  | "profile";
 
 export type TicketView = {
   ticket: Ticket;
@@ -91,6 +98,8 @@ export type TicketView = {
   };
   /** The public "voy" link, once the holder made one. */
   shareUrl?: string;
+  /** The holder's certificate, once the event they came in to is over. */
+  certificateUrl?: string;
   profile: {
     /** The holder's public profile, once they opened it. */
     url?: string;
@@ -109,7 +118,8 @@ export type TicketView = {
  * Decides what a ticket page shows. A live ticket (not cancelled, event not
  * ended) gets the next steps and the share panel. The profile panel shows
  * once there is something to put on it: a check-in, an open profile, or a
- * role at an event. After check-in the profile leads and the venue goes.
+ * role at an event. After check-in the profile leads and the venue goes;
+ * once the event is over, the certificate leads.
  */
 export function ticketView(
   context: ViewContext,
@@ -134,12 +144,18 @@ export function ticketView(
     ? `${origin}/p/${ticket.profileId}`
     : undefined;
 
+  const certificateUrl =
+    inside && ticket.certificateId && issuesCertificates(event, context.now)
+      ? `${origin}/c/${ticket.certificateId}`
+      : undefined;
+
   const showNext = live && !(inside && !meetUrl && !input.whatsapp);
   const showProfile = inside || Boolean(profileUrl) || input.hasRole;
   const order: TicketPanel[] = inside
-    ? ["profile", "next", "share"]
+    ? ["certificate", "profile", "next", "share"]
     : ["next", "venue", "share", "profile"];
   const shown: Record<TicketPanel, boolean> = {
+    certificate: Boolean(certificateUrl),
     next: showNext,
     venue: live,
     share: live,
@@ -168,7 +184,12 @@ export function ticketView(
     shareUrl: ticket.shareId
       ? `${eventUrl(origin, event)}/voy/${ticket.shareId}`
       : undefined,
-    profile: { url: profileUrl, primary: inside, hasRole: input.hasRole },
+    certificateUrl,
+    profile: {
+      url: profileUrl,
+      primary: inside && !certificateUrl,
+      hasRole: input.hasRole,
+    },
     credential: ticket.status === "going",
     rejoin: ticket.status === "cancelled" && !ended,
   };
@@ -234,5 +255,41 @@ export function profileView(
     description: groups.length
       ? `Los eventos en los que participa ${name} y a los que fue.`
       : `Los eventos a los que fue ${name}.`,
+  };
+}
+
+export type CertificateView = {
+  event: EventMeta;
+  name: string;
+  /** What the person did, before the event's title: "asistió a". */
+  verb: string;
+  date: string;
+  place: string;
+  /** The page's own address, printed so a reader can check it. */
+  url: string;
+};
+
+const certificateVerb: Record<Role, string> = {
+  organiza: "organizó",
+  ponente: "fue ponente en",
+  mentor: "fue mentor en",
+  jurado: "fue jurado en",
+  voluntario: "fue voluntario en",
+};
+
+/** A certificate: who, what they did, at which event, when and where. */
+export function certificateView(
+  context: ViewContext,
+  certificate: Certificate,
+  event: EventMeta,
+): CertificateView {
+  const { role } = certificate;
+  return {
+    event,
+    name: certificate.name,
+    verb: role ? certificateVerb[role] : "asistió a",
+    date: dateSpan(event.start, event.end),
+    place: event.place.kind === "venue" ? event.place.name : "En línea",
+    url: `${context.origin}/c/${certificate.id}`,
   };
 }

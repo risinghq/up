@@ -12,9 +12,19 @@ export type TeamView = {
   form: FormState;
   /** A door link just made; it is shown this once. */
   doorLink?: DoorLink;
+  /** True once the event is published and over: each role has a certificate. */
+  certificates: boolean;
 };
 
-function Member({ slug, person }: { slug: string; person: EventRole }) {
+function Member({
+  slug,
+  person,
+  certificates,
+}: {
+  slug: string;
+  person: EventRole;
+  certificates: boolean;
+}) {
   const base = `/admin/eventos/${slug}/equipo/${person.id}`;
   return (
     <li class="team-member">
@@ -23,7 +33,16 @@ function Member({ slug, person }: { slug: string; person: EventRole }) {
         {person.email && <span class="team-email"> · {person.email}</span>}
       </span>
       <span class="actions">
-        {person.role === "voluntario" && (
+        {certificates && (
+          <a
+            class="button button-small button-light"
+            href={`/c/${person.certificateId}`}
+            aria-label={`Certificado de ${person.name} (${roleLabel[person.role].one})`}
+          >
+            Certificado
+          </a>
+        )}
+        {person.role === "voluntario" && !certificates && (
           <form method="post" action={`${base}/puerta`}>
             <button
               class="button button-small button-light"
@@ -72,7 +91,7 @@ function DoorLinkNotice({ name, url }: DoorLink) {
 }
 
 /** The people of one event by role, and the form that gives someone a role. */
-export function Team({ event, team, form, doorLink }: TeamView) {
+export function Team({ event, team, form, doorLink, certificates }: TeamView) {
   const groups = roles
     .map((role) => ({ role, people: team.filter((p) => p.role === role) }))
     .filter((group) => group.people.length);
@@ -91,7 +110,12 @@ export function Team({ event, team, form, doorLink }: TeamView) {
             <h2 id={`rol-${group.role}`}>{roleLabel[group.role].many}</h2>
             <ul class="team-list">
               {group.people.map((person) => (
-                <Member key={person.id} slug={event.slug} person={person} />
+                <Member
+                  key={person.id}
+                  slug={event.slug}
+                  person={person}
+                  certificates={certificates}
+                />
               ))}
             </ul>
           </section>

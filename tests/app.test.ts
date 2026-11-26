@@ -11,7 +11,7 @@ import { createApp, type Env } from "../src/worker/app";
 import type { Fetch } from "../src/worker/google";
 import { checkIn } from "../src/worker/registrations";
 import { sendReminders } from "../src/worker/reminders";
-import { addRole } from "../src/worker/roles";
+import { addRole, eventRoles } from "../src/worker/roles";
 import { page, parse, type Page } from "./dom";
 import {
   adminCookie,
@@ -593,6 +593,68 @@ describe("ticket page", () => {
     expect(button(after, "Crear mi perfil")?.classList).toContain(
       "button-primary",
     );
+  });
+});
+
+describe("certificate", () => {
+  const later = createApp({
+    now: () => new Date("2026-12-13T12:00:00-05:00"),
+    card: cardAssets(),
+  });
+  const openLater = async (path: string) =>
+    page(await later.request(path, {}, env));
+
+  test("a check-in earns a certificate the ticket links once the event is over", async () => {
+    const token = await registerAs("charla", {
+      email: "certificada@example.com",
+      name: "Rosa Mamani",
+    });
+    await checkIn(DB, token, now.toISOString());
+    expect(
+      (await open(`/entrada/${token}`)).screen.queryByRole("link", {
+        name: "Ver mi certificado",
+      }),
+    ).toBeNull();
+
+    const ticket = await openLater(`/entrada/${token}`);
+    const link = ticket.screen.getByRole("link", {
+      name: "Ver mi certificado",
+    });
+    const url = new URL(link.getAttribute("href") ?? "");
+    expect(url.origin).toBe("https://up.test");
+    expect((await get(url.pathname)).status, "before the end").toBe(404);
+
+    const p = await openLater(url.pathname);
+    expect(p.status).toBe(200);
+    expect(p.meta("robots")).toBe("noindex");
+    expect(p.screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Rosa Mamani",
+    );
+    expect(p.text(".certificate-verb")).toBe("asistió a");
+    expect(p.screen.getByRole("link", { name: "Charla abierta" })).toBeTruthy();
+    expect(p.text(".certificate-when")).toBe(
+      "12 de diciembre de 2026 · FCF, UNMSM",
+    );
+    expect(p.button("Imprimir o guardar PDF")).not.toBeNull();
+    expect(p.document.documentElement.outerHTML).not.toContain(token);
+  });
+
+  test("a role's certificate names the role; a draft or unknown id has none", async () => {
+    const [ana] = await eventRoles(DB, "organizado");
+    const p = await openLater(`/c/${ana?.certificateId}`);
+    expect(p.screen.getByRole("heading", { level: 1 }).textContent).toBe(
+      "Ana Quispe",
+    );
+    expect(p.text(".certificate-verb")).toBe("organizó");
+
+    await addRole(DB, "borrador", {
+      name: "Luz",
+      email: null,
+      role: "ponente",
+    });
+    const [luz] = await eventRoles(DB, "borrador");
+    expect((await openLater(`/c/${luz?.certificateId}`)).status).toBe(404);
+    expect((await openLater("/c/nope")).status).toBe(404);
   });
 });
 

@@ -114,6 +114,25 @@ function SharePanel(props: { token: string; title: string; url?: string }) {
   );
 }
 
+function CertificatePanel({ url }: { url: string }) {
+  return (
+    <section class="content-card" aria-labelledby="certificate-title">
+      <h2 class="card-title" id="certificate-title">
+        Tu certificado
+      </h2>
+      <div class="ticket-actions">
+        <p class="ticket-note">
+          Gracias por venir. Tu certificado tiene un enlace propio: compártelo o
+          guárdalo como PDF.
+        </p>
+        <a class="button button-primary button-full" href={url}>
+          Ver mi certificado
+        </a>
+      </div>
+    </section>
+  );
+}
+
 /** Opens, shows or hides the holder's public profile of badges. */
 function ProfilePanel(props: {
   token: string;
@@ -229,6 +248,9 @@ export function TicketPage(view: TicketView) {
   const { ticket, event } = view;
 
   const panels = {
+    certificate: view.certificateUrl && (
+      <CertificatePanel url={view.certificateUrl} />
+    ),
     next: <NextSteps token={ticket.token} slug={event.slug} next={view.next} />,
     venue: <VenueCard event={event} />,
     share: (

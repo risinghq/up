@@ -21,6 +21,8 @@ export type Ticket = {
   shareId: string | null;
   /** The holder's public profile id, once they opened it. */
   profileId: string | null;
+  /** The id of the ticket's certificate at /c/<id>, from the first check-in. */
+  certificateId: string | null;
 };
 
 export type RegisterResult =
@@ -111,7 +113,7 @@ export async function findTicket(
     .prepare(
       `SELECT r.id AS token, r.event_slug AS eventSlug, r.number, r.status, p.name, p.email, p.phone,
               r.created_at AS createdAt, r.checked_in_at AS checkedInAt, r.share_id AS shareId,
-              p.profile_id AS profileId
+              p.profile_id AS profileId, r.certificate_id AS certificateId
        FROM registrations r JOIN people p ON p.id = r.person_id
        WHERE r.id = ?`,
     )
@@ -120,8 +122,9 @@ export async function findTicket(
 }
 
 /**
- * Records that the ticket's holder came in. A cancelled ticket cannot, and a
- * second check-in keeps the first time.
+ * Records that the ticket's holder came in, and gives the ticket its
+ * certificate id once. A cancelled ticket cannot, and a second check-in keeps
+ * the first time.
  */
 export async function checkIn(
   db: D1Database,
@@ -130,10 +133,10 @@ export async function checkIn(
 ): Promise<void> {
   await db
     .prepare(
-      `UPDATE registrations SET checked_in_at = ?
+      `UPDATE registrations SET checked_in_at = ?, certificate_id = COALESCE(certificate_id, ?)
        WHERE id = ? AND status != 'cancelled' AND checked_in_at IS NULL`,
     )
-    .bind(now, token)
+    .bind(now, newToken(), token)
     .run();
 }
 

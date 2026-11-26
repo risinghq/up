@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { Team, type DoorLink } from "../pages/admin/Team";
+import { issuesCertificates } from "./certificates";
 import type { EventMeta } from "./events";
 import { emailPattern, type FormState } from "./form";
 import { adminPage, withEvent } from "./adminPage";
@@ -39,25 +40,32 @@ export function parseRoleForm(form: FormData): ParsedRole {
   };
 }
 
-async function teamPage(
-  c: Ctx,
-  event: EventMeta,
-  form: FormState = { values: { role: "organiza" }, errors: {} },
-  status?: number,
-  doorLink?: DoorLink,
-) {
-  const team = await eventRoles(c.env.DB, event.slug);
-  return adminPage(
-    c,
-    `Equipo · ${event.title}`,
-    <Team event={event} team={team} form={form} doorLink={doorLink} />,
-    { status },
-  );
-}
+const blankForm: FormState = { values: { role: "organiza" }, errors: {} };
 
 /** The Equipo tab: who holds a role at one event. Mounted under /admin/eventos/:slug/equipo. */
-export function teamRoutes() {
+export function teamRoutes(now: () => Date) {
   const team = new Hono<AppEnv>();
+
+  const teamPage = async (
+    c: Ctx,
+    event: EventMeta,
+    form = blankForm,
+    status?: number,
+    doorLink?: DoorLink,
+  ) =>
+    adminPage(
+      c,
+      `Equipo · ${event.title}`,
+      <Team
+        event={event}
+        team={await eventRoles(c.env.DB, event.slug)}
+        form={form}
+        doorLink={doorLink}
+        certificates={issuesCertificates(event, now())}
+      />,
+      { status },
+    );
+
   const back = (c: Ctx, event: EventMeta) =>
     c.redirect(`/admin/eventos/${event.slug}/equipo`, 303);
 

@@ -32,6 +32,8 @@ export type EventRole = {
   role: Role;
   /** True when the person holds a live door link. */
   door: boolean;
+  /** The id of the role's certificate at /c/<id>. */
+  certificateId: string;
 };
 
 export type NewRole = Pick<EventRole, "name" | "email" | "role">;
@@ -43,6 +45,7 @@ type Row = {
   email: string | null;
   role: Role;
   door: number;
+  certificate_id: string;
 };
 
 const fromRow = (r: Row): EventRole => ({
@@ -52,6 +55,7 @@ const fromRow = (r: Row): EventRole => ({
   email: r.email,
   role: r.role,
   door: Boolean(r.door),
+  certificateId: r.certificate_id,
 });
 
 /** The event's people, grouped in the order of `roles`, each group as added. */
@@ -61,7 +65,8 @@ export async function eventRoles(
 ): Promise<EventRole[]> {
   const { results } = await db
     .prepare(
-      `SELECT id, event_slug, name, email, role, door_hash IS NOT NULL AS door FROM event_roles
+      `SELECT id, event_slug, name, email, role, door_hash IS NOT NULL AS door, certificate_id
+       FROM event_roles
        WHERE event_slug = ? ORDER BY position`,
     )
     .bind(slug)
@@ -80,13 +85,13 @@ export async function addRole(
 ): Promise<"added" | "exists"> {
   const row = await db
     .prepare(
-      `INSERT INTO event_roles (event_slug, name, email, role, position)
-       SELECT ?1, ?2, ?3, ?4, COALESCE(MAX(position), -1) + 1
+      `INSERT INTO event_roles (event_slug, name, email, role, position, certificate_id)
+       SELECT ?1, ?2, ?3, ?4, COALESCE(MAX(position), -1) + 1, ?5
        FROM event_roles WHERE event_slug = ?1
        ON CONFLICT DO NOTHING
        RETURNING id`,
     )
-    .bind(slug, role.name, role.email, role.role)
+    .bind(slug, role.name, role.email, role.role, newToken())
     .first();
 
   return row ? "added" : "exists";

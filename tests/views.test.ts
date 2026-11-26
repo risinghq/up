@@ -3,7 +3,12 @@ import type { EventMeta } from "../src/worker/events";
 import type { Profile } from "../src/worker/profiles";
 import type { Ticket } from "../src/worker/registrations";
 import type { EventRole, Role } from "../src/worker/roles";
-import { eventView, profileView, ticketView } from "../src/worker/views";
+import {
+  certificateView,
+  eventView,
+  profileView,
+  ticketView,
+} from "../src/worker/views";
 import { event } from "./support";
 
 const origin = "https://up.test";
@@ -30,6 +35,7 @@ function ticket(overrides: Partial<Ticket> = {}): Ticket {
     checkedInAt: null,
     shareId: null,
     profileId: null,
+    certificateId: null,
     ...overrides,
   };
 }
@@ -49,7 +55,10 @@ const view = (
 
 describe("ticketView", () => {
   test("the panels follow the ticket's state", () => {
-    const inside = ticket({ checkedInAt: "2026-12-12T20:10:00.000Z" });
+    const inside = ticket({
+      checkedInAt: "2026-12-12T20:10:00.000Z",
+      certificateId: "C1",
+    });
     const cases = [
       {
         name: "seated, before the event",
@@ -69,10 +78,16 @@ describe("ticketView", () => {
       },
       { name: "cancelled", t: ticket({ status: "cancelled" }), panels: [] },
       {
-        name: "after the event, checked in",
+        name: "after the event, checked in: the certificate leads",
         t: inside,
         context: after,
-        panels: ["profile"],
+        panels: ["certificate", "profile"],
+      },
+      {
+        name: "after the event, never came in",
+        t: ticket(),
+        context: after,
+        panels: [],
       },
     ] as const;
 
@@ -114,6 +129,21 @@ describe("ticketView", () => {
     expect(view(inside).profile.primary).toBe(true);
   });
 
+  test("a certificate is offered once the event the holder came in to is over", () => {
+    const inside = ticket({ checkedInAt: "2026-12-12T20:10:00.000Z" });
+    const certified = { ...inside, certificateId: "C1" };
+
+    const v = view(certified, { context: after });
+    expect(v.certificateUrl).toBe(`${origin}/c/C1`);
+    expect(v.profile.primary).toBe(false);
+
+    expect(view(certified).certificateUrl).toBe(undefined);
+    expect(
+      view(certified, { context: after, e: { ...charla, status: "draft" } })
+        .certificateUrl,
+    ).toBe(undefined);
+  });
+
   test("a cancelled ticket offers to register again while the event is ahead", () => {
     const cancelled = ticket({ status: "cancelled" });
     expect(view(cancelled).rejoin).toBe(true);
@@ -142,6 +172,7 @@ describe("eventView", () => {
       email,
       role,
       door: false,
+      certificateId: `C${id}`,
     });
     const v = eventView(before, {
       event: charla,
@@ -231,6 +262,51 @@ describe("profileView", () => {
     ]);
     expect(v.description).toBe(
       "Los eventos en los que participa Valeria y a los que fue.",
+    );
+  });
+});
+
+describe("certificateView", () => {
+  const rosa = { id: "C1", eventSlug: "charla", name: "Rosa Mamani" };
+
+  test("says what the person did, when and where", () => {
+    const cases = [
+      { role: null, verb: "asistió a", e: charla, place: "FCF, UNMSM" },
+      { role: "mentor", verb: "fue mentor en", e: online, place: "En línea" },
+      { role: "organiza", verb: "organizó", e: charla, place: "FCF, UNMSM" },
+    ] as const;
+
+    for (const c of cases) {
+      const v = certificateView(after, { ...rosa, role: c.role }, c.e);
+      expect([v.verb, v.place], String(c.role)).toEqual([c.verb, c.place]);
+    }
+  });
+
+  test("names the day once, or the span of days", () => {
+    const span = (start: string, end: string) =>
+      certificateView(
+        after,
+        { ...rosa, role: null },
+        event({ slug: "charla", start, end }),
+      ).date;
+
+    expect(span("2026-12-12T15:00:00-05:00", "2026-12-12T19:00:00-05:00")).toBe(
+      "12 de diciembre de 2026",
+    );
+    expect(span("2026-12-12T09:00:00-05:00", "2026-12-13T18:00:00-05:00")).toBe(
+      "del 12 al 13 de diciembre de 2026",
+    );
+    expect(span("2026-11-30T09:00:00-05:00", "2026-12-02T18:00:00-05:00")).toBe(
+      "del 30 de noviembre al 2 de diciembre de 2026",
+    );
+    expect(span("2026-12-31T20:00:00-05:00", "2027-01-01T02:00:00-05:00")).toBe(
+      "del 31 de diciembre de 2026 al 1 de enero de 2027",
+    );
+  });
+
+  test("prints its own absolute address", () => {
+    expect(certificateView(after, { ...rosa, role: null }, charla).url).toBe(
+      `${origin}/c/C1`,
     );
   });
 });

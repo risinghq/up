@@ -454,6 +454,36 @@ describe("team", () => {
     expect(holders(await open(team), "Organizan")).toEqual(["Ana Quispe"]);
   });
 
+  test("once the event is over, each role links its certificate and the door link goes", async () => {
+    await seed(DB, [
+      event({
+        slug: "cerrado",
+        start: "2026-11-08T15:00:00-05:00",
+        end: "2026-11-08T19:00:00-05:00",
+      }),
+    ]);
+    await addRole(DB, "cerrado", {
+      name: "Vale",
+      email: null,
+      role: "voluntario",
+    });
+    const [vale] = await eventRoles(DB, "cerrado");
+
+    const tab = await open("/admin/eventos/cerrado/equipo");
+    const link = tab.screen.getByRole("link", {
+      name: "Certificado de Vale (Voluntario)",
+    });
+    expect(link.getAttribute("href")).toBe(`/c/${vale?.certificateId}`);
+    expect(
+      tab.screen.queryByRole("button", { name: /enlace de puerta/i }),
+    ).toBeNull();
+
+    const upcoming = await open(team);
+    expect(
+      upcoming.screen.queryAllByRole("link", { name: /^Certificado de/ }),
+    ).toEqual([]);
+  });
+
   test("a visitor can neither see nor change the team", async () => {
     const res = await get(team, {});
     expect(res.status).toBe(303);
