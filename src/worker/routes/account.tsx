@@ -20,6 +20,7 @@ import {
 import { phoneOf, updateContact } from "../people";
 import { closeProfile, openProfile, profileIdOf } from "../profiles";
 import { ticketsOf } from "../registrations";
+import { accountRoles } from "../roles";
 import type { AppEnv, Ctx, Deps } from "../web";
 import {
   codeStep,
@@ -91,6 +92,7 @@ export function accountRoutes({ now }: Deps) {
         }
         emailForm={forms.emailForm ?? emptyForm}
         tickets={await ticketsOf(c.env.DB, account.id, now())}
+        roles={await accountRoles(c.env.DB, account.id, now())}
         profileId={await profileIdOf(c.env.DB, account.id)}
         passkeys={await listPasskeys(c.env.DB, account.id)}
         notice={notice}

@@ -3,6 +3,7 @@ import type { Passkey } from "../worker/auth";
 import { CODE_MINUTES } from "../worker/codes";
 import type { FormState } from "../worker/form";
 import type { AccountTicket } from "../worker/registrations";
+import { doorRoles, roleLabel, type AccountRole } from "../worker/roles";
 import { fullDate, shortDate } from "../worker/time";
 import { Check, Field, HumanCheck } from "./FormFields";
 
@@ -228,6 +229,7 @@ export type AccountView = {
   contact: FormState;
   emailForm: FormState;
   tickets: AccountTicket[];
+  roles: AccountRole[];
   profileId: string | null;
   passkeys: Passkey[];
   notice: AccountNotice | null;
@@ -274,6 +276,36 @@ function Tickets({ tickets }: { tickets: AccountTicket[] }) {
           </a>
         </li>
       ))}
+    </ul>
+  );
+}
+
+/** Where a role leads: the door while the event is ahead, the certificate once it ended. */
+function roleLink(r: AccountRole) {
+  if (r.past) return { href: `/c/${r.certificateId}`, label: " · Certificado" };
+  if (doorRoles.includes(r.role))
+    return { href: `/puerta/${r.slug}`, label: " · Abrir la puerta" };
+  return { href: `/${r.slug}`, label: "" };
+}
+
+function Roles({ roles }: { roles: AccountRole[] }) {
+  return (
+    <ul class="account-list">
+      {roles.map((r) => {
+        const link = roleLink(r);
+        return (
+          <li key={`${r.slug}-${r.role}`}>
+            <a href={link.href}>
+              <span class="account-item-title">{r.title}</span>
+              <span class="account-item-meta">
+                {roleLabel[r.role].one} ·{" "}
+                <time dateTime={r.start}>{shortDate(r.start)}</time>
+                {link.label}
+              </span>
+            </a>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -336,6 +368,12 @@ export function AccountPage(view: AccountView) {
       <Section id="entradas" title="Tus entradas">
         <Tickets tickets={view.tickets} />
       </Section>
+
+      {view.roles.length > 0 && (
+        <Section id="roles" title="Tus roles">
+          <Roles roles={view.roles} />
+        </Section>
+      )}
 
       <Section id="datos" title="Tus datos">
         <form class="account-form" method="post" action="/cuenta">

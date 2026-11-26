@@ -101,6 +101,12 @@ export async function claimEmail(
     move("credentials", "person_id"),
     move("sessions", "person_id"),
     move("google_account", "connected_by"),
+    // A role both already hold stays with the holder and goes with it.
+    db
+      .prepare(
+        "UPDATE OR IGNORE event_roles SET person_id = ?1 WHERE person_id = ?2",
+      )
+      .bind(account.id, holder.id),
     db
       .prepare(
         `UPDATE people SET
@@ -120,6 +126,27 @@ export async function claimEmail(
       .bind(email, account.id),
   ]);
   return "changed";
+}
+
+/**
+ * Up to `limit` people whose name or email contains `query`, ignoring case,
+ * those with an email first.
+ */
+export async function searchAccounts(
+  db: D1Database,
+  query: string,
+  limit = 8,
+): Promise<Account[]> {
+  const pattern = `%${query.toLowerCase().replace(/[\\%_]/g, "\\$&")}%`;
+  const { results } = await db
+    .prepare(
+      `SELECT ${columns} FROM people
+       WHERE lower(name) LIKE ?1 ESCAPE '\\' OR email LIKE ?1 ESCAPE '\\'
+       ORDER BY email IS NULL, name LIMIT ?2`,
+    )
+    .bind(pattern, limit)
+    .all<AccountRow>();
+  return results.map(toAccount);
 }
 
 /** The admins, oldest first. */

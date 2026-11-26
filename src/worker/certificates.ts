@@ -19,8 +19,8 @@ const firstRole = (held: Role[]): Role | null =>
   roles.find((role) => held.includes(role)) ?? null;
 
 /**
- * Finds a certificate by id. A ticket's names the role its holder's email has
- * at the event, the first in the order of `roles`, so a mentor who also
+ * Finds a certificate by id. A ticket's names the role its holder has at the
+ * event, the first in the order of `roles`, so a mentor who also
  * registered reads as a mentor.
  */
 export async function findCertificate(
@@ -29,19 +29,19 @@ export async function findCertificate(
 ): Promise<Certificate | null> {
   const ticket = await db
     .prepare(
-      `SELECT r.event_slug AS eventSlug, p.name, p.email FROM registrations r
+      `SELECT r.event_slug AS eventSlug, r.person_id AS personId, p.name FROM registrations r
        JOIN people p ON p.id = r.person_id
        WHERE r.certificate_id = ? AND r.checked_in_at IS NOT NULL`,
     )
     .bind(id)
-    .first<{ eventSlug: string; name: string; email: string }>();
+    .first<{ eventSlug: string; personId: string; name: string }>();
 
   if (ticket) {
     const { results } = await db
       .prepare(
-        "SELECT role FROM event_roles WHERE event_slug = ? AND email = ?",
+        "SELECT role FROM event_roles WHERE event_slug = ? AND person_id = ?",
       )
-      .bind(ticket.eventSlug, ticket.email)
+      .bind(ticket.eventSlug, ticket.personId)
       .all<{ role: Role }>();
 
     return {
@@ -54,7 +54,8 @@ export async function findCertificate(
 
   const role = await db
     .prepare(
-      "SELECT event_slug AS eventSlug, name, role FROM event_roles WHERE certificate_id = ?",
+      `SELECT r.event_slug AS eventSlug, p.name, r.role FROM event_roles r
+       JOIN people p ON p.id = r.person_id WHERE r.certificate_id = ?`,
     )
     .bind(id)
     .first<{ eventSlug: string; name: string; role: Role }>();

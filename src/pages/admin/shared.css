@@ -52,6 +52,7 @@
 
 .team-member {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -73,4 +74,32 @@
 .team-email {
   color: var(--ink-2);
   font-size: 14px;
+}
+
+/* One field with its button beside it, wrapping below on a narrow screen. */
+.inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.inline-form .field {
+  flex: 1 1 260px;
+}
+
+.inline-form .button {
+  margin-top: 27px;
+}
+
+/* Below 400px the button cannot sit beside a 260px field, so it stacks. */
+@container (max-width: 400px) {
+  .inline-form .field {
+    flex-basis: 100%;
+  }
+
+  .inline-form .button {
+    margin-top: 0;
+  }
 }

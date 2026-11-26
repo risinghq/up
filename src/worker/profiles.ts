@@ -48,38 +48,17 @@ export async function profileIdOf(
   return row?.profileId ?? null;
 }
 
-/** The public profile of each email that has one, by email. */
-export async function profilesByEmail(
-  db: D1Database,
-  emails: string[],
-): Promise<Map<string, string>> {
-  if (!emails.length) return new Map();
-
-  const { results } = await db
-    .prepare(
-      `SELECT email, profile_id AS profileId FROM people
-       WHERE profile_id IS NOT NULL
-         AND email IN (SELECT value FROM json_each(?))`,
-    )
-    .bind(JSON.stringify(emails))
-    .all<{ email: string; profileId: string }>();
-  return new Map(results.map((r) => [r.email, r.profileId]));
-}
-
 /** What a profile shows: the first name, the events attended, the roles. */
 export async function findProfile(
   db: D1Database,
   profileId: string,
 ): Promise<Profile | null> {
   const person = await db
-    .prepare(
-      "SELECT id, name, email, created_at FROM people WHERE profile_id = ?",
-    )
+    .prepare("SELECT id, name, created_at FROM people WHERE profile_id = ?")
     .bind(profileId)
     .first<{
       id: string;
       name: string;
-      email: string | null;
       created_at: string;
     }>();
   if (!person) return null;
@@ -98,6 +77,6 @@ export async function findProfile(
     firstName: firstName(person.name),
     since: person.created_at,
     attended: results.map((r) => r.slug),
-    roles: person.email ? await rolesOf(db, person.email) : [],
+    roles: await rolesOf(db, person.id),
   };
 }

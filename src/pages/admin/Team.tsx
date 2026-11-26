@@ -1,17 +1,30 @@
+import type { Account } from "../../worker/accounts";
 import type { EventMeta } from "../../worker/events";
-import type { FormState } from "../../worker/form";
-import { roleLabel, roles, type EventRole } from "../../worker/roles";
+import {
+  roleLabel,
+  roles,
+  type EventRole,
+  type Role,
+} from "../../worker/roles";
+import { AccountName } from "./AccountName";
+import { CopyLink } from "./CopyLink";
 import { Choice, Input } from "./fields";
 import { ManageFrame } from "./Manage";
 
-export type DoorLink = { name: string; url: string };
+export type TeamSearch = {
+  query: string;
+  role: Role;
+  /** The accounts that match, or null before a query long enough to run. */
+  results: Account[] | null;
+};
 
 export type TeamView = {
   event: EventMeta;
   team: EventRole[];
-  form: FormState;
-  /** A door link just made; it is shown this once. */
-  doorLink?: DoorLink;
+  search: TeamSearch;
+  error?: string;
+  /** Where a person without an account makes one. */
+  signInUrl: string;
   /** True once the event is published and over: each role has a certificate. */
   certificates: boolean;
 };
@@ -25,13 +38,9 @@ function Member({
   person: EventRole;
   certificates: boolean;
 }) {
-  const base = `/admin/eventos/${slug}/equipo/${person.id}`;
   return (
     <li class="team-member">
-      <span>
-        {person.name}
-        {person.email && <span class="team-email"> · {person.email}</span>}
-      </span>
+      <AccountName name={person.name} email={person.email} />
       <span class="actions">
         {certificates && (
           <a
@@ -42,18 +51,10 @@ function Member({
             Certificado
           </a>
         )}
-        {person.role === "voluntario" && !certificates && (
-          <form method="post" action={`${base}/puerta`}>
-            <button
-              class="button button-small button-light"
-              type="submit"
-              aria-label={`${person.door ? "Nuevo enlace de puerta" : "Crear enlace de puerta"} para ${person.name}`}
-            >
-              {person.door ? "Nuevo enlace" : "Enlace de puerta"}
-            </button>
-          </form>
-        )}
-        <form method="post" action={`${base}/quitar`}>
+        <form
+          method="post"
+          action={`/admin/eventos/${slug}/equipo/${person.id}/quitar`}
+        >
           <button
             class="button button-small button-quiet"
             type="submit"
@@ -67,39 +68,125 @@ function Member({
   );
 }
 
-function DoorLinkNotice({ name, url }: DoorLink) {
+function Result({
+  slug,
+  account,
+  role,
+}: {
+  slug: string;
+  account: Account;
+  role: Role;
+}) {
   return (
-    <div class="notice" role="status">
-      <p>
-        Envía este enlace a {name}. Abre la puerta del evento en su teléfono
-        hasta que termine. Solo se muestra ahora; un enlace nuevo anula el
-        anterior.
-      </p>
-      <p class="invite-url">
-        <code>{url}</code>{" "}
-        <button
-          class="button button-small button-quiet"
-          type="button"
-          data-copy={url}
-          hidden
-        >
-          Copiar
+    <li class="team-member">
+      <AccountName name={account.name} email={account.email} />
+      <form method="post" action={`/admin/eventos/${slug}/equipo`}>
+        <input type="hidden" name="person" value={account.id} />
+        <input type="hidden" name="role" value={role} />
+        <button class="button button-small button-light" type="submit">
+          Agregar como {roleLabel[role].one}
         </button>
+      </form>
+    </li>
+  );
+}
+
+function NoAccount({ query, url }: { query: string; url: string }) {
+  return (
+    <div>
+      <p>
+        Nadie con cuenta coincide con “{query}”. Envía este enlace para que cree
+        su cuenta con su correo y vuelve a buscarla.
       </p>
+      <CopyLink url={url} />
     </div>
   );
 }
 
-/** The people of one event by role, and the form that gives someone a role. */
-export function Team({ event, team, form, doorLink, certificates }: TeamView) {
+function AddPerson({
+  slug,
+  search,
+  signInUrl,
+}: {
+  slug: string;
+  search: TeamSearch;
+  signInUrl: string;
+}) {
+  const form = {
+    values: { q: search.query, rol: search.role },
+    errors: {},
+  };
+
+  return (
+    <section class="manage-card" aria-labelledby="agregar">
+      <h2 id="agregar">Agregar a alguien</h2>
+      <p>
+        Cada persona del equipo entra con su cuenta. Quien organiza o es
+        voluntario abre la puerta del evento en /puerta/{slug} hasta que
+        termine.
+      </p>
+      <form
+        class="team-search"
+        method="get"
+        action={`/admin/eventos/${slug}/equipo`}
+      >
+        <Choice
+          name="rol"
+          label="Rol"
+          form={form}
+          options={roles.map((role) => [role, roleLabel[role].one])}
+        />
+        <div class="inline-form">
+          <Input
+            name="q"
+            label="Buscar persona"
+            form={form}
+            hint="Nombre o correo de su cuenta."
+          />
+          <button class="button button-quiet" type="submit">
+            Buscar
+          </button>
+        </div>
+      </form>
+      {search.results &&
+        (search.results.length ? (
+          <ul class="team-list" aria-label="Resultados">
+            {search.results.map((account) => (
+              <Result
+                key={account.id}
+                slug={slug}
+                account={account}
+                role={search.role}
+              />
+            ))}
+          </ul>
+        ) : (
+          <NoAccount query={search.query} url={signInUrl} />
+        ))}
+    </section>
+  );
+}
+
+/** The people of one event by role, and the search that gives an account a role. */
+export function Team({
+  event,
+  team,
+  search,
+  error,
+  signInUrl,
+  certificates,
+}: TeamView) {
   const groups = roles
     .map((role) => ({ role, people: team.filter((p) => p.role === role) }))
     .filter((group) => group.people.length);
-  const hasErrors = Object.keys(form.errors).length > 0;
 
   return (
     <ManageFrame slug={event.slug} title={event.title} tab="equipo">
-      {doorLink && <DoorLinkNotice {...doorLink} />}
+      {error && (
+        <p class="notice notice-error" role="alert">
+          {error}
+        </p>
+      )}
       {groups.length ? (
         groups.map((group) => (
           <section
@@ -127,38 +214,7 @@ export function Team({ event, team, form, doorLink, certificates }: TeamView) {
         </p>
       )}
 
-      <section class="manage-card" aria-labelledby="agregar">
-        <h2 id="agregar">Agregar a alguien</h2>
-        {hasErrors && (
-          <p class="notice notice-error" role="alert">
-            Revisa los campos marcados.
-          </p>
-        )}
-        <form
-          class="editor"
-          method="post"
-          action={`/admin/eventos/${event.slug}/equipo`}
-          novalidate
-        >
-          <Input name="name" label="Nombre" form={form} />
-          <Input
-            name="email"
-            label="Correo"
-            type="email"
-            form={form}
-            hint="Opcional. Con el correo, el evento aparece en el perfil público de esa persona. El correo no se muestra."
-          />
-          <Choice
-            name="role"
-            label="Rol"
-            form={form}
-            options={roles.map((role) => [role, roleLabel[role].one])}
-          />
-          <button class="button button-primary" type="submit">
-            Agregar
-          </button>
-        </form>
-      </section>
+      <AddPerson slug={event.slug} search={search} signInUrl={signInUrl} />
     </ManageFrame>
   );
 }

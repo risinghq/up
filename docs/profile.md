@@ -26,12 +26,12 @@ An admin gives people a role at an event on its **Equipo** tab; see
 [Team](add-an-event.md#team). The roles are Organiza, Ponente, Mentor, Jurado
 and Voluntario. The event page lists the people under one card per role.
 
-A role given with an email ties the event to the profile of the person who
-registered with that email. Pages never show the email.
+A role belongs to the person's account, so the event joins their profile and
+**Tus roles** on their account page. Pages never show the email.
 
 - Their ticket offers **Crear mi perfil** before any check-in.
 - Their profile lists the published events of each role under its own heading,
   above the badges.
 - Once their profile is open, the event page links their name to it.
 
-A role holder needs a ticket to any event to open a profile.
+A role holder opens a profile from their account page, with or without a ticket.

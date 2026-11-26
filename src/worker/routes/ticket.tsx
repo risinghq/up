@@ -31,9 +31,9 @@ export function ticketRoutes({ now, fetch: fetcher }: Deps) {
       ticket,
       event,
       fresh: c.req.query("nueva") !== undefined,
-      door: worksDoor(c, event, now()),
+      door: await worksDoor(c, event, now()),
       whatsapp: c.env.WHATSAPP_COMMUNITY_URL,
-      hasRole: (await rolesOf(c.env.DB, ticket.email)).length > 0,
+      hasRole: (await rolesOf(c.env.DB, ticket.personId)).length > 0,
     });
 
     c.header("Cache-Control", "no-store");

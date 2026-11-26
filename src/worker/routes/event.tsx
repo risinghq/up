@@ -12,7 +12,6 @@ import {
 import { emptyForm, type FormState } from "../form";
 import { notifyTickets } from "../notify";
 import { phoneOf } from "../people";
-import { profilesByEmail } from "../profiles";
 import { goingCount } from "../registrations";
 import { eventRoles } from "../roles";
 import { signUp } from "../signup";
@@ -47,15 +46,10 @@ export function eventRoutes({ now, fetch: fetcher }: Deps) {
     notice: Notice,
     status = 200,
   ) => {
-    const team = await eventRoles(c.env.DB, event.slug);
-    const emails = team.flatMap((person) =>
-      person.email ? [person.email] : [],
-    );
     const view = eventView(viewContext(c, now()), {
       event,
       going: await goingCount(c.env.DB, event.slug),
-      team,
-      profiles: await profilesByEmail(c.env.DB, emails),
+      team: await eventRoles(c.env.DB, event.slug),
       form,
       notice,
       admin: Boolean(c.get("admin")),

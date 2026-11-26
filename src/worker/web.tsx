@@ -34,8 +34,6 @@ export type AppEnv = {
     account: Account | null;
     /** The same person when they are an admin, or null. */
     admin: Account | null;
-    /** The slug of the event whose door the request's door cookie opens, or null. */
-    door: string | null;
   };
 };
 

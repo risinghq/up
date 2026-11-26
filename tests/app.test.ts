@@ -20,6 +20,7 @@ import {
   form,
   HOST_TIMEOUT,
   migratedDb,
+  newPerson,
   outbox,
   seed,
   testEnv,
@@ -69,16 +70,17 @@ beforeAll(async () => {
   ({ mf, DB, MEDIA } = await migratedDb("app"));
   env = testEnv(DB, MEDIA, { EMAIL: mail.binding });
   await seed(DB, events);
-  await addRole(DB, "organizado", {
+  const ana = await newPerson(DB, {
     name: "Ana Quispe",
     email: "ana@example.com",
-    role: "organiza",
   });
-  await addRole(DB, "organizado", {
-    name: "Pedro",
-    email: null,
-    role: "ponente",
-  });
+  await addRole(DB, "organizado", ana, "organiza");
+  await addRole(
+    DB,
+    "organizado",
+    await newPerson(DB, { name: "Pedro" }),
+    "ponente",
+  );
 });
 
 afterAll(() => mf.dispose());
@@ -649,11 +651,12 @@ describe("certificate", () => {
     );
     expect(p.text(".certificate-verb")).toBe("organizó");
 
-    await addRole(DB, "borrador", {
-      name: "Luz",
-      email: null,
-      role: "ponente",
-    });
+    await addRole(
+      DB,
+      "borrador",
+      await newPerson(DB, { name: "Luz" }),
+      "ponente",
+    );
     const [luz] = await eventRoles(DB, "borrador");
     expect((await openLater(`/c/${luz?.certificateId}`)).status).toBe(404);
     expect((await openLater("/c/nope")).status).toBe(404);

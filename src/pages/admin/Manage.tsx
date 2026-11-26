@@ -1,6 +1,7 @@
 import type { ComponentChildren } from "preact";
 import type { CalendarLink, EventMeta } from "../../worker/events";
 import { ArrowIcon, DateRow, PlaceRow } from "../EventCard";
+import { CopyLink } from "./CopyLink";
 import { StatusPill } from "./Events";
 
 export type ManageTab = "resumen" | "inscritos" | "equipo" | "editar" | "mas";
@@ -199,17 +200,7 @@ export function Overview(props: {
           <p>
             Envía este enlace por WhatsApp o Instagram para que se inscriban.
           </p>
-          <p class="invite-url">
-            <code>{props.url}</code>
-            <button
-              class="button button-small button-quiet"
-              type="button"
-              data-copy={props.url}
-              hidden
-            >
-              Copiar
-            </button>
-          </p>
+          <CopyLink url={props.url} />
         </section>
 
         <section class="manage-card" aria-labelledby="guests-title">

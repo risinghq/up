@@ -210,11 +210,8 @@ describe("events", () => {
   });
 
   test("renames an event without registrations and replaces its cover", async () => {
-    await addRole(DB, "taller-qiskit", {
-      name: "Pedro",
-      email: null,
-      role: "ponente",
-    });
+    const pedro = await signedIn(DB, now, { name: "Pedro" });
+    await addRole(DB, "taller-qiskit", pedro.id, "ponente");
     const before = await findEvent(DB, "taller-qiskit");
     const res = await post(
       "/admin/eventos/taller-qiskit/editar",
@@ -370,7 +367,8 @@ describe("events", () => {
   });
 
   test("deletes an event without registrations, and its roles", async () => {
-    await addRole(DB, "vacio", { name: "Ana", email: null, role: "mentor" });
+    const ana = await signedIn(DB, now, { name: "Ana" });
+    await addRole(DB, "vacio", ana.id, "mentor");
     const res = await post("/admin/eventos/vacio/eliminar", new FormData());
     expect(res.status).toBe(303);
     expect(await findEvent(DB, "vacio")).toBeNull();
@@ -395,20 +393,40 @@ describe("team", () => {
         ?.querySelectorAll(".team-member > span:first-child") ?? []),
     ].map((li) => li.firstChild?.textContent);
 
-  test("an admin gives roles; the event page shows them without emails", async () => {
+  /** Searches the Equipo tab and presses the first result's add button. */
+  const pressFound = async (search: string, button: string) => {
+    const found = await open(`${team}?${search}`);
+    const [first] = found.screen.getAllByRole("button", { name: button });
+    const form = first?.closest("form");
+    if (!form) throw new Error(`no form for ${button}`);
+
+    return post(
+      form.getAttribute("action") ?? "",
+      person(
+        Object.fromEntries(
+          [...form.querySelectorAll("input")].map((i) => [i.name, i.value]),
+        ),
+      ),
+    );
+  };
+
+  const addFound = async (search: string, button: string) => {
+    const res = await pressFound(search, button);
+    expect(res.status, search).toBe(303);
+    expect(res.headers.get("location")).toBe(team);
+  };
+
+  test("an admin finds accounts and gives roles; the event page shows them without emails", async () => {
+    await signedIn(DB, now, { name: "Ana Quispe", email: "ana@correo.com" });
+    await signedIn(DB, now, { name: "Luis" });
+
     const empty = await open(team);
     expect(empty.status).toBe(200);
     expect(empty.screen.getByText(/Nadie tiene un rol/)).toBeTruthy();
 
-    for (const fields of [
-      { name: "Ana Quispe", email: "Ana@Correo.com", role: "organiza" },
-      { name: "Luis", email: "", role: "organiza" },
-      { name: "Ana Quispe", email: "ana@correo.com", role: "jurado" },
-    ]) {
-      const res = await post(team, person(fields));
-      expect(res.status, fields.role).toBe(303);
-      expect(res.headers.get("location")).toBe(team);
-    }
+    await addFound("rol=organiza&q=quispe", "Agregar como Organiza");
+    await addFound("rol=organiza&q=luis", "Agregar como Organiza");
+    await addFound("rol=jurado&q=ANA%40correo", "Agregar como Jurado");
 
     const tab = await open(team);
     expect(holders(tab, "Organizan")).toEqual(["Ana Quispe", "Luis"]);
@@ -428,26 +446,22 @@ describe("team", () => {
 
   test("the same person twice in one role is refused", async () => {
     const p = await page(
-      await post(
-        team,
-        person({ name: "Ana", email: "ana@correo.com", role: "organiza" }),
-      ),
+      await pressFound("rol=organiza&q=quispe", "Agregar como Organiza"),
     );
     expect(p.status).toBe(422);
-    expect(described(p, "Correo")).toBe("Esa persona ya tiene ese rol.");
-    expect(value(p, "Nombre")).toBe("Ana");
+    expect(p.screen.getByRole("alert").textContent).toBe(
+      "Esa persona ya tiene ese rol.",
+    );
   });
 
-  test("a short name, a broken email and no role are refused", async () => {
-    const p = await page(
-      await post(team, person({ name: "A", email: "ana@" })),
-    );
-    expect(p.status).toBe(422);
-    expect(described(p, "Nombre")).toBe("Escribe el nombre.");
-    expect(described(p, "Correo")).toBe(
-      "Escribe un correo válido o déjalo vacío.",
-    );
-    expect(p.screen.getByRole("alert").textContent).toContain("Revisa");
+  test("a search lists nobody until two letters, and a miss offers the sign-in link", async () => {
+    const short = await open(`${team}?q=a`);
+    expect(short.screen.queryByRole("list", { name: "Resultados" })).toBeNull();
+    expect(value(short, "Buscar persona")).toBe("a");
+
+    const miss = await open(`${team}?q=nadie`);
+    expect(miss.screen.getByText(/Nadie con cuenta coincide/)).toBeTruthy();
+    expect(miss.text(".copy-link code")).toBe(`${ORIGIN}/entrar`);
   });
 
   test("an admin removes a role", async () => {
@@ -461,7 +475,7 @@ describe("team", () => {
     expect(holders(await open(team), "Organizan")).toEqual(["Ana Quispe"]);
   });
 
-  test("once the event is over, each role links its certificate and the door link goes", async () => {
+  test("once the event is over, each role links its certificate", async () => {
     await seed(DB, [
       event({
         slug: "cerrado",
@@ -469,11 +483,8 @@ describe("team", () => {
         end: "2026-11-08T19:00:00-05:00",
       }),
     ]);
-    await addRole(DB, "cerrado", {
-      name: "Vale",
-      email: null,
-      role: "voluntario",
-    });
+    const { id } = await signedIn(DB, now, { name: "Vale" });
+    await addRole(DB, "cerrado", id, "voluntario");
     const [vale] = await eventRoles(DB, "cerrado");
 
     const tab = await open("/admin/eventos/cerrado/equipo");
@@ -481,9 +492,6 @@ describe("team", () => {
       name: "Certificado de Vale (Voluntario)",
     });
     expect(link.getAttribute("href")).toBe(`/c/${vale?.certificateId}`);
-    expect(
-      tab.screen.queryByRole("button", { name: /enlace de puerta/i }),
-    ).toBeNull();
 
     const upcoming = await open(team);
     expect(
@@ -496,9 +504,10 @@ describe("team", () => {
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toStartWith("/entrar?volver=");
 
+    const intruso = await signedIn(DB, now, { name: "Intruso" });
     const refused = await post(
       team,
-      person({ name: "Intruso", role: "organiza" }),
+      person({ person: intruso.id, role: "organiza" }),
       { origin: ORIGIN },
     );
     expect(refused.status).not.toBe(303);
@@ -584,7 +593,7 @@ describe("check-in", () => {
 
   test("a visitor cannot open the door or check a ticket in", async () => {
     const token = await register("intruso@example.com");
-    expect((await get("/puerta/recepcion", {})).status).toBe(404);
+    expect((await get("/puerta/recepcion", {})).status).toBe(303);
     const refused = await post(`/puerta/recepcion/ingreso/${token}`, volver(), {
       origin: ORIGIN,
     });
@@ -671,40 +680,20 @@ describe("the door", () => {
     answers: {},
   };
 
-  /** Gives Vale the voluntario role at `slug` and returns her door link. */
-  const doorLink = async (slug: string) => {
-    await addRole(DB, slug, { name: "Vale", email: null, role: "voluntario" });
-    const vale = (await eventRoles(DB, slug)).find((p) => p.name === "Vale");
-    const team = await page(
-      await post(
-        `/admin/eventos/${slug}/equipo/${vale?.id}/puerta`,
-        new FormData(),
-      ),
-    );
-    expect(team.screen.getByRole("status").textContent).toContain(
-      "Envía este enlace a Vale",
-    );
-    return team.text(".invite-url code") ?? "";
+  /** Signs in an account that volunteers at `slug` and returns its cookie. */
+  const volunteer = async (slug: string) => {
+    const vale = await signedIn(DB, now, { name: "Vale" });
+    await addRole(DB, slug, vale.id, "voluntario");
+    return vale.cookie;
   };
 
-  /** Opens a door link and returns the cookie it sets. */
-  const openLink = async (url: string) => {
-    const res = await get(new URL(url).pathname, {});
-    expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toMatch(/^\/puerta\/[\w-]+$/);
-    return (res.headers.get("set-cookie") ?? "").split(";")[0] ?? "";
-  };
-
-  test("a voluntario's link opens the door of that event only", async () => {
-    const url = await doorLink("feria");
-    expect(url).toMatch(/^https:\/\/up\.test\/puerta\/abrir\/[\w-]+$/);
-    const vale = await openLink(url);
+  test("a voluntario's account opens the door of that event only", async () => {
+    const vale = await volunteer("feria");
 
     const door = await open("/puerta/feria", { cookie: vale });
     expect(door.screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Feria",
     );
-    expect(door.button("Salir de la puerta")).not.toBeNull();
     expect((await get("/puerta/vecina", { cookie: vale })).status).toBe(404);
 
     const mine = await ticketAt("feria", "rosa@example.com");
@@ -738,22 +727,33 @@ describe("the door", () => {
     expect(crossed.status).toBe(404);
   });
 
-  test("a new link revokes the old one, and leaving the door drops the cookie", async () => {
-    const old = await openLink(await doorLink("vecina"));
-    const fresh = await openLink(await doorLink("vecina"));
-    expect((await get("/puerta/vecina", { cookie: old })).status).toBe(404);
-    expect((await get("/puerta/vecina", { cookie: fresh })).status).toBe(200);
+  test("a signed-out visitor signs in first; an account without the role, or after removal, gets 404", async () => {
+    const out = await get("/puerta/vecina", {});
+    expect(out.status).toBe(303);
+    expect(out.headers.get("location")).toBe(
+      "/entrar?volver=%2Fpuerta%2Fvecina",
+    );
 
-    const out = await post("/puerta/salir", new FormData(), {
-      cookie: fresh,
-      origin: ORIGIN,
-    });
-    expect(out.headers.get("location")).toBe("/");
-    expect(out.headers.get("set-cookie")).toMatch(/^up_door=;.*Max-Age=0/);
+    const mentor = await signedIn(DB, now, { name: "Mario" });
+    await addRole(DB, "vecina", mentor.id, "mentor");
+    expect(
+      (await get("/puerta/vecina", { cookie: mentor.cookie })).status,
+    ).toBe(404);
+
+    const vale = await volunteer("vecina");
+    expect((await get("/puerta/vecina", { cookie: vale })).status).toBe(200);
+    const role = (await eventRoles(DB, "vecina")).find(
+      (r) => r.name === "Vale",
+    );
+    await post(
+      `/admin/eventos/vecina/equipo/${role?.id}/quitar`,
+      new FormData(),
+    );
+    expect((await get("/puerta/vecina", { cookie: vale })).status).toBe(404);
   });
 
   test("a voluntario's door closes when the event ends", async () => {
-    const vale = await openLink(await doorLink("ayer"));
+    const vale = await volunteer("ayer");
     expect((await get("/puerta/ayer", { cookie: vale })).status).toBe(404);
 
     const ended = await open("/puerta/ayer");
@@ -765,9 +765,6 @@ describe("the door", () => {
   });
 
   test("a walk-in gets a seat past the capacity and is checked in", async () => {
-    const before = await open("/puerta/feria");
-    expect(before.button("Salir de la puerta")).toBeNull();
-
     const missing = await page(
       await post("/puerta/feria/llegada", form({ email: "" })),
     );
