@@ -1,5 +1,6 @@
 import type { Account } from "../../worker/accounts";
 import type { WhatsAppMode } from "../../worker/whatsapp";
+import { AccountName } from "./AccountName";
 
 /** The Google Calendar connection. Absent when the site has no OAuth client. */
 export type GooglePanel = {
@@ -119,15 +120,7 @@ function AdminsSection(props: AdminsPanel) {
         <ul class="team-list">
           {props.admins.map((a) => (
             <li key={a.id} class="team-member">
-              <span>
-                {a.name}
-                {a.email && (
-                  <>
-                    <br />
-                    <span class="team-email">{a.email}</span>
-                  </>
-                )}
-              </span>
+              <AccountName name={a.name} email={a.email} />
               {a.id === props.selfId ? (
                 <span class="team-email">Tú</span>
               ) : (

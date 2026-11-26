@@ -66,15 +66,13 @@ The ticket page of a venue event carries a QR code of its own URL, drawn on the
 server by `renderSVG` from `uqr`. A request that may work the event's door gets
 the door panel: `worksDoor` in
 [`src/worker/routes/door.tsx`](../src/worker/routes/door.tsx) admits an admin,
-or a voluntario whose `up_door` cookie names the event before it ends. The panel
-posts to `/puerta/<slug>/ingreso/<token>`, and `checkIn` sets `checked_in_at`
-once.
+or, until the event ends, an account that holds an organiza or voluntario role
+at it, which `holdsDoor` in [`src/worker/roles.ts`](../src/worker/roles.ts)
+checks. The panel posts to `/puerta/<slug>/ingreso/<token>`, and `checkIn` sets
+`checked_in_at` once.
 
-`doorRoutes` serves `/puerta`. `POST /admin/eventos/<slug>/equipo/<id>/puerta`
-calls `openDoor` in [`src/worker/roles.ts`](../src/worker/roles.ts), which
-stores a new token's hash in the voluntario's `event_roles.door_hash`.
-`GET /puerta/abrir/<token>` sets the token as the `up_door` cookie, and the
-session middleware turns it into the event's slug with `doorEvent`.
+`doorRoutes` serves `/puerta`. A signed-out `GET /puerta/<slug>` redirects to
+`/entrar` with `volver` naming the door; any other refused request gets 404.
 `POST /puerta/<slug>/llegada` calls `walkIn` in
 [`src/worker/registrations.ts`](../src/worker/registrations.ts), which seats the
 person past the capacity and checks them in. `puerta` is a reserved slug.
@@ -92,7 +90,7 @@ registering again clears `share_id`, so the old link answers 404.
 [`src/worker/profiles.ts`](../src/worker/profiles.ts), which gives the ticket's
 person a random `profile_id` unless they have one. `GET /p/<id>` looks it up
 with `findProfile`, which returns the first name, the slugs of the published
-events where the person checked in, and the roles their email holds with
+events where the person checked in, and the roles the person holds with
 `rolesOf` in [`src/worker/roles.ts`](../src/worker/roles.ts), and renders
 [`src/pages/Profile.tsx`](../src/pages/Profile.tsx).
 `POST /entrada/<token>/perfil/ocultar` calls `closeProfile`, which clears
@@ -145,8 +143,9 @@ notifies each seated ticket of an event that starts within a day and marks
    `fillSeats` seats the waitlist when the capacity rose.
    `/admin/eventos/<slug>/equipo` is `teamRoutes` in
    [`src/worker/routes/admin/team.tsx`](../src/worker/routes/admin/team.tsx),
-   mounted under the same guard. It adds and removes the event's roles with
-   `addRole` and `removeRole`.
+   mounted under the same guard. It finds accounts by name or email with
+   `searchAccounts` in [`src/worker/accounts.ts`](../src/worker/accounts.ts),
+   and gives or removes a role with `addRole` and `removeRole`.
 5. The event page renders the theme with
    [`src/pages/theme.ts`](../src/pages/theme.ts): the accent's tint palette as
    CSS variables, and the kind and backdrop as classes.
@@ -193,17 +192,17 @@ columns.
 D1 holds everything but the covers; [`migrations/`](../migrations/) holds the
 schema.
 
-| Table            | Row                                                                                                                                                                                |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.                                                                                    |
-| `event_roles`    | One person's role at one event: name, optional email, role, position, a voluntario's door link hash and the `certificate_id`. It follows the event's slug and dies with the event. |
-| `people`         | One person and account: an optional email, name and phone, the consent dates, the public profile's `profile_id` and the `admin` flag.                                              |
-| `registrations`  | One person at one event: the ticket token as `id`, the number, the status, the answers as JSON, the share link's `share_id` and, once checked in, the `certificate_id`.            |
-| `credentials`    | One passkey of one person.                                                                                                                                                         |
-| `sessions`       | One signed-in browser of one person, by token hash.                                                                                                                                |
-| `sign_in_codes`  | The pending code of one email, by hash, with its tries; once checked for an email with no account, the hash of the new-account token.                                              |
-| `challenges`     | One WebAuthn challenge between its options request and its verification.                                                                                                           |
-| `google_account` | The one connected Google account: its email and refresh token.                                                                                                                     |
+| Table            | Row                                                                                                                                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `events`         | One event: its text, dates, place and map point, capacity, questions as JSON, status and theme.                                                                         |
+| `event_roles`    | One person's role at one event: the `person_id`, role, position and the `certificate_id`. It follows the event's slug and dies with the event or the person.            |
+| `people`         | One person and account: an optional email, name and phone, the consent dates, the public profile's `profile_id` and the `admin` flag.                                   |
+| `registrations`  | One person at one event: the ticket token as `id`, the number, the status, the answers as JSON, the share link's `share_id` and, once checked in, the `certificate_id`. |
+| `credentials`    | One passkey of one person.                                                                                                                                              |
+| `sessions`       | One signed-in browser of one person, by token hash.                                                                                                                     |
+| `sign_in_codes`  | The pending code of one email, by hash, with its tries; once checked for an email with no account, the hash of the new-account token.                                   |
+| `challenges`     | One WebAuthn challenge between its options request and its verification.                                                                                                |
+| `google_account` | The one connected Google account: its email and refresh token.                                                                                                          |
 
 The ticket token is a key of its own. Anyone with the link can see and cancel
 the ticket, with or without an account. Session tokens and codes are stored as

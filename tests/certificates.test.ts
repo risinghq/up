@@ -9,7 +9,7 @@ import {
   undoCheckIn,
 } from "../src/worker/registrations";
 import { addRole, eventRoles } from "../src/worker/roles";
-import { event, HOST_TIMEOUT, migratedDb, seed } from "./support";
+import { event, HOST_TIMEOUT, migratedDb, newPerson, seed } from "./support";
 
 setDefaultTimeout(HOST_TIMEOUT);
 
@@ -63,16 +63,12 @@ test("a ticket gets its certificate at check-in and keeps it", async () => {
 });
 
 test("a ticket's certificate names its holder's role, the first in role order", async () => {
-  await addRole(DB, "charla", {
+  const luis = await newPerson(DB, {
     name: "Luis Quispe",
     email: "luis@x.pe",
-    role: "mentor",
   });
-  await addRole(DB, "charla", {
-    name: "Luis Quispe",
-    email: "luis@x.pe",
-    role: "ponente",
-  });
+  await addRole(DB, "charla", luis, "mentor");
+  await addRole(DB, "charla", luis, "ponente");
   const { token } = await register(
     DB,
     charla,
@@ -86,11 +82,12 @@ test("a ticket's certificate names its holder's role, the first in role order", 
 });
 
 test("a role has a certificate of its own", async () => {
-  await addRole(DB, "charla", {
-    name: "Ana Torres",
-    email: null,
-    role: "jurado",
-  });
+  await addRole(
+    DB,
+    "charla",
+    await newPerson(DB, { name: "Ana Torres" }),
+    "jurado",
+  );
   const id =
     (await eventRoles(DB, "charla")).find((p) => p.name === "Ana Torres")
       ?.certificateId ?? "";

@@ -24,18 +24,12 @@ the door decides. A cancelled ticket cannot.
 
 An admin works the door of every event, signed in on the phone.
 
-A voluntario works the door of one event without an account. On the event's
-**Equipo** tab, **Enlace de puerta** next to the voluntario shows a link once:
-
-```
-https://up.rising.sh/puerta/abrir/<token>
-```
-
-Send it to the voluntario. Opening it on their phone sets a cookie for seven
-days and lands on the door page. The door closes for them when the event ends.
-**Nuevo enlace** replaces the link and the old one stops working. **Quitar**
-removes the role and the link with it. **Salir de la puerta** on the door page
-drops the cookie.
+An organiza or voluntario of an event works its door from their account, signed
+in on the phone. Give them the role on the event's **Equipo** tab; see
+[Team](add-an-event.md#team). **Tus roles** on their account page then links
+**Abrir la puerta**. Opening `/puerta/<slug>` signed out asks them to sign in
+first. The door closes for them when the event ends, and **Quitar** closes it at
+once.
 
 ## The door page
 

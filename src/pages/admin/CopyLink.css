@@ -1,0 +1,11 @@
+.copy-link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.copy-link code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

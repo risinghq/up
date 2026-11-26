@@ -11,8 +11,6 @@ export type DoorView = {
   checkedIn: number;
   /** False once the event ended: nobody else comes in. */
   open: boolean;
-  /** A voluntario's phone, which can leave the door; an admin's cannot. */
-  volunteer: boolean;
   form: FormState;
   arrival: Arrival | null;
 };
@@ -99,13 +97,6 @@ export function DoorPage(view: DoorView) {
             <p class="ticket-note">
               El evento terminó. La puerta está cerrada.
             </p>
-          )}
-          {view.volunteer && (
-            <form method="post" action="/puerta/salir" class="cancel">
-              <button class="link-button" type="submit">
-                Salir de la puerta
-              </button>
-            </form>
           )}
         </div>
       </section>

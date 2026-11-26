@@ -1,4 +1,4 @@
-import { hashToken, newToken } from "./tokens";
+import { newToken } from "./tokens";
 
 export const roles = [
   "organiza",
@@ -13,6 +13,9 @@ export type Role = (typeof roles)[number];
 export const isRole = (value: string): value is Role =>
   (roles as readonly string[]).includes(value);
 
+/** The roles whose holders work the event's door. */
+export const doorRoles: readonly Role[] = ["organiza", "voluntario"];
+
 /** A role for one person, and for the people who hold it at an event. */
 export const roleLabel: Record<Role, { one: string; many: string }> = {
   organiza: { one: "Organiza", many: "Organizan" },
@@ -26,37 +29,16 @@ export const roleLabel: Record<Role, { one: string; many: string }> = {
 export type EventRole = {
   id: number;
   eventSlug: string;
+  personId: string;
   name: string;
-  /** Ties the event to the person's profile; never shown. */
+  /** Shown to admins only. */
   email: string | null;
+  /** The person's public profile id, while it is open. */
+  profileId: string | null;
   role: Role;
-  /** True when the person holds a live door link. */
-  door: boolean;
   /** The id of the role's certificate at /c/<id>. */
   certificateId: string;
 };
-
-export type NewRole = Pick<EventRole, "name" | "email" | "role">;
-
-type Row = {
-  id: number;
-  event_slug: string;
-  name: string;
-  email: string | null;
-  role: Role;
-  door: number;
-  certificate_id: string;
-};
-
-const fromRow = (r: Row): EventRole => ({
-  id: r.id,
-  eventSlug: r.event_slug,
-  name: r.name,
-  email: r.email,
-  role: r.role,
-  door: Boolean(r.door),
-  certificateId: r.certificate_id,
-});
 
 /** The event's people, grouped in the order of `roles`, each group as added. */
 export async function eventRoles(
@@ -65,33 +47,41 @@ export async function eventRoles(
 ): Promise<EventRole[]> {
   const { results } = await db
     .prepare(
-      `SELECT id, event_slug, name, email, role, door_hash IS NOT NULL AS door, certificate_id
-       FROM event_roles
-       WHERE event_slug = ? ORDER BY position`,
+      `SELECT r.id, r.event_slug AS eventSlug, r.person_id AS personId, p.name, p.email,
+              p.profile_id AS profileId, r.role, r.certificate_id AS certificateId
+       FROM event_roles r JOIN people p ON p.id = r.person_id
+       WHERE r.event_slug = ? ORDER BY r.position`,
     )
     .bind(slug)
-    .all<Row>();
+    .all<EventRole>();
 
-  return results
-    .map(fromRow)
-    .sort((a, b) => roles.indexOf(a.role) - roles.indexOf(b.role));
+  return results.sort((a, b) => roles.indexOf(a.role) - roles.indexOf(b.role));
 }
 
-/** Gives a person a role at the event, unless their email already holds it. */
+export type RoleChange = "added" | "exists" | "unknown";
+
+/** Gives the person a role at the event, unless they already hold it. */
 export async function addRole(
   db: D1Database,
   slug: string,
-  role: NewRole,
-): Promise<"added" | "exists"> {
+  personId: string,
+  role: Role,
+): Promise<RoleChange> {
+  const person = await db
+    .prepare("SELECT 1 FROM people WHERE id = ?")
+    .bind(personId)
+    .first();
+  if (!person) return "unknown";
+
   const row = await db
     .prepare(
-      `INSERT INTO event_roles (event_slug, name, email, role, position, certificate_id)
-       SELECT ?1, ?2, ?3, ?4, COALESCE(MAX(position), -1) + 1, ?5
+      `INSERT INTO event_roles (event_slug, person_id, role, position, certificate_id)
+       SELECT ?1, ?2, ?3, COALESCE(MAX(position), -1) + 1, ?4
        FROM event_roles WHERE event_slug = ?1
        ON CONFLICT DO NOTHING
        RETURNING id`,
     )
-    .bind(slug, role.name, role.email, role.role, newToken())
+    .bind(slug, personId, role, newToken())
     .first();
 
   return row ? "added" : "exists";
@@ -108,54 +98,74 @@ export async function removeRole(
     .run();
 }
 
-/**
- * Gives a voluntario a new door link and returns its token, or null when
- * the id is not a voluntario of the event. The previous link stops working.
- */
-export async function openDoor(
+/** Whether the person organizes or volunteers at the event. */
+export async function holdsDoor(
   db: D1Database,
   slug: string,
-  id: number,
-): Promise<string | null> {
-  const token = newToken();
+  personId: string,
+): Promise<boolean> {
   const row = await db
     .prepare(
-      `UPDATE event_roles SET door_hash = ?
-       WHERE event_slug = ? AND id = ? AND role = 'voluntario'
-       RETURNING id`,
+      `SELECT 1 FROM event_roles
+       WHERE event_slug = ? AND person_id = ?
+         AND role IN (SELECT value FROM json_each(?))`,
     )
-    .bind(await hashToken(token), slug, id)
+    .bind(slug, personId, JSON.stringify(doorRoles))
     .first();
-
-  return row ? token : null;
+  return Boolean(row);
 }
 
-/** The slug of the event a door token opens, while its role exists. */
-export async function doorEvent(
-  db: D1Database,
-  token: string,
-): Promise<string | null> {
-  const row = await db
-    .prepare("SELECT event_slug FROM event_roles WHERE door_hash = ?")
-    .bind(await hashToken(token))
-    .first<{ event_slug: string }>();
-
-  return row?.event_slug ?? null;
-}
-
-/** Every role this email holds at a published event. */
+/** Every role the person holds at a published event. */
 export async function rolesOf(
   db: D1Database,
-  email: string,
+  personId: string,
 ): Promise<{ slug: string; role: Role }[]> {
   const { results } = await db
     .prepare(
       `SELECT r.event_slug AS slug, r.role FROM event_roles r
        JOIN events e ON e.slug = r.event_slug
-       WHERE e.status = 'published' AND r.email = ?`,
+       WHERE e.status = 'published' AND r.person_id = ?`,
     )
-    .bind(email)
+    .bind(personId)
     .all<{ slug: string; role: Role }>();
 
   return results;
+}
+
+/** A role on the person's account page. */
+export type AccountRole = {
+  slug: string;
+  title: string;
+  start: string;
+  role: Role;
+  certificateId: string;
+  past: boolean;
+};
+
+/** The person's roles at published events, upcoming first, then the latest past. */
+export async function accountRoles(
+  db: D1Database,
+  personId: string,
+  now: Date,
+): Promise<AccountRole[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT e.slug, e.title, e.start_at AS start, e.end_at AS end, r.role,
+              r.certificate_id AS certificateId
+       FROM event_roles r JOIN events e ON e.slug = r.event_slug
+       WHERE r.person_id = ? AND e.status = 'published'`,
+    )
+    .bind(personId)
+    .all<Omit<AccountRole, "past"> & { end: string }>();
+
+  const held = results.map(({ end, ...r }) => ({
+    ...r,
+    past: new Date(end) <= now,
+  }));
+  const time = (r: AccountRole) => new Date(r.start).getTime();
+
+  return [
+    ...held.filter((r) => !r.past).sort((a, b) => time(a) - time(b)),
+    ...held.filter((r) => r.past).sort((a, b) => time(b) - time(a)),
+  ];
 }

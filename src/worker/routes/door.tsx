@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { deleteCookie, setCookie } from "hono/cookie";
 import { csrf } from "hono/csrf";
 import { DoorPage, type Arrival } from "../../pages/Door";
 import { eventUrl, findEvent, hasEnded, type EventMeta } from "../events";
@@ -13,7 +12,7 @@ import {
   undoCheckIn,
   walkIn,
 } from "../registrations";
-import { doorEvent } from "../roles";
+import { holdsDoor } from "../roles";
 import {
   after,
   notFound,
@@ -23,23 +22,22 @@ import {
   type Ctx,
   type Deps,
 } from "../web";
-
-export const DOOR_COOKIE = "up_door";
-const DOOR_DAYS = 7;
+import { retry } from "./accountPages";
 
 /**
- * Whether the request may work the event's door: an admin always, a
- * voluntario with the event's door link until the event ends.
+ * Whether the request may work the event's door: an admin always, an
+ * account that organizes or volunteers at the event until it ends.
  */
-export const worksDoor = (c: Ctx, event: EventMeta, now: Date) =>
-  Boolean(c.get("admin")) ||
-  (c.get("door") === event.slug && !hasEnded(event, now));
+export async function worksDoor(c: Ctx, event: EventMeta, now: Date) {
+  if (c.get("admin")) return true;
 
-/** The slug a door cookie opens, or null. */
-export const doorCookieEvent = (db: D1Database, token: string | undefined) =>
-  token ? doorEvent(db, token) : Promise.resolve(null);
+  const account = c.get("account");
+  if (!account || hasEnded(event, now)) return false;
 
-/** The door of an event, at /puerta, for its voluntarios and the admins. */
+  return holdsDoor(c.env.DB, event.slug, account.id);
+}
+
+/** The door of an event, at /puerta, for its organizers, voluntarios and the admins. */
 export function doorRoutes({ now, fetch: fetcher }: Deps) {
   const door = new Hono<AppEnv>();
   const iso = () => now().toISOString();
@@ -70,7 +68,6 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
         going={await goingCount(c.env.DB, event.slug)}
         checkedIn={await checkedInCount(c.env.DB, event.slug)}
         open={!hasEnded(event, now())}
-        volunteer={!c.get("admin")}
         form={form}
         arrival={arrival}
       />,
@@ -78,35 +75,21 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
     );
   };
 
-  /** Loads the event in the path, or answers 404 to a request that may not work its door. */
+  /**
+   * Loads the event in the path for a request that may work its door. A
+   * signed-out visitor opening the door is sent to sign in and back; any
+   * other refused request gets 404.
+   */
   const withDoor =
     (handler: (c: Ctx, event: EventMeta) => Promise<Response>) =>
     async (c: Ctx) => {
       const event = await findEvent(c.env.DB, c.req.param("slug") ?? "");
-      return event && worksDoor(c, event, now())
-        ? handler(c, event)
-        : notFound(c);
+      if (event && (await worksDoor(c, event, now()))) return handler(c, event);
+
+      if (event && !c.get("account") && c.req.method === "GET")
+        return c.redirect(retry(`/puerta/${event.slug}`), 303);
+      return notFound(c);
     };
-
-  door.get("/abrir/:token", async (c) => {
-    const token = c.req.param("token");
-    const slug = await doorEvent(c.env.DB, token);
-    if (!slug) return notFound(c);
-
-    setCookie(c, DOOR_COOKIE, token, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "Lax",
-      secure: c.env.SITE_URL.startsWith("https:"),
-      maxAge: DOOR_DAYS * 24 * 60 * 60,
-    });
-    return c.redirect(`/puerta/${slug}`, 303);
-  });
-
-  door.post("/salir", (c) => {
-    deleteCookie(c, DOOR_COOKIE, { path: "/" });
-    return c.redirect("/", 303);
-  });
 
   door.get(
     "/:slug",

@@ -1,46 +1,31 @@
 import { Hono } from "hono";
-import { Team, type DoorLink } from "../../../pages/admin/Team";
+import { Team, type TeamSearch } from "../../../pages/admin/Team";
+import { searchAccounts } from "../../accounts";
 import { issuesCertificates } from "../../certificates";
 import type { EventMeta } from "../../events";
-import { emailPattern, type FormState } from "../../form";
 import {
   addRole,
   eventRoles,
   isRole,
-  openDoor,
   removeRole,
-  type NewRole,
+  type Role,
 } from "../../roles";
 import { site, type AppEnv, type Ctx, type Deps } from "../../web";
 import { adminPage, withEvent } from "./page";
 
-type ParsedRole = ({ ok: true; value: NewRole } | { ok: false }) & FormState;
+/** A query shorter than this lists nobody. */
+const minQuery = 2;
 
-export function parseRoleForm(form: FormData): ParsedRole {
-  const text = (key: string) => String(form.get(key) ?? "").trim();
-  const name = text("name");
-  const email = text("email").toLowerCase();
-  const role = text("role");
-  const values = { name, email, role };
-  const errors: Record<string, string> = {};
+/** Reads `?q=` and `?rol=` into the search the page shows. */
+async function teamSearch(c: Ctx): Promise<TeamSearch> {
+  const query = (c.req.query("q") ?? "").trim().slice(0, 120);
+  const rol = c.req.query("rol") ?? "";
+  const role: Role = isRole(rol) ? rol : "organiza";
+  const results =
+    query.length >= minQuery ? await searchAccounts(c.env.DB, query) : null;
 
-  if (name.length < 2) errors.name = "Escribe el nombre.";
-  else if (name.length > 120) errors.name = "El nombre es demasiado largo.";
-  if (email && (!emailPattern.test(email) || email.length > 254))
-    errors.email = "Escribe un correo válido o déjalo vacío.";
-  if (!isRole(role)) errors.role = "Elige un rol.";
-
-  if (Object.keys(errors).length || !isRole(role))
-    return { ok: false, values, errors };
-  return {
-    ok: true,
-    value: { name, email: email || null, role },
-    values,
-    errors,
-  };
+  return { query, role, results };
 }
-
-const blankForm: FormState = { values: { role: "organiza" }, errors: {} };
 
 /** The Equipo tab: who holds a role at one event. Mounted under /admin/eventos/:slug/equipo. */
 export function teamRoutes({ now }: Deps) {
@@ -49,9 +34,8 @@ export function teamRoutes({ now }: Deps) {
   const teamPage = async (
     c: Ctx,
     event: EventMeta,
-    form = blankForm,
-    status?: number,
-    doorLink?: DoorLink,
+    search: TeamSearch,
+    error?: string,
   ) =>
     adminPage(
       c,
@@ -59,11 +43,12 @@ export function teamRoutes({ now }: Deps) {
       <Team
         event={event}
         team={await eventRoles(c.env.DB, event.slug)}
-        form={form}
-        doorLink={doorLink}
+        search={search}
+        error={error}
+        signInUrl={`${site(c)}/entrar`}
         certificates={issuesCertificates(event, now())}
       />,
-      { status },
+      { status: error ? 422 : 200 },
     );
 
   const back = (c: Ctx, event: EventMeta) =>
@@ -71,39 +56,27 @@ export function teamRoutes({ now }: Deps) {
 
   team.get(
     "/",
-    withEvent((c, event) => teamPage(c, event)),
+    withEvent(async (c, event) => teamPage(c, event, await teamSearch(c))),
   );
 
   team.post(
     "/",
     withEvent(async (c, event) => {
-      const parsed = parseRoleForm(await c.req.formData());
-      if (!parsed.ok) return teamPage(c, event, parsed, 422);
+      const form = await c.req.formData();
+      const person = String(form.get("person") ?? "");
+      const role = String(form.get("role") ?? "");
+      if (!isRole(role)) return back(c, event);
 
-      if ((await addRole(c.env.DB, event.slug, parsed.value)) === "exists") {
-        const errors = { email: "Esa persona ya tiene ese rol." };
-        return teamPage(c, event, { values: parsed.values, errors }, 422);
-      }
+      const added = await addRole(c.env.DB, event.slug, person, role);
+      if (added === "exists")
+        return teamPage(
+          c,
+          event,
+          { query: "", role, results: null },
+          "Esa persona ya tiene ese rol.",
+        );
 
       return back(c, event);
-    }),
-  );
-
-  // The link is shown on this response only; the table keeps its hash.
-  team.post(
-    "/:id/puerta",
-    withEvent(async (c, event) => {
-      const id = Number(c.req.param("id"));
-      const person = (await eventRoles(c.env.DB, event.slug)).find(
-        (p) => p.id === id,
-      );
-      const token = person && (await openDoor(c.env.DB, event.slug, id));
-      if (!person || !token) return back(c, event);
-
-      return teamPage(c, event, undefined, undefined, {
-        name: person.name,
-        url: `${site(c)}/puerta/abrir/${token}`,
-      });
     }),
   );
 

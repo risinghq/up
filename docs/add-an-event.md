@@ -72,12 +72,13 @@ checks a registrant in; [Check in at the door](check-in.md) covers the door.
 
 ## Team
 
-The **Equipo** tab opens `/admin/eventos/<slug>/equipo`. **Agregar** gives a
-person a role: Organiza, Ponente, Mentor, Jurado or Voluntario. The email is
-optional; with it, the event appears on that person's profile. See
-[Roles](profile.md#roles). **Quitar** removes a role. One person can hold
-several roles at one event, each once. A voluntario gets **Enlace de puerta**,
-which opens the event's door on their phone; see
+The **Equipo** tab opens `/admin/eventos/<slug>/equipo`. A role goes to an
+account. Pick the role (Organiza, Ponente, Mentor, Jurado or Voluntario), search
+the person by the name or email of their account, and press **Agregar como …**
+next to them. For a person without an account, the tab shows the sign-in link to
+send them; search again once they have signed in. See [Roles](profile.md#roles).
+**Quitar** removes a role. One person can hold several roles at one event, each
+once. An organiza or voluntario opens the event's door from their account; see
 [Who works the door](check-in.md#who-works-the-door). Once the event is over,
 each person gets a **Certificado** link instead; see
 [Certificates](certificates.md#roles).

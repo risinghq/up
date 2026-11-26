@@ -4,7 +4,7 @@ import { sessionAccount } from "./auth";
 import { accountRoutes } from "./routes/account";
 import { adminRoutes } from "./routes/admin";
 import { certificateRoutes } from "./routes/certificate";
-import { DOOR_COOKIE, doorCookieEvent, doorRoutes } from "./routes/door";
+import { doorRoutes } from "./routes/door";
 import { eventRoutes } from "./routes/event";
 import { profileRoutes } from "./routes/profile";
 import { shareRoutes } from "./routes/share";
@@ -33,7 +33,6 @@ export function createApp(options: AppOptions = {}) {
       : null;
     c.set("account", account);
     c.set("admin", account?.admin ? account : null);
-    c.set("door", await doorCookieEvent(c.env.DB, getCookie(c, DOOR_COOKIE)));
 
     await next();
 

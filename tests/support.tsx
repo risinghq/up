@@ -148,17 +148,15 @@ export async function seed(DB: D1Database, events: EventMeta[]) {
   for (const e of events) await saveEvent(DB, e, "2026-11-01T00:00:00.000Z");
 }
 
-/**
- * Creates an account and returns its id and the Cookie header of a session
- * opened at `now`, which must fall within 30 days before the test's clock.
- */
-export async function signedIn(
+type NewPerson = { name?: string; email?: string; admin?: boolean };
+
+/** Stores a person, as signing in or registering would, and returns its id. */
+export async function newPerson(
   DB: D1Database,
-  now: Date,
-  person: { name?: string; email?: string; admin?: boolean } = {},
+  person: NewPerson = {},
+  at = "2026-11-01T00:00:00.000Z",
 ) {
   const id = crypto.randomUUID();
-  const at = now.toISOString();
   await DB.prepare(
     "INSERT INTO people (id, email, name, admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
   )
@@ -171,6 +169,20 @@ export async function signedIn(
       at,
     )
     .run();
+  return id;
+}
+
+/**
+ * Creates an account and returns its id and the Cookie header of a session
+ * opened at `now`, which must fall within 30 days before the test's clock.
+ */
+export async function signedIn(
+  DB: D1Database,
+  now: Date,
+  person: NewPerson = {},
+) {
+  const at = now.toISOString();
+  const id = await newPerson(DB, person, at);
   const token = await createSession(DB, id, at);
   return { id, cookie: `up_session=${token}` };
 }

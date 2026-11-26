@@ -28,20 +28,14 @@ export type EventView = {
 };
 
 /** The event's people in role groups, each name linked to its profile. */
-function teamGroups(
-  team: EventRole[],
-  profiles: Map<string, string>,
-): TeamGroup[] {
+function teamGroups(team: EventRole[]): TeamGroup[] {
   return roles.flatMap((role) => {
     const people = team
       .filter((person) => person.role === role)
-      .map((person) => {
-        const profileId = person.email && profiles.get(person.email);
-        return {
-          name: person.name,
-          ...(profileId && { url: `/p/${profileId}` }),
-        };
-      });
+      .map((person) => ({
+        name: person.name,
+        ...(person.profileId && { url: `/p/${person.profileId}` }),
+      }));
     return people.length ? [{ role, label: roleLabel[role].many, people }] : [];
   });
 }
@@ -53,8 +47,6 @@ export function eventView(
     event: EventMeta;
     going: number;
     team: EventRole[];
-    /** Profile ids of the people who have one, by email. */
-    profiles: Map<string, string>;
     form: FormState;
     notice: Notice;
     admin: boolean;
@@ -64,7 +56,7 @@ export function eventView(
   const { event } = input;
   return {
     event,
-    team: teamGroups(input.team, input.profiles),
+    team: teamGroups(input.team),
     going: input.going,
     ended: hasEnded(event, context.now),
     form: input.form,
