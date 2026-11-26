@@ -129,7 +129,7 @@ export function VenueCard({ event }: { event: EventMeta }) {
       </h2>
       <p class="place">{place.name}</p>
       <p class="street">{place.address}</p>
-      {place.point ? (
+      {place.point && (
         <div
           class="venue-map"
           data-lat={place.point.lat}
@@ -142,14 +142,6 @@ export function VenueCard({ event }: { event: EventMeta }) {
             aria-label="Ver en el mapa"
           />
         </div>
-      ) : (
-        place.mapUrl && (
-          <p class="place-map">
-            <a href={place.mapUrl} rel="noopener">
-              Ver en el mapa
-            </a>
-          </p>
-        )
       )}
     </section>
   );
