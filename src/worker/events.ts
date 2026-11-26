@@ -99,6 +99,9 @@ export const hasEnded = (event: EventMeta, now: Date) =>
 export const coverUrl = (event: EventMeta) =>
   event.coverKey ? `/media/${event.coverKey}` : undefined;
 
+export const eventUrl = (origin: string, event: EventMeta) =>
+  `${origin}/${event.slug}`;
+
 type Row = {
   slug: string;
   title: string;

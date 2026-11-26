@@ -1,6 +1,6 @@
 import { listEvents } from "./events";
-import type { Fetch } from "./google";
 import { notifyTickets } from "./notify";
+import type { Fetch } from "./web";
 import { markReminded, unreminded } from "./registrations";
 import type { Env } from "./web";
 

@@ -1,6 +1,6 @@
 import type { EventMeta } from "./events";
-import type { Fetch } from "./google";
 import { details, type MailKind } from "./mail";
+import type { Fetch } from "./web";
 import type { Ticket } from "./registrations";
 
 const GRAPH = "https://graph.facebook.com/v25.0";

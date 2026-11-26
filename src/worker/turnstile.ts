@@ -1,4 +1,4 @@
-import type { Fetch } from "./google";
+import type { Fetch } from "./web";
 
 const VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 

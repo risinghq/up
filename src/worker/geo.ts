@@ -1,4 +1,4 @@
-import type { Fetch } from "./google";
+import type { Fetch } from "./web";
 
 /** A spot on the map, in degrees. */
 export type Point = { lat: number; lng: number };

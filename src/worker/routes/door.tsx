@@ -1,22 +1,28 @@
 import { Hono } from "hono";
 import { deleteCookie, setCookie } from "hono/cookie";
 import { csrf } from "hono/csrf";
-import { DoorPage, type Arrival } from "../pages/Door";
-import { findEvent, hasEnded, type EventMeta } from "./events";
-import { emptyForm, parseRegistration, type FormState } from "./form";
-import type { Fetch } from "./google";
-import { notifyTickets } from "./notify";
-import { checkedInCount } from "./registrants";
+import { DoorPage, type Arrival } from "../../pages/Door";
+import { eventUrl, findEvent, hasEnded, type EventMeta } from "../events";
+import { emptyForm, parseRegistration, type FormState } from "../form";
+import { notifyTickets } from "../notify";
+import { checkedInCount } from "../registrants";
 import {
   checkIn,
   findTicket,
   goingCount,
   undoCheckIn,
   walkIn,
-} from "./registrations";
-import { doorEvent } from "./roles";
-import { eventUrl } from "./views";
-import { after, notFound, page, site, type AppEnv, type Ctx } from "./web";
+} from "../registrations";
+import { doorEvent } from "../roles";
+import {
+  after,
+  notFound,
+  page,
+  site,
+  type AppEnv,
+  type Ctx,
+  type Deps,
+} from "../web";
 
 export const DOOR_COOKIE = "up_door";
 const DOOR_DAYS = 7;
@@ -34,7 +40,7 @@ export const doorCookieEvent = (db: D1Database, token: string | undefined) =>
   token ? doorEvent(db, token) : Promise.resolve(null);
 
 /** The door of an event, at /puerta, for its voluntarios and the admins. */
-export function doorRoutes(now: () => Date, fetcher: Fetch) {
+export function doorRoutes({ now, fetch: fetcher }: Deps) {
   const door = new Hono<AppEnv>();
   const iso = () => now().toISOString();
 

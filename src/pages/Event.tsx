@@ -2,32 +2,9 @@ import { micromark } from "micromark";
 import type { ComponentChildren } from "preact";
 import { kindTag, type EventMeta, type Question } from "../worker/events";
 import type { FormState } from "../worker/form";
-import type { Role } from "../worker/roles";
+import type { EventView, PersonLink, TeamGroup } from "./Event.view";
 import { ArrowIcon, Cover, DateRow, PlaceRow, VenueCard } from "./EventCard";
 import { Check, Field, HumanCheck } from "./FormFields";
-
-/** Why the register card shows what it shows. */
-export type Notice = "exists" | null;
-
-/** A person as the page shows them: the name, linked to a public profile. */
-export type PersonLink = { name: string; url?: string };
-
-/** The people who hold one role at the event, e.g. "Ponentes". */
-export type TeamGroup = { role: Role; label: string; people: PersonLink[] };
-
-export type EventView = {
-  event: EventMeta;
-  team: TeamGroup[];
-  going: number;
-  ended: boolean;
-  form: FormState;
-  notice: Notice;
-  calendarUrl: string;
-  /** A signed-in admin sees links to edit the event. */
-  admin: boolean;
-  /** The Turnstile site key; with it, the form carries the widget. */
-  turnstileKey: string | null;
-};
 
 function QuestionField({
   q,

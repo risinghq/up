@@ -5,6 +5,7 @@ import type { AdminShell } from "../pages/admin/Shell";
 import { Layout, type Community, type Head } from "../pages/Layout";
 import { NotFound } from "../pages/NotFound";
 import type { Account } from "./accounts";
+import type { CardAssets } from "./card";
 import type { WhatsAppEnv } from "./whatsapp";
 
 export type Env = {
@@ -39,6 +40,29 @@ export type AppEnv = {
 };
 
 export type Ctx = Context<AppEnv>;
+
+/** The slice of `fetch` the worker uses, so a test can stand in for Google, Turnstile and WhatsApp. */
+export type Fetch = (url: string, init: RequestInit) => Promise<Response>;
+
+/** What every route module takes from the app. */
+export type Deps = {
+  now: () => Date;
+  fetch: Fetch;
+  /** Draws the share card; without it the card's URL answers 404. */
+  card?: CardAssets;
+};
+
+/** What every view builder knows about the request. */
+export type ViewContext = {
+  /** The site's origin, without a trailing slash. */
+  origin: string;
+  now: Date;
+};
+
+export const viewContext = (c: Ctx, now: Date): ViewContext => ({
+  origin: site(c),
+  now,
+});
 
 export const description =
   "Eventos de rising.sh en Lima: mini hackathons, talleres y charlas. Inscríbete y únete a la comunidad.";

@@ -1,6 +1,6 @@
 import { kindLabel } from "../worker/events";
-import type { CertificateView } from "../worker/views";
 import { Lockup, Mark } from "./Brand";
+import type { CertificateView } from "./Certificate.view";
 
 /**
  * A certificate, laid out as one landscape A4 sheet: a band in the event's
