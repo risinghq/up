@@ -289,21 +289,32 @@ export type AccountTicket = {
   title: string;
   start: string;
   status: "going" | "waitlist";
+  past: boolean;
 };
 
-/** The person's live tickets, newest event first. */
+/** The person's live tickets: the next event first, then the ended ones, latest first. */
 export async function ticketsOf(
   db: D1Database,
   personId: string,
+  now: Date,
 ): Promise<AccountTicket[]> {
   const { results } = await db
     .prepare(
-      `SELECT r.id AS token, e.slug, e.title, e.start_at AS start, r.status
+      `SELECT r.id AS token, e.slug, e.title, e.start_at AS start, e.end_at AS end, r.status
        FROM registrations r JOIN events e ON e.slug = r.event_slug
-       WHERE r.person_id = ? AND r.status != 'cancelled'
-       ORDER BY e.start_at DESC`,
+       WHERE r.person_id = ? AND r.status != 'cancelled'`,
     )
     .bind(personId)
-    .all<AccountTicket>();
-  return results;
+    .all<Omit<AccountTicket, "past"> & { end: string }>();
+
+  const tickets = results.map(({ end, ...t }) => ({
+    ...t,
+    past: new Date(end) <= now,
+  }));
+  const time = (t: AccountTicket) => new Date(t.start).getTime();
+
+  return [
+    ...tickets.filter((t) => !t.past).sort((a, b) => time(a) - time(b)),
+    ...tickets.filter((t) => t.past).sort((a, b) => time(b) - time(a)),
+  ];
 }

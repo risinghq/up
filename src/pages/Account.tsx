@@ -267,7 +267,9 @@ function Tickets({ tickets }: { tickets: AccountTicket[] }) {
             <span class="account-item-title">{t.title}</span>
             <span class="account-item-meta">
               <time dateTime={t.start}>{shortDate(t.start)}</time>
-              {t.status === "waitlist" && " · En lista de espera"}
+              {t.past
+                ? " · Terminó"
+                : t.status === "waitlist" && " · En lista de espera"}
             </span>
           </a>
         </li>

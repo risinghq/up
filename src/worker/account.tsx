@@ -395,7 +395,7 @@ export function accountRoutes(now: () => Date, fetcher: Fetch) {
           }
         }
         emailForm={forms.emailForm ?? emptyForm}
-        tickets={await ticketsOf(c.env.DB, account.id)}
+        tickets={await ticketsOf(c.env.DB, account.id, now())}
         profileId={await profileIdOf(c.env.DB, account.id)}
         passkeys={await listPasskeys(c.env.DB, account.id)}
         notice={notice}

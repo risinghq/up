@@ -371,4 +371,42 @@ describe("the account", () => {
     );
     expect((await personByEmail("fija@example.com"))?.name).toBe("Fija");
   });
+
+  test("tickets list the next event first and mark the ended ones", async () => {
+    await seed(DB, [
+      event({
+        slug: "pasado",
+        title: "Pasado",
+        start: "2026-11-20T15:00:00-05:00",
+        end: "2026-11-20T19:00:00-05:00",
+      }),
+      event({
+        slug: "lejano",
+        title: "Lejano",
+        start: "2027-01-10T15:00:00-05:00",
+        end: "2027-01-10T19:00:00-05:00",
+      }),
+      event({ slug: "cercano", title: "Cercano" }),
+    ]);
+    const { id, cookie } = await signedIn(DB, clock, { name: "Lista" });
+    for (const [i, slug] of ["pasado", "lejano", "cercano"].entries())
+      await DB.prepare(
+        `INSERT INTO registrations (id, event_slug, person_id, number, status, answers, created_at)
+         VALUES (?, ?, ?, 1, 'going', '{}', ?)`,
+      )
+        .bind(`lista-${i}`, slug, id, clock.toISOString())
+        .run();
+
+    const { screen } = await page(await get("/cuenta", cookie));
+    const list = screen.getByRole("region", { name: "Tus entradas" });
+    const items = [...list.querySelectorAll("li")].map((li) => li.textContent);
+
+    expect(items.map((text) => text?.split(/\d/)[0])).toEqual([
+      "Cercano",
+      "Lejano",
+      "Pasado",
+    ]);
+    expect(items[2]).toContain("Terminó");
+    expect(items[0]).not.toContain("Terminó");
+  });
 });
