@@ -8,6 +8,7 @@ import {
 } from "bun:test";
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
+import type { Db } from "../src/worker/db";
 import type { Fetch } from "../src/worker/web";
 import { checkIn } from "../src/worker/registrations";
 import { sendReminders } from "../src/worker/reminders";
@@ -62,24 +63,25 @@ const app = createApp({ now: () => now, card: cardAssets() });
 
 let mf: Miniflare;
 let DB: D1Database;
+let db: Db;
 let env: Env;
 const mail = outbox();
 
 beforeAll(async () => {
   let MEDIA: R2Bucket;
-  ({ mf, DB, MEDIA } = await migratedDb("app"));
+  ({ mf, DB, db, MEDIA } = await migratedDb("app"));
   env = testEnv(DB, MEDIA, { EMAIL: mail.binding });
-  await seed(DB, events);
-  const ana = await newPerson(DB, {
+  await seed(db, events);
+  const ana = await newPerson(db, {
     name: "Ana Quispe",
     email: "ana@example.com",
   });
-  await addRole(DB, "organizado", ana, "organiza");
+  await addRole(db, "organizado", ana, "organizer");
   await addRole(
-    DB,
+    db,
     "organizado",
-    await newPerson(DB, { name: "Pedro" }),
-    "ponente",
+    await newPerson(db, { name: "Pedro" }),
+    "speaker",
   );
 });
 
@@ -174,7 +176,7 @@ describe("home", () => {
   test("a draft is served only to a signed-in admin", async () => {
     expect((await get("/borrador")).status).toBe(404);
 
-    const cookie = await adminCookie(DB, now);
+    const cookie = await adminCookie(db, now);
     const draft = await open("/borrador", { cookie });
     expect(draft.status).toBe(200);
     expect(draft.headers.get("cache-control")).toBe("no-store");
@@ -332,7 +334,7 @@ describe("registration", () => {
   });
 
   test("a title with markup reaches the email as text", async () => {
-    await seed(DB, [event({ slug: "marcado", title: "<b>Taller</b> & más" })]);
+    await seed(db, [event({ slug: "marcado", title: "<b>Taller</b> & más" })]);
     await registerAs("marcado", { email: "marcado@example.com" });
     const message = mail.sent.find((m) => m.to === "marcado@example.com");
     const email = parse(message?.html ?? "");
@@ -491,7 +493,7 @@ describe("profile", () => {
     expect(
       button(await open(`/entrada/${went}`), "Crear mi perfil"),
     ).toBeNull();
-    await checkIn(DB, went, now.toISOString());
+    await checkIn(db, went, now.toISOString());
     expect(
       button(await open(`/entrada/${went}`), "Crear mi perfil"),
     ).not.toBeNull();
@@ -515,7 +517,7 @@ describe("profile", () => {
 
   test("hiding the profile kills its link", async () => {
     const token = await registerAs("charla", { email: "oculta@example.com" });
-    await checkIn(DB, token, now.toISOString());
+    await checkIn(db, token, now.toISOString());
     const path = await openProfile(token);
 
     const res = await post(`/entrada/${token}/perfil/ocultar`, new FormData());
@@ -582,7 +584,7 @@ describe("ticket page", () => {
     ).toBeTruthy();
     expect(cards(before)).toContain("Lugar");
 
-    await checkIn(DB, token, now.toISOString());
+    await checkIn(db, token, now.toISOString());
     const after = await open(`/entrada/${token}`);
     expect(
       after.screen.queryByRole("link", { name: "Agregar a Google Calendar" }),
@@ -611,7 +613,7 @@ describe("certificate", () => {
       email: "certificada@example.com",
       name: "Rosa Mamani",
     });
-    await checkIn(DB, token, now.toISOString());
+    await checkIn(db, token, now.toISOString());
     expect(
       (await open(`/entrada/${token}`)).screen.queryByRole("link", {
         name: "Ver mi certificado",
@@ -644,7 +646,7 @@ describe("certificate", () => {
   });
 
   test("a role's certificate names the role; a draft or unknown id has none", async () => {
-    const [ana] = await eventRoles(DB, "organizado");
+    const [ana] = await eventRoles(db, "organizado");
     const p = await openLater(`/c/${ana?.certificateId}`);
     expect(p.screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Ana Quispe",
@@ -652,12 +654,12 @@ describe("certificate", () => {
     expect(p.text(".certificate-verb")).toBe("organizó");
 
     await addRole(
-      DB,
+      db,
       "borrador",
-      await newPerson(DB, { name: "Luz" }),
-      "ponente",
+      await newPerson(db, { name: "Luz" }),
+      "speaker",
     );
-    const [luz] = await eventRoles(DB, "borrador");
+    const [luz] = await eventRoles(db, "borrador");
     expect((await openLater(`/c/${luz?.certificateId}`)).status).toBe(404);
     expect((await openLater("/c/nope")).status).toBe(404);
   });
@@ -689,7 +691,12 @@ describe("reminders", () => {
   test("a day before, each seated ticket gets one reminder", async () => {
     // Every event in this file starts 2026-12-12 at 15:00 Lima.
     expect(
-      await sendReminders(env, noFetch, new Date("2026-12-11T14:00:00-05:00")),
+      await sendReminders(
+        db,
+        env,
+        noFetch,
+        new Date("2026-12-11T14:00:00-05:00"),
+      ),
     ).toBe(0);
 
     // A ticket taken inside the last day already got its confirmation.
@@ -703,6 +710,7 @@ describe("reminders", () => {
     );
 
     const sent = await sendReminders(
+      db,
       env,
       noFetch,
       new Date("2026-12-11T16:00:00-05:00"),
@@ -723,7 +731,12 @@ describe("reminders", () => {
     );
 
     expect(
-      await sendReminders(env, noFetch, new Date("2026-12-11T17:00:00-05:00")),
+      await sendReminders(
+        db,
+        env,
+        noFetch,
+        new Date("2026-12-11T17:00:00-05:00"),
+      ),
     ).toBe(0);
   });
 });
@@ -920,7 +933,7 @@ describe("whatsapp", () => {
   });
 
   test("the settings say which mode runs", async () => {
-    const cookie = await adminCookie(DB, now);
+    const cookie = await adminCookie(db, now);
     const mode = async (vars: Partial<Env>) => {
       const res = await app.request(
         "/admin/ajustes",

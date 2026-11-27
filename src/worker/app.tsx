@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { sessionAccount } from "./auth";
+import { Db } from "./db";
 import { accountRoutes } from "./routes/account";
 import { adminRoutes } from "./routes/admin";
 import { certificateRoutes } from "./routes/certificate";
@@ -27,9 +28,12 @@ export function createApp(options: AppOptions = {}) {
   const app = new Hono<AppEnv>();
 
   app.use(async (c, next) => {
+    const db = new Db(c.env.DB);
+    c.set("db", db);
+
     const token = getCookie(c, SESSION_COOKIE);
     const account = token
-      ? await sessionAccount(c.env.DB, token, deps.now().toISOString())
+      ? await sessionAccount(db, token, deps.now().toISOString())
       : null;
     c.set("account", account);
     c.set("admin", account?.admin ? account : null);

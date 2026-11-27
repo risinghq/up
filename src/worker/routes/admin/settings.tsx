@@ -39,7 +39,7 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
   ) => {
     const google: GooglePanel | undefined = credentials(c.env)
       ? {
-          account: (await findAccount(c.env.DB))?.email,
+          account: (await findAccount(c.var.db))?.email,
           notice: pick(googleNotices, c.req.query("google")),
         }
       : undefined;
@@ -49,7 +49,7 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
       "Ajustes",
       <Settings
         admins={{
-          admins: await listAdmins(c.env.DB),
+          admins: await listAdmins(c.var.db),
           selfId: signedIn(c).id,
           notice: pick(adminsNotices, c.req.query("admins")),
           ...form,
@@ -90,7 +90,7 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
 
     try {
       const granted = await exchangeCode(fetcher, creds, code, googleReturn(c));
-      await saveAccount(c.env.DB, {
+      await saveAccount(c.var.db, {
         ...granted,
         connectedBy: signedIn(c).id,
         connectedAt: iso(),
@@ -103,10 +103,10 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
   });
 
   routes.post("/google/desconectar", async (c) => {
-    const account = await findAccount(c.env.DB);
+    const account = await findAccount(c.var.db);
     if (account) {
       await revoke(fetcher, account.refreshToken).catch(console.error);
-      await deleteAccount(c.env.DB);
+      await deleteAccount(c.var.db);
     }
     return c.redirect("/admin/ajustes?google=desconectado", 303);
   });
@@ -116,7 +116,7 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
       .trim()
       .toLowerCase();
     const change = emailPattern.test(email)
-      ? await grantAdmin(c.env.DB, email, iso())
+      ? await grantAdmin(c.var.db, email, iso())
       : null;
 
     if (change === "done")
@@ -129,7 +129,7 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
   });
 
   routes.post("/admins/:id/quitar", async (c) => {
-    await revokeAdmin(c.env.DB, signedIn(c), c.req.param("id"), iso());
+    await revokeAdmin(c.var.db, signedIn(c), c.req.param("id"), iso());
     return c.redirect("/admin/ajustes?admins=quitado#admins-title", 303);
   });
 

@@ -34,11 +34,12 @@ WebAuthn API, and registering needs the Turnstile widget that
    upserts the person by email with `upsertPerson` in
    [`src/worker/people.ts`](../src/worker/people.ts). The name and phone change
    only when the signed-in account holds that email. Then it inserts the
-   registration with a fresh ticket token. One `INSERT ... SELECT` takes the
-   next number and decides `going` or `waitlist` against the seats taken, so two
-   registrations at once cannot both take the last seat. An email that already
-   holds a live ticket is `exists`, and the route answers 409 without the ticket
-   link. `claimResend` lets it email that link to the address once per cooldown.
+   registration with a fresh ticket token. The statement that writes the row
+   takes the next number and decides `going` or `waitlist` against the seats
+   taken, in subqueries, so two registrations at once cannot both take the last
+   seat. An email that already holds a live ticket is `exists`, and the route
+   answers 409 without the ticket link. `claimResend` lets it email that link to
+   the address once per cooldown.
 5. `notifyTickets` in [`src/worker/notify.ts`](../src/worker/notify.ts) emails
    the confirmation through the `EMAIL` binding, then sends the WhatsApp message
    from [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts). `after` in
@@ -66,7 +67,7 @@ The ticket page of a venue event carries a QR code of its own URL, drawn on the
 server by `renderSVG` from `uqr`. A request that may work the event's door gets
 the door panel: `worksDoor` in
 [`src/worker/routes/door.tsx`](../src/worker/routes/door.tsx) admits an admin,
-or, until the event ends, an account that holds an organiza or voluntario role
+or, until the event ends, an account that holds an organizer or volunteer role
 at it, which `holdsDoor` in [`src/worker/roles.ts`](../src/worker/roles.ts)
 checks. The panel posts to `/puerta/<slug>/ingreso/<token>`, and `checkIn` sets
 `checked_in_at` once.
@@ -190,7 +191,11 @@ columns.
 ## Data
 
 D1 holds everything but the covers; [`migrations/`](../migrations/) holds the
-schema.
+schema. `Db` in [`src/worker/db.ts`](../src/worker/db.ts) is a Kysely instance
+typed by that schema, with `batch` for D1's atomic batch. The request middleware
+puts one on `c.var.db` and the cron handler makes its own; every domain function
+takes it first. Stored values are English (`organizer`, `workshop`); the labels
+the pages show are Spanish.
 
 | Table            | Row                                                                                                                                                                     |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -216,6 +221,7 @@ their SHA-256 only.
 | [`src/worker/routes/`](../src/worker/routes/)                   | One route module per URL area: site, event, share, ticket, profile, certificate, door, sign-in, account.                                                |
 | [`src/worker/routes/admin/`](../src/worker/routes/admin/)       | The `/admin` gate and dashboard, settings, editor, one event's pages, its team, and the page frame.                                                     |
 | [`src/worker/web.tsx`](../src/worker/web.tsx)                   | The `Env` and `Deps` types, page rendering and work after the response.                                                                                 |
+| [`src/worker/db.ts`](../src/worker/db.ts)                       | The `Db` query builder and the table types.                                                                                                             |
 | [`src/worker/events.ts`](../src/worker/events.ts)               | The event type and its D1 queries.                                                                                                                      |
 | [`src/worker/google/`](../src/worker/google/)                   | Google OAuth, the Calendar API and the connected account.                                                                                               |
 | [`src/worker/eventForm.ts`](../src/worker/eventForm.ts)         | The editor's form parsing.                                                                                                                              |

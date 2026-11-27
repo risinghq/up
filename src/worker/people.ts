@@ -1,3 +1,5 @@
+import { sql } from "kysely";
+import type { Db } from "./db";
 import type { Registration } from "./form";
 
 export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
@@ -10,62 +12,61 @@ export const firstName = (name: string) => name.trim().split(/\s+/)[0] ?? "";
  * from the signed-in owner of the email and updates both.
  */
 export async function upsertPerson(
-  db: D1Database,
+  db: Db,
   r: Registration,
   now: string,
   proven: boolean,
 ): Promise<string> {
-  // Unticking the news box on a later form does not withdraw an earlier
-  // opt-in; withdrawal is its own request.
   const row = await db
-    .prepare(
-      `INSERT INTO people (id, email, name, phone, privacy_accepted_at, news_opt_in_at, created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?5, ?5)
-       ON CONFLICT (email) DO UPDATE SET
-         name = CASE WHEN ?7 THEN excluded.name ELSE people.name END,
-         phone = CASE WHEN ?7 THEN excluded.phone ELSE COALESCE(people.phone, excluded.phone) END,
-         privacy_accepted_at = excluded.privacy_accepted_at,
-         news_opt_in_at = COALESCE(people.news_opt_in_at, excluded.news_opt_in_at),
-         updated_at = excluded.updated_at
-       RETURNING id`,
+    .insertInto("people")
+    .values({
+      id: crypto.randomUUID(),
+      email: r.email,
+      name: r.name,
+      phone: r.phone,
+      privacy_accepted_at: now,
+      news_opt_in_at: r.newsOptIn ? now : null,
+      created_at: now,
+      updated_at: now,
+    })
+    .onConflict((oc) =>
+      oc.column("email").doUpdateSet({
+        name: proven ? sql`excluded.name` : sql`people.name`,
+        phone: proven
+          ? sql`excluded.phone`
+          : sql`coalesce(people.phone, excluded.phone)`,
+        privacy_accepted_at: sql`excluded.privacy_accepted_at`,
+        // Unticking the news box on a later form does not withdraw an
+        // earlier opt-in; withdrawal is its own request.
+        news_opt_in_at: sql`coalesce(people.news_opt_in_at, excluded.news_opt_in_at)`,
+        updated_at: sql`excluded.updated_at`,
+      }),
     )
-    .bind(
-      crypto.randomUUID(),
-      r.email,
-      r.name,
-      r.phone,
-      now,
-      r.newsOptIn ? now : null,
-      proven ? 1 : 0,
-    )
-    .first<{ id: string }>();
-  if (!row) throw new Error("people upsert returned no row");
+    .returning("id")
+    .executeTakeFirstOrThrow();
 
   return row.id;
 }
 
 /** Updates the account's own name and phone, from the account page. */
 export async function updateContact(
-  db: D1Database,
+  db: Db,
   id: string,
   contact: { name: string; phone: string | null },
   now: string,
 ) {
   await db
-    .prepare(
-      "UPDATE people SET name = ?, phone = ?, updated_at = ? WHERE id = ?",
-    )
-    .bind(contact.name, contact.phone, now, id)
-    .run();
+    .updateTable("people")
+    .set({ name: contact.name, phone: contact.phone, updated_at: now })
+    .where("id", "=", id)
+    .execute();
 }
 
-export async function phoneOf(
-  db: D1Database,
-  id: string,
-): Promise<string | null> {
+export async function phoneOf(db: Db, id: string): Promise<string | null> {
   const row = await db
-    .prepare("SELECT phone FROM people WHERE id = ?")
-    .bind(id)
-    .first<{ phone: string | null }>();
+    .selectFrom("people")
+    .select("phone")
+    .where("id", "=", id)
+    .executeTakeFirst();
   return row?.phone ?? null;
 }

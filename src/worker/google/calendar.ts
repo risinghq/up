@@ -1,4 +1,5 @@
 import { placeLine } from "../calendar";
+import type { Db } from "../db";
 import { linkCalendar, type CalendarLink, type EventMeta } from "../events";
 import type { Env, Fetch } from "../web";
 import { calendarToken } from "./account";
@@ -119,23 +120,21 @@ export async function deleteCalendarEvent(
   }
 }
 
-type CalendarEnv = Pick<
-  Env,
-  "DB" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET"
->;
+type CalendarEnv = Pick<Env, "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET">;
 
 /**
  * Creates or updates the event's calendar copy and Meet call, and stores the
  * link. False when no account is connected or Google failed.
  */
 export async function syncCalendar(
+  db: Db,
   env: CalendarEnv,
   fetcher: Fetch,
   event: EventMeta,
   pageUrl: string,
 ): Promise<boolean> {
   try {
-    const token = await calendarToken(env.DB, fetcher, credentials(env));
+    const token = await calendarToken(db, fetcher, credentials(env));
     if (!token) return false;
 
     const link = await syncEvent(
@@ -145,7 +144,7 @@ export async function syncCalendar(
       pageUrl,
       event.calendar,
     );
-    await linkCalendar(env.DB, event.slug, link);
+    await linkCalendar(db, event.slug, link);
     return true;
   } catch (error) {
     console.error(error);
@@ -155,6 +154,7 @@ export async function syncCalendar(
 
 /** Deletes the event's calendar copy. A failure leaves an orphan in Google, never a broken admin. */
 export async function dropCalendar(
+  db: Db,
   env: CalendarEnv,
   fetcher: Fetch,
   event: EventMeta,
@@ -162,7 +162,7 @@ export async function dropCalendar(
   if (!event.calendar) return;
 
   try {
-    const token = await calendarToken(env.DB, fetcher, credentials(env));
+    const token = await calendarToken(db, fetcher, credentials(env));
     if (token)
       await deleteCalendarEvent(fetcher, token, event.calendar.eventId);
   } catch (error) {

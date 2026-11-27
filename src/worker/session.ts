@@ -6,7 +6,7 @@ export const SESSION_COOKIE = "up_session";
 
 /** Signs the person in on this browser. */
 export async function startSession(c: Ctx, personId: string, now: string) {
-  setCookie(c, SESSION_COOKIE, await createSession(c.env.DB, personId, now), {
+  setCookie(c, SESSION_COOKIE, await createSession(c.var.db, personId, now), {
     path: "/",
     httpOnly: true,
     sameSite: "Lax",
@@ -17,7 +17,7 @@ export async function startSession(c: Ctx, personId: string, now: string) {
 
 export async function closeSession(c: Ctx) {
   const token = getCookie(c, SESSION_COOKIE);
-  if (token) await endSession(c.env.DB, token);
+  if (token) await endSession(c.var.db, token);
   deleteCookie(c, SESSION_COOKIE, { path: "/" });
 }
 

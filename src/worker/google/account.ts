@@ -1,3 +1,5 @@
+import { sql } from "kysely";
+import type { Db } from "../db";
 import type { Fetch } from "../web";
 import { accessToken, type GoogleCredentials } from "./oauth";
 
@@ -9,56 +11,48 @@ export type GoogleAccount = {
   connectedAt: string;
 };
 
-type AccountRow = {
-  email: string;
-  refresh_token: string;
-  connected_by: string;
-  connected_at: string;
-};
-
-export async function findAccount(
-  db: D1Database,
-): Promise<GoogleAccount | null> {
+export async function findAccount(db: Db): Promise<GoogleAccount | null> {
   const row = await db
-    .prepare("SELECT * FROM google_account WHERE id = 1")
-    .first<AccountRow>();
-
-  return (
-    row && {
-      email: row.email,
-      refreshToken: row.refresh_token,
-      connectedBy: row.connected_by,
-      connectedAt: row.connected_at,
-    }
-  );
+    .selectFrom("google_account")
+    .select([
+      "email",
+      "refresh_token as refreshToken",
+      "connected_by as connectedBy",
+      "connected_at as connectedAt",
+    ])
+    .where("id", "=", 1)
+    .executeTakeFirst();
+  return row ?? null;
 }
 
-export async function saveAccount(db: D1Database, account: GoogleAccount) {
+export async function saveAccount(db: Db, account: GoogleAccount) {
   await db
-    .prepare(
-      `INSERT INTO google_account (id, email, refresh_token, connected_by, connected_at)
-       VALUES (1, ?, ?, ?, ?)
-       ON CONFLICT (id) DO UPDATE SET email = excluded.email,
-         refresh_token = excluded.refresh_token,
-         connected_by = excluded.connected_by,
-         connected_at = excluded.connected_at`,
+    .insertInto("google_account")
+    .values({
+      id: 1,
+      email: account.email,
+      refresh_token: account.refreshToken,
+      connected_by: account.connectedBy,
+      connected_at: account.connectedAt,
+    })
+    .onConflict((oc) =>
+      oc.column("id").doUpdateSet({
+        email: sql`excluded.email`,
+        refresh_token: sql`excluded.refresh_token`,
+        connected_by: sql`excluded.connected_by`,
+        connected_at: sql`excluded.connected_at`,
+      }),
     )
-    .bind(
-      account.email,
-      account.refreshToken,
-      account.connectedBy,
-      account.connectedAt,
-    )
-    .run();
+    .execute();
 }
 
-export async function deleteAccount(db: D1Database) {
-  await db.prepare("DELETE FROM google_account").run();
+export async function deleteAccount(db: Db) {
+  await db.deleteFrom("google_account").execute();
 }
 
 /** An access token for the connected account, or null when no client or account is set. */
 export async function calendarToken(
-  db: D1Database,
+  db: Db,
   fetcher: Fetch,
   creds: GoogleCredentials | null,
 ): Promise<string | null> {

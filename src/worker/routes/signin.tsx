@@ -93,7 +93,7 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
     }
 
     // The answer is the same whether or not the email has an account.
-    const code = await requestCode(c.env.DB, email, null, iso());
+    const code = await requestCode(c.var.db, email, null, iso());
     if (code) await mailCode(c, email, code, "sign-in");
     return codeStep(c, { email, volver, notice: code ? "sent" : "cooldown" });
   });
@@ -104,7 +104,7 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
     const email = text(form, "email").toLowerCase();
 
     const result = await checkCode(
-      c.env.DB,
+      c.var.db,
       email,
       text(form, "code"),
       null,
@@ -124,13 +124,13 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
         422,
       );
 
-    const account = await accountByEmail(c.env.DB, email);
+    const account = await accountByEmail(c.var.db, email);
     if (account) {
       await startSession(c, account.id, iso());
       return c.redirect(volver, 303);
     }
 
-    const token = await issueVerified(c.env.DB, email, iso());
+    const token = await issueVerified(c.var.db, email, iso());
     return view(
       c,
       "Crea tu cuenta",
@@ -169,7 +169,7 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
         422,
       );
 
-    if (!(await takeVerified(c.env.DB, email, token, iso())))
+    if (!(await takeVerified(c.var.db, email, token, iso())))
       return view(
         c,
         "Código vencido",
@@ -179,15 +179,15 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
 
     // A registration may have made the person since the code was checked.
     const account =
-      (await accountByEmail(c.env.DB, email)) ??
-      (await createAccount(c.env.DB, { email, name }, iso()));
+      (await accountByEmail(c.var.db, email)) ??
+      (await createAccount(c.var.db, { email, name }, iso()));
     await startSession(c, account.id, iso());
     return c.redirect(volver, 303);
   });
 
   routes.post("/entrar/passkey/opciones", async (c) => {
     const options = await authenticationOptions(rp(c));
-    const challengeId = await saveChallenge(c.env.DB, options.challenge, iso());
+    const challengeId = await saveChallenge(c.var.db, options.challenge, iso());
     return c.json({ challengeId, options });
   });
 
@@ -208,9 +208,9 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
     if (!body.challengeId || typeof body.response?.id !== "string")
       return refused();
 
-    const challenge = await takeChallenge(c.env.DB, body.challengeId, iso());
+    const challenge = await takeChallenge(c.var.db, body.challengeId, iso());
     const stored =
-      challenge && (await findCredential(c.env.DB, body.response.id));
+      challenge && (await findCredential(c.var.db, body.response.id));
     if (!challenge || !stored) return refused();
 
     const counter = await verifyAuthentication(
@@ -221,7 +221,7 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
     );
     if (counter === null) return refused();
 
-    await touchCredential(c.env.DB, stored.id, counter, iso());
+    await touchCredential(c.var.db, stored.id, counter, iso());
     await startSession(c, stored.personId, iso());
     return c.json({ redirect: returnPath(body.volver) });
   });

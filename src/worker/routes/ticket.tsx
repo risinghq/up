@@ -23,8 +23,8 @@ export function ticketRoutes({ now, fetch: fetcher }: Deps) {
   const routes = new Hono<AppEnv>();
 
   routes.get("/:token", async (c) => {
-    const ticket = await findTicket(c.env.DB, c.req.param("token"));
-    const event = ticket && (await findEvent(c.env.DB, ticket.eventSlug));
+    const ticket = await findTicket(c.var.db, c.req.param("token"));
+    const event = ticket && (await findEvent(c.var.db, ticket.eventSlug));
     if (!ticket || !event) return notFound(c, "ticket");
 
     const view = ticketView(viewContext(c, now()), {
@@ -33,7 +33,7 @@ export function ticketRoutes({ now, fetch: fetcher }: Deps) {
       fresh: c.req.query("nueva") !== undefined,
       door: await worksDoor(c, event, now()),
       whatsapp: c.env.WHATSAPP_COMMUNITY_URL,
-      hasRole: (await rolesOf(c.env.DB, ticket.personId)).length > 0,
+      hasRole: (await rolesOf(c.var.db, ticket.personId)).length > 0,
     });
 
     c.header("Cache-Control", "no-store");
@@ -52,39 +52,42 @@ export function ticketRoutes({ now, fetch: fetcher }: Deps) {
 
   routes.post("/:token/perfil", async (c) => {
     const token = c.req.param("token");
-    const ticket = await findTicket(c.env.DB, token);
+    const ticket = await findTicket(c.var.db, token);
     if (!ticket) return notFound(c, "ticket");
 
-    await openProfile(c.env.DB, ticket.personId);
+    await openProfile(c.var.db, ticket.personId);
     return c.redirect(`/entrada/${token}#perfil`, 303);
   });
 
   routes.post("/:token/perfil/ocultar", async (c) => {
     const token = c.req.param("token");
-    const ticket = await findTicket(c.env.DB, token);
+    const ticket = await findTicket(c.var.db, token);
     if (!ticket) return notFound(c, "ticket");
 
-    await closeProfile(c.env.DB, ticket.personId);
+    await closeProfile(c.var.db, ticket.personId);
     return c.redirect(`/entrada/${token}#perfil`, 303);
   });
 
   routes.post("/:token/compartir", async (c) => {
     const token = c.req.param("token");
-    if (!(await findTicket(c.env.DB, token))) return notFound(c, "ticket");
+    if (!(await findTicket(c.var.db, token))) return notFound(c, "ticket");
 
-    await shareTicket(c.env.DB, token);
+    await shareTicket(c.var.db, token);
     return c.redirect(`/entrada/${token}#compartir`, 303);
   });
 
   routes.post("/:token/cancelar", async (c) => {
     const token = c.req.param("token");
-    const ticket = await findTicket(c.env.DB, token);
-    const event = ticket && (await findEvent(c.env.DB, ticket.eventSlug));
+    const ticket = await findTicket(c.var.db, token);
+    const event = ticket && (await findEvent(c.var.db, ticket.eventSlug));
     if (!ticket || !event) return notFound(c, "ticket");
 
     if (!hasEnded(event, now())) {
-      const seated = await cancel(c.env.DB, event, token, now().toISOString());
-      await after(c, notifyTickets(c.env, fetcher, "promoted", event, seated));
+      const seated = await cancel(c.var.db, event, token, now().toISOString());
+      await after(
+        c,
+        notifyTickets(c.var.db, c.env, fetcher, "promoted", event, seated),
+      );
     }
     return c.redirect(`/entrada/${token}`, 303);
   });

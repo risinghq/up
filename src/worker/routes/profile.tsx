@@ -11,10 +11,10 @@ export function profileRoutes() {
 
   routes.get("/:profileId", async (c) => {
     const profileId = c.req.param("profileId");
-    const profile = await findProfile(c.env.DB, profileId);
+    const profile = await findProfile(c.var.db, profileId);
     if (!profile) return notFound(c);
 
-    const view = profileView(profile, await listEvents(c.env.DB));
+    const view = profileView(profile, await listEvents(c.var.db));
     c.header("Cache-Control", "no-store");
     return page(
       c,

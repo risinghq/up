@@ -23,7 +23,7 @@ export type ProfileView = {
 };
 
 const tally = (role: Role, count: number) =>
-  role === "organiza"
+  role === "organizer"
     ? count === 1
       ? "organizado"
       : "organizados"

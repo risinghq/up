@@ -1,4 +1,5 @@
-import type { Account } from "./accounts";
+import { toAccount, type Account } from "./accounts";
+import type { Db } from "./db";
 import { hashToken, newToken } from "./tokens";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -25,160 +26,145 @@ export type Passkey = {
 };
 
 export async function addCredential(
-  db: D1Database,
+  db: Db,
   personId: string,
   credential: NewCredential,
   now: string,
 ) {
   await db
-    .prepare(
-      `INSERT INTO credentials (id, person_id, public_key, counter, transports, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(
-      credential.id,
-      personId,
-      credential.publicKey,
-      credential.counter,
-      JSON.stringify(credential.transports),
-      now,
-    )
-    .run();
+    .insertInto("credentials")
+    .values({
+      id: credential.id,
+      person_id: personId,
+      public_key: credential.publicKey,
+      counter: credential.counter,
+      transports: JSON.stringify(credential.transports),
+      created_at: now,
+    })
+    .execute();
 }
 
 export async function listPasskeys(
-  db: D1Database,
+  db: Db,
   personId: string,
 ): Promise<Passkey[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT id, created_at AS createdAt, last_used_at AS lastUsedAt
-       FROM credentials WHERE person_id = ? ORDER BY created_at`,
-    )
-    .bind(personId)
-    .all<Passkey>();
-  return results;
+  return db
+    .selectFrom("credentials")
+    .select(["id", "created_at as createdAt", "last_used_at as lastUsedAt"])
+    .where("person_id", "=", personId)
+    .orderBy("created_at")
+    .execute();
 }
 
 /** Deletes one of the account's passkeys; another account's id does nothing. */
-export async function removeCredential(
-  db: D1Database,
-  personId: string,
-  id: string,
-) {
+export async function removeCredential(db: Db, personId: string, id: string) {
   await db
-    .prepare("DELETE FROM credentials WHERE id = ? AND person_id = ?")
-    .bind(id, personId)
-    .run();
+    .deleteFrom("credentials")
+    .where("id", "=", id)
+    .where("person_id", "=", personId)
+    .execute();
 }
 
 export async function findCredential(
-  db: D1Database,
+  db: Db,
   id: string,
 ): Promise<StoredCredential | null> {
   const row = await db
-    .prepare(
-      "SELECT id, person_id, public_key, counter, transports FROM credentials WHERE id = ?",
-    )
-    .bind(id)
-    .first<{
-      id: string;
-      person_id: string;
-      public_key: string;
-      counter: number;
-      transports: string;
-    }>();
-  return (
-    row && {
-      id: row.id,
-      personId: row.person_id,
-      publicKey: row.public_key,
-      counter: row.counter,
-      transports: JSON.parse(row.transports),
-    }
-  );
+    .selectFrom("credentials")
+    .select(["id", "person_id", "public_key", "counter", "transports"])
+    .where("id", "=", id)
+    .executeTakeFirst();
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    personId: row.person_id,
+    publicKey: row.public_key,
+    counter: row.counter,
+    transports: JSON.parse(row.transports),
+  };
 }
 
 export async function touchCredential(
-  db: D1Database,
+  db: Db,
   id: string,
   counter: number,
   now: string,
 ) {
   await db
-    .prepare(
-      "UPDATE credentials SET counter = ?, last_used_at = ? WHERE id = ?",
-    )
-    .bind(counter, now, id)
-    .run();
+    .updateTable("credentials")
+    .set({ counter, last_used_at: now })
+    .where("id", "=", id)
+    .execute();
 }
 
 export async function createSession(
-  db: D1Database,
+  db: Db,
   personId: string,
   now: string,
 ): Promise<string> {
   const token = newToken();
   await db
-    .prepare(
-      "INSERT INTO sessions (token_hash, person_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
-    )
-    .bind(await hashToken(token), personId, now, later(now, SESSION_DAYS * DAY))
-    .run();
+    .insertInto("sessions")
+    .values({
+      token_hash: await hashToken(token),
+      person_id: personId,
+      created_at: now,
+      expires_at: later(now, SESSION_DAYS * DAY),
+    })
+    .execute();
   return token;
 }
 
 export async function sessionAccount(
-  db: D1Database,
+  db: Db,
   token: string,
   now: string,
 ): Promise<Account | null> {
   const row = await db
-    .prepare(
-      `SELECT p.id, p.name, p.email, p.admin FROM sessions s JOIN people p ON p.id = s.person_id
-       WHERE s.token_hash = ? AND s.expires_at > ?`,
-    )
-    .bind(await hashToken(token), now)
-    .first<{ id: string; name: string; email: string | null; admin: number }>();
-  return row && { ...row, admin: row.admin === 1 };
+    .selectFrom("sessions as s")
+    .innerJoin("people as p", "p.id", "s.person_id")
+    .select(["p.id", "p.name", "p.email", "p.admin"])
+    .where("s.token_hash", "=", await hashToken(token))
+    .where("s.expires_at", ">", now)
+    .executeTakeFirst();
+  return row ? toAccount(row) : null;
 }
 
-export async function endSession(db: D1Database, token: string) {
+export async function endSession(db: Db, token: string) {
   await db
-    .prepare("DELETE FROM sessions WHERE token_hash = ?")
-    .bind(await hashToken(token))
-    .run();
+    .deleteFrom("sessions")
+    .where("token_hash", "=", await hashToken(token))
+    .execute();
 }
 
 /** Stores a WebAuthn challenge and returns the id the browser sends back. */
 export async function saveChallenge(
-  db: D1Database,
+  db: Db,
   challenge: string,
   now: string,
 ): Promise<string> {
   const id = newToken();
   await db.batch([
-    db.prepare("DELETE FROM challenges WHERE expires_at <= ?").bind(now),
+    db.deleteFrom("challenges").where("expires_at", "<=", now),
     db
-      .prepare(
-        "INSERT INTO challenges (id, challenge, expires_at) VALUES (?, ?, ?)",
-      )
-      .bind(id, challenge, later(now, CHALLENGE_MS)),
+      .insertInto("challenges")
+      .values({ id, challenge, expires_at: later(now, CHALLENGE_MS) }),
   ]);
   return id;
 }
 
 /** Returns a live challenge and deletes it, so each is answered once. */
 export async function takeChallenge(
-  db: D1Database,
+  db: Db,
   id: string,
   now: string,
 ): Promise<string | null> {
   const row = await db
-    .prepare(
-      "DELETE FROM challenges WHERE id = ? AND expires_at > ? RETURNING challenge",
-    )
-    .bind(id, now)
-    .first<{ challenge: string }>();
+    .deleteFrom("challenges")
+    .where("id", "=", id)
+    .where("expires_at", ">", now)
+    .returning("challenge")
+    .executeTakeFirst();
   return row?.challenge ?? null;
 }

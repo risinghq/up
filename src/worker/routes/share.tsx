@@ -12,7 +12,7 @@ export function shareRoutes({ now, card }: Deps) {
 
   /** A share link's event, when the link is live and the event visible. */
   const sharedEvent = async (c: Ctx, slug: string, shareId: string) => {
-    const share = await findShare(c.env.DB, shareId);
+    const share = await findShare(c.var.db, shareId);
     const event = share?.eventSlug === slug && (await visibleEvent(c, slug));
     return share && event ? { share, event } : null;
   };

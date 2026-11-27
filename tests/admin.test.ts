@@ -8,6 +8,7 @@ import {
 } from "bun:test";
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
+import type { Db } from "../src/worker/db";
 import { findEvent } from "../src/worker/events";
 import { register } from "../src/worker/registrations";
 import { addRole, eventRoles } from "../src/worker/roles";
@@ -35,15 +36,16 @@ const app = createApp({
 
 let mf: Miniflare;
 let DB: D1Database;
+let db: Db;
 let MEDIA: R2Bucket;
 let env: Env;
 let cookie: string;
 
 beforeAll(async () => {
-  ({ mf, DB, MEDIA } = await migratedDb("admin"));
+  ({ mf, DB, db, MEDIA } = await migratedDb("admin"));
   env = testEnv(DB, MEDIA);
-  cookie = await adminCookie(DB, now);
-  await seed(DB, [
+  cookie = await adminCookie(db, now);
+  await seed(db, [
     event({ slug: "lleno", title: "Con inscritos", capacity: 1 }),
     event({ slug: "vacio", title: "Sin inscritos" }),
     event({ slug: "estrella", title: "Destacado", featured: true }),
@@ -84,7 +86,7 @@ function eventForm(overrides: Record<string, string | File> = {}) {
     capacity: "30",
     questions: "Carrera*\nNivel: Básico | Avanzado",
     status: "published",
-    kind: "taller",
+    kind: "workshop",
     accent: "#7C3AED",
     backdrop: "dots",
     font: "pixel",
@@ -116,7 +118,7 @@ describe("access", () => {
       origin: ORIGIN,
     });
     expect(refused.status).toBe(403);
-    expect(await findEvent(DB, "taller-qiskit")).toBeNull();
+    expect(await findEvent(db, "taller-qiskit")).toBeNull();
   });
 
   test("a form post from another origin is refused", async () => {
@@ -125,7 +127,7 @@ describe("access", () => {
       origin: "https://evil.test",
     });
     expect(res.status).toBe(403);
-    expect(await findEvent(DB, "taller-qiskit")).toBeNull();
+    expect(await findEvent(db, "taller-qiskit")).toBeNull();
   });
 
   test("admin pages are not cached, and carry their own header", async () => {
@@ -147,7 +149,7 @@ describe("events", () => {
     expect(res.headers.get("location")).toBe(
       "/admin/eventos/taller-qiskit?creado",
     );
-    const saved = await findEvent(DB, "taller-qiskit");
+    const saved = await findEvent(db, "taller-qiskit");
     expect(saved).toMatchObject({
       start: "2027-01-16T10:00:00-05:00",
       capacity: 30,
@@ -156,7 +158,7 @@ describe("events", () => {
         { id: "nivel", label: "Nivel", options: ["Básico", "Avanzado"] },
       ],
       theme: {
-        kind: "taller",
+        kind: "workshop",
         accent: "#7c3aed",
         backdrop: "dots",
         font: "pixel",
@@ -172,7 +174,7 @@ describe("events", () => {
   });
 
   test("featuring an event unfeatures the previous one", async () => {
-    expect((await findEvent(DB, "estrella"))?.featured).toBe(false);
+    expect((await findEvent(db, "estrella"))?.featured).toBe(false);
     const home = await visit("/");
     expect(home.screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Taller de Qiskit",
@@ -210,20 +212,20 @@ describe("events", () => {
   });
 
   test("renames an event without registrations and replaces its cover", async () => {
-    const pedro = await signedIn(DB, now, { name: "Pedro" });
-    await addRole(DB, "taller-qiskit", pedro.id, "ponente");
-    const before = await findEvent(DB, "taller-qiskit");
+    const pedro = await signedIn(db, now, { name: "Pedro" });
+    await addRole(db, "taller-qiskit", pedro.id, "speaker");
+    const before = await findEvent(db, "taller-qiskit");
     const res = await post(
       "/admin/eventos/taller-qiskit/editar",
       eventForm({ slug: "qiskit", cover: png("nueva.png") }),
     );
     expect(res.status).toBe(303);
-    expect(await findEvent(DB, "taller-qiskit")).toBeNull();
-    const after = await findEvent(DB, "qiskit");
+    expect(await findEvent(db, "taller-qiskit")).toBeNull();
+    const after = await findEvent(db, "qiskit");
     expect(after?.coverKey).toMatch(/^covers\/qiskit-/);
     expect(await MEDIA.head(before?.coverKey ?? "")).toBeNull();
     expect(
-      (await eventRoles(DB, "qiskit")).map((p) => p.name),
+      (await eventRoles(db, "qiskit")).map((p) => p.name),
       "the roles follow the new slug",
     ).toEqual(["Pedro"]);
 
@@ -231,7 +233,7 @@ describe("events", () => {
       "/admin/eventos/qiskit/editar",
       eventForm({ slug: "qiskit", remove_cover: "on" }),
     );
-    expect((await findEvent(DB, "qiskit"))?.coverKey).toBeUndefined();
+    expect((await findEvent(db, "qiskit"))?.coverKey).toBeUndefined();
     expect(await MEDIA.head(after?.coverKey ?? "")).toBeNull();
   });
 
@@ -241,7 +243,7 @@ describe("events", () => {
       eventForm({ slug: "vacio", lat: "-12.0598607", lng: "-77.0817416" }),
     );
     expect(res.status).toBe(303);
-    const saved = await findEvent(DB, "vacio");
+    const saved = await findEvent(db, "vacio");
     expect(saved?.place).toMatchObject({
       point: { lat: -12.0598607, lng: -77.0817416 },
     });
@@ -337,7 +339,7 @@ describe("events", () => {
       "Tiene inscripciones",
     );
     expect(removal.button("Eliminar evento")).toBeNull();
-    expect(await findEvent(DB, "lleno")).not.toBeNull();
+    expect(await findEvent(db, "lleno")).not.toBeNull();
   });
 
   test("the overview counts seats, the waitlist and cancellations", async () => {
@@ -367,12 +369,12 @@ describe("events", () => {
   });
 
   test("deletes an event without registrations, and its roles", async () => {
-    const ana = await signedIn(DB, now, { name: "Ana" });
-    await addRole(DB, "vacio", ana.id, "mentor");
+    const ana = await signedIn(db, now, { name: "Ana" });
+    await addRole(db, "vacio", ana.id, "mentor");
     const res = await post("/admin/eventos/vacio/eliminar", new FormData());
     expect(res.status).toBe(303);
-    expect(await findEvent(DB, "vacio")).toBeNull();
-    expect(await eventRoles(DB, "vacio")).toEqual([]);
+    expect(await findEvent(db, "vacio")).toBeNull();
+    expect(await eventRoles(db, "vacio")).toEqual([]);
   });
 });
 
@@ -417,16 +419,16 @@ describe("team", () => {
   };
 
   test("an admin finds accounts and gives roles; the event page shows them without emails", async () => {
-    await signedIn(DB, now, { name: "Ana Quispe", email: "ana@correo.com" });
-    await signedIn(DB, now, { name: "Luis" });
+    await signedIn(db, now, { name: "Ana Quispe", email: "ana@correo.com" });
+    await signedIn(db, now, { name: "Luis" });
 
     const empty = await open(team);
     expect(empty.status).toBe(200);
     expect(empty.screen.getByText(/Nadie tiene un rol/)).toBeTruthy();
 
-    await addFound("rol=organiza&q=quispe", "Agregar como Organiza");
-    await addFound("rol=organiza&q=luis", "Agregar como Organiza");
-    await addFound("rol=jurado&q=ANA%40correo", "Agregar como Jurado");
+    await addFound("rol=organizer&q=quispe", "Agregar como Organiza");
+    await addFound("rol=organizer&q=luis", "Agregar como Organiza");
+    await addFound("rol=judge&q=ANA%40correo", "Agregar como Jurado");
 
     const tab = await open(team);
     expect(holders(tab, "Organizan")).toEqual(["Ana Quispe", "Luis"]);
@@ -446,7 +448,7 @@ describe("team", () => {
 
   test("the same person twice in one role is refused", async () => {
     const p = await page(
-      await pressFound("rol=organiza&q=quispe", "Agregar como Organiza"),
+      await pressFound("rol=organizer&q=quispe", "Agregar como Organiza"),
     );
     expect(p.status).toBe(422);
     expect(p.screen.getByRole("alert").textContent).toBe(
@@ -476,16 +478,16 @@ describe("team", () => {
   });
 
   test("once the event is over, each role links its certificate", async () => {
-    await seed(DB, [
+    await seed(db, [
       event({
         slug: "cerrado",
         start: "2026-11-08T15:00:00-05:00",
         end: "2026-11-08T19:00:00-05:00",
       }),
     ]);
-    const { id } = await signedIn(DB, now, { name: "Vale" });
-    await addRole(DB, "cerrado", id, "voluntario");
-    const [vale] = await eventRoles(DB, "cerrado");
+    const { id } = await signedIn(db, now, { name: "Vale" });
+    await addRole(db, "cerrado", id, "volunteer");
+    const [vale] = await eventRoles(db, "cerrado");
 
     const tab = await open("/admin/eventos/cerrado/equipo");
     const link = tab.screen.getByRole("link", {
@@ -504,14 +506,14 @@ describe("team", () => {
     expect(res.status).toBe(303);
     expect(res.headers.get("location")).toStartWith("/entrar?volver=");
 
-    const intruso = await signedIn(DB, now, { name: "Intruso" });
+    const intruso = await signedIn(db, now, { name: "Intruso" });
     const refused = await post(
       team,
-      person({ person: intruso.id, role: "organiza" }),
+      person({ person: intruso.id, role: "organizer" }),
       { origin: ORIGIN },
     );
     expect(refused.status).not.toBe(303);
-    expect((await eventRoles(DB, "lleno")).map((p) => p.name)).not.toContain(
+    expect((await eventRoles(db, "lleno")).map((p) => p.name)).not.toContain(
       "Intruso",
     );
   });
@@ -558,7 +560,7 @@ const volver = (to = "") => {
 };
 
 describe("check-in", () => {
-  beforeAll(() => seed(DB, [event({ slug: "recepcion" })]));
+  beforeAll(() => seed(db, [event({ slug: "recepcion" })]));
 
   /** Registers `email` for the door's event and returns the ticket's token. */
   const register = async (email: string) => {
@@ -653,7 +655,7 @@ describe("check-in", () => {
 
 describe("the door", () => {
   beforeAll(() =>
-    seed(DB, [
+    seed(db, [
       event({ slug: "feria", title: "Feria", capacity: 1 }),
       event({ slug: "vecina", title: "Vecina" }),
       event({
@@ -667,9 +669,9 @@ describe("the door", () => {
 
   /** A ticket for `slug`, made the way the register form makes one. */
   const ticketAt = async (slug: string, email: string) => {
-    const e = await findEvent(DB, slug);
+    const e = await findEvent(db, slug);
     if (!e) throw new Error(`no event ${slug}`);
-    const r = await register(DB, e, { ...person, email }, now.toISOString());
+    const r = await register(db, e, { ...person, email }, now.toISOString());
     return r.token;
   };
   const person = {
@@ -682,8 +684,8 @@ describe("the door", () => {
 
   /** Signs in an account that volunteers at `slug` and returns its cookie. */
   const volunteer = async (slug: string) => {
-    const vale = await signedIn(DB, now, { name: "Vale" });
-    await addRole(DB, slug, vale.id, "voluntario");
+    const vale = await signedIn(db, now, { name: "Vale" });
+    await addRole(db, slug, vale.id, "volunteer");
     return vale.cookie;
   };
 
@@ -734,15 +736,15 @@ describe("the door", () => {
       "/entrar?volver=%2Fpuerta%2Fvecina",
     );
 
-    const mentor = await signedIn(DB, now, { name: "Mario" });
-    await addRole(DB, "vecina", mentor.id, "mentor");
+    const mentor = await signedIn(db, now, { name: "Mario" });
+    await addRole(db, "vecina", mentor.id, "mentor");
     expect(
       (await get("/puerta/vecina", { cookie: mentor.cookie })).status,
     ).toBe(404);
 
     const vale = await volunteer("vecina");
     expect((await get("/puerta/vecina", { cookie: vale })).status).toBe(200);
-    const role = (await eventRoles(DB, "vecina")).find(
+    const role = (await eventRoles(db, "vecina")).find(
       (r) => r.name === "Vale",
     );
     await post(
@@ -800,7 +802,7 @@ describe("the door", () => {
 
 describe("admins", () => {
   test("an admin adds a person with an account and removes them", async () => {
-    const ines = await signedIn(DB, now, {
+    const ines = await signedIn(db, now, {
       name: "Inés",
       email: "ines@example.com",
     });
@@ -829,7 +831,7 @@ describe("admins", () => {
   });
 
   test("an admin cannot remove themself", async () => {
-    const own = await signedIn(DB, now, { name: "Solo", admin: true });
+    const own = await signedIn(db, now, { name: "Solo", admin: true });
     await post(`/admin/admins/${own.id}/quitar`, new FormData(), {
       cookie: own.cookie,
       origin: ORIGIN,
@@ -840,7 +842,7 @@ describe("admins", () => {
   });
 
   test("a signed-in person who is not an admin cannot post", async () => {
-    const plain = await signedIn(DB, now, { name: "Pepe" });
+    const plain = await signedIn(db, now, { name: "Pepe" });
     const res = await post("/admin/eventos/nuevo", eventForm(), {
       cookie: plain.cookie,
       origin: ORIGIN,

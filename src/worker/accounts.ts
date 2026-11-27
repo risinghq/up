@@ -1,3 +1,6 @@
+import { sql, type Selectable } from "kysely";
+import type { Db, PeopleTable } from "./db";
+
 /**
  * A person who can sign in. Every person is one: a registration makes the
  * person, and proving the email opens it. `email` is null only for an admin
@@ -10,56 +13,57 @@ export type Account = {
   admin: boolean;
 };
 
-type AccountRow = {
-  id: string;
-  name: string;
-  email: string | null;
-  admin: number;
-};
+type AccountRow = Pick<
+  Selectable<PeopleTable>,
+  "id" | "name" | "email" | "admin"
+>;
 
-const toAccount = (row: AccountRow): Account => ({
+export const toAccount = (row: AccountRow): Account => ({
   ...row,
   admin: row.admin === 1,
 });
 
-const columns = "id, name, email, admin";
+const columns = ["id", "name", "email", "admin"] as const;
 
-export async function findAccount(
-  db: D1Database,
-  id: string,
-): Promise<Account | null> {
+export async function findAccount(db: Db, id: string): Promise<Account | null> {
   const row = await db
-    .prepare(`SELECT ${columns} FROM people WHERE id = ?`)
-    .bind(id)
-    .first<AccountRow>();
-  return row && toAccount(row);
+    .selectFrom("people")
+    .select(columns)
+    .where("id", "=", id)
+    .executeTakeFirst();
+  return row ? toAccount(row) : null;
 }
 
 export async function accountByEmail(
-  db: D1Database,
+  db: Db,
   email: string,
 ): Promise<Account | null> {
   const row = await db
-    .prepare(`SELECT ${columns} FROM people WHERE email = ?`)
-    .bind(email)
-    .first<AccountRow>();
-  return row && toAccount(row);
+    .selectFrom("people")
+    .select(columns)
+    .where("email", "=", email)
+    .executeTakeFirst();
+  return row ? toAccount(row) : null;
 }
 
 /** A new account for a proven email that had none. */
 export async function createAccount(
-  db: D1Database,
+  db: Db,
   input: { email: string; name: string },
   now: string,
 ): Promise<Account> {
   const account = { id: crypto.randomUUID(), ...input, admin: false };
   await db
-    .prepare(
-      `INSERT INTO people (id, email, name, privacy_accepted_at, created_at, updated_at)
-       VALUES (?1, ?2, ?3, ?4, ?4, ?4)`,
-    )
-    .bind(account.id, account.email, account.name, now)
-    .run();
+    .insertInto("people")
+    .values({
+      id: account.id,
+      email: account.email,
+      name: account.name,
+      privacy_accepted_at: now,
+      created_at: now,
+      updated_at: now,
+    })
+    .execute();
   return account;
 }
 
@@ -73,7 +77,7 @@ export type EmailChange = "changed" | "taken";
  * belongs to another person.
  */
 export async function claimEmail(
-  db: D1Database,
+  db: Db,
   account: Account,
   email: string,
   now: string,
@@ -83,47 +87,68 @@ export async function claimEmail(
 
   if (!holder) {
     await db
-      .prepare("UPDATE people SET email = ?, updated_at = ? WHERE id = ?")
-      .bind(email, now, account.id)
-      .run();
+      .updateTable("people")
+      .set({ email, updated_at: now })
+      .where("id", "=", account.id)
+      .execute();
     return "changed";
   }
 
   if (account.email) return "taken";
 
-  const move = (table: string, column: string) =>
-    db
-      .prepare(`UPDATE ${table} SET ${column} = ?1 WHERE ${column} = ?2`)
-      .bind(account.id, holder.id);
-
   await db.batch([
-    move("registrations", "person_id"),
-    move("credentials", "person_id"),
-    move("sessions", "person_id"),
-    move("google_account", "connected_by"),
+    db
+      .updateTable("registrations")
+      .set({ person_id: account.id })
+      .where("person_id", "=", holder.id),
+    db
+      .updateTable("credentials")
+      .set({ person_id: account.id })
+      .where("person_id", "=", holder.id),
+    db
+      .updateTable("sessions")
+      .set({ person_id: account.id })
+      .where("person_id", "=", holder.id),
+    db
+      .updateTable("google_account")
+      .set({ connected_by: account.id })
+      .where("connected_by", "=", holder.id),
     // A role both already hold stays with the holder and goes with it.
     db
-      .prepare(
-        "UPDATE OR IGNORE event_roles SET person_id = ?1 WHERE person_id = ?2",
-      )
-      .bind(account.id, holder.id),
+      .updateTable("event_roles as r")
+      .set({ person_id: account.id })
+      .where("r.person_id", "=", holder.id)
+      .where(({ not, exists, selectFrom }) =>
+        not(
+          exists(
+            selectFrom("event_roles as mine")
+              .select("mine.id")
+              .where("mine.person_id", "=", account.id)
+              .whereRef("mine.event_slug", "=", "r.event_slug")
+              .whereRef("mine.role", "=", "r.role"),
+          ),
+        ),
+      ),
     db
-      .prepare(
-        `UPDATE people SET
-           phone = old.phone,
-           privacy_accepted_at = COALESCE(people.privacy_accepted_at, old.privacy_accepted_at),
-           news_opt_in_at = old.news_opt_in_at,
-           admin = MAX(people.admin, old.admin),
-           created_at = MIN(people.created_at, old.created_at),
-           updated_at = ?3
-         FROM (SELECT * FROM people WHERE id = ?2) AS old
-         WHERE people.id = ?1`,
+      .updateTable("people")
+      .from(
+        db
+          .selectFrom("people")
+          .selectAll()
+          .where("id", "=", holder.id)
+          .as("old"),
       )
-      .bind(account.id, holder.id, now),
-    db.prepare("DELETE FROM people WHERE id = ?").bind(holder.id),
-    db
-      .prepare("UPDATE people SET email = ? WHERE id = ?")
-      .bind(email, account.id),
+      .set((eb) => ({
+        phone: eb.ref("old.phone"),
+        privacy_accepted_at: sql`coalesce(people.privacy_accepted_at, old.privacy_accepted_at)`,
+        news_opt_in_at: eb.ref("old.news_opt_in_at"),
+        admin: sql`max(people.admin, old.admin)`,
+        created_at: sql`min(people.created_at, old.created_at)`,
+        updated_at: now,
+      }))
+      .where("people.id", "=", account.id),
+    db.deleteFrom("people").where("id", "=", holder.id),
+    db.updateTable("people").set({ email }).where("id", "=", account.id),
   ]);
   return "changed";
 }
@@ -133,46 +158,49 @@ export async function claimEmail(
  * those with an email first.
  */
 export async function searchAccounts(
-  db: D1Database,
+  db: Db,
   query: string,
   limit = 8,
 ): Promise<Account[]> {
   const pattern = `%${query.toLowerCase().replace(/[\\%_]/g, "\\$&")}%`;
-  const { results } = await db
-    .prepare(
-      `SELECT ${columns} FROM people
-       WHERE lower(name) LIKE ?1 ESCAPE '\\' OR email LIKE ?1 ESCAPE '\\'
-       ORDER BY email IS NULL, name LIMIT ?2`,
+  const rows = await db
+    .selectFrom("people")
+    .select(columns)
+    .where(
+      sql<boolean>`lower(name) like ${pattern} escape '\\' or email like ${pattern} escape '\\'`,
     )
-    .bind(pattern, limit)
-    .all<AccountRow>();
-  return results.map(toAccount);
+    .orderBy(sql`email is null`)
+    .orderBy("name")
+    .limit(limit)
+    .execute();
+  return rows.map(toAccount);
 }
 
 /** The admins, oldest first. */
-export async function listAdmins(db: D1Database): Promise<Account[]> {
-  const { results } = await db
-    .prepare(
-      `SELECT ${columns} FROM people WHERE admin = 1 ORDER BY created_at`,
-    )
-    .all<AccountRow>();
-  return results.map(toAccount);
+export async function listAdmins(db: Db): Promise<Account[]> {
+  const rows = await db
+    .selectFrom("people")
+    .select(columns)
+    .where("admin", "=", 1)
+    .orderBy("created_at")
+    .execute();
+  return rows.map(toAccount);
 }
 
 export type AdminChange = "done" | "unknown" | "self";
 
 /** Makes the account behind `email` an admin. */
 export async function grantAdmin(
-  db: D1Database,
+  db: Db,
   email: string,
   now: string,
 ): Promise<AdminChange> {
   const row = await db
-    .prepare(
-      "UPDATE people SET admin = 1, updated_at = ? WHERE email = ? RETURNING id",
-    )
-    .bind(now, email)
-    .first<{ id: string }>();
+    .updateTable("people")
+    .set({ admin: 1, updated_at: now })
+    .where("email", "=", email)
+    .returning("id")
+    .executeTakeFirst();
   return row ? "done" : "unknown";
 }
 
@@ -181,15 +209,16 @@ export async function grantAdmin(
  * site always keeps at least one.
  */
 export async function revokeAdmin(
-  db: D1Database,
+  db: Db,
   by: Account,
   id: string,
   now: string,
 ): Promise<AdminChange> {
   if (id === by.id) return "self";
   await db
-    .prepare("UPDATE people SET admin = 0, updated_at = ? WHERE id = ?")
-    .bind(now, id)
-    .run();
+    .updateTable("people")
+    .set({ admin: 0, updated_at: now })
+    .where("id", "=", id)
+    .execute();
   return "done";
 }

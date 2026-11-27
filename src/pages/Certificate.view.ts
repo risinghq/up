@@ -16,11 +16,11 @@ export type CertificateView = {
 };
 
 const certificateVerb: Record<Role, string> = {
-  organiza: "organizó",
-  ponente: "fue ponente en",
+  organizer: "organizó",
+  speaker: "fue ponente en",
   mentor: "fue mentor en",
-  jurado: "fue jurado en",
-  voluntario: "fue voluntario en",
+  judge: "fue jurado en",
+  volunteer: "fue voluntario en",
 };
 
 /** A certificate: who, what they did, at which event, when and where. */

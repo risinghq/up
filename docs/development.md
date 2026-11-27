@@ -5,15 +5,19 @@
 ```sh
 bun install
 bun run db:migrate:local          # creates the local D1 under .wrangler/
+bun run db:seed                   # events, people, roles and tickets
 bun run dev                       # http://localhost:5173
 ```
 
-Sign in at `/entrar`. The local Worker sends no mail: the dev server prints each
-message, and the subject starts with the code. Then make the account an admin
-and add an event from `/admin` ([Add an event](add-an-event.md)):
+The seed runs only on a database without events. Its upcoming events are dated
+from the day it runs. It writes to the local D1 alone.
+
+Sign in at `/entrar` as `ana@example.com`, the seeded admin. The local Worker
+sends no mail: the dev server prints each message, and the subject starts with
+the code. To make another account an admin:
 
 ```sh
-bun run admin:grant --email ana@example.com
+bun run admin:grant --email luis@example.com
 ```
 
 | Command                               | Does                                                                     |
@@ -24,6 +28,7 @@ bun run admin:grant --email ana@example.com
 | `bun run fix`                         | Format every file with oxfmt.                                            |
 | `bun run build`                       | Build the Worker and the client into `dist/`.                            |
 | `bun run preview`                     | Serve the build locally.                                                 |
+| `bun run db:seed`                     | Fill an empty local D1 with events, people, roles and tickets.           |
 | `bun run admin:grant --email <email>` | Make an account in the local D1 an [admin](admins.md).                   |
 
 [`.dev.vars`](../.dev.vars) sets the local [configuration](configuration.md).
@@ -54,4 +59,6 @@ answers the WebAuthn ceremonies.
 
 Add the next numbered SQL file to [`migrations/`](../migrations/), then run
 `bun run db:migrate:local`. A deploy applies it to production before the new
-Worker goes live.
+Worker goes live. Update the table types in
+[`src/worker/db.ts`](../src/worker/db.ts) in the same change: every query reads
+them through Kysely.

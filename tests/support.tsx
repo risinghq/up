@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { createSession } from "../src/worker/auth";
+import { Db } from "../src/worker/db";
 import { saveEvent, type EventMeta } from "../src/worker/events";
 import type { Env } from "../src/worker/app";
 import type { CardAssets } from "../src/worker/card";
@@ -21,7 +22,10 @@ const statements = (sql: string) =>
     .map((s) => s.replace(/^--.*$/gm, "").trim())
     .filter(Boolean);
 
-/** A Miniflare D1 database with every migration applied, and an R2 bucket. */
+/**
+ * A Miniflare D1 database with every migration applied, the `Db` over it,
+ * and an R2 bucket.
+ */
 export async function migratedDb(name: string) {
   const mf = new Miniflare({
     modules: true,
@@ -37,7 +41,12 @@ export async function migratedDb(name: string) {
       statements(readFileSync(new URL(file, migrationsDir), "utf8")),
     );
   await DB.batch(sql.map((s) => DB.prepare(s)));
-  return { mf, DB, MEDIA: bunReadable(MEDIA as unknown as R2Bucket) };
+  return {
+    mf,
+    DB,
+    db: new Db(DB),
+    MEDIA: bunReadable(MEDIA as unknown as R2Bucket),
+  };
 }
 
 /**
@@ -133,7 +142,7 @@ export function event(
     questions: [],
     status: "published",
     theme: {
-      kind: "taller",
+      kind: "workshop",
       accent: "#2563eb",
       backdrop: "grid",
       font: "sans",
@@ -144,31 +153,30 @@ export function event(
 }
 
 /** Stores events as an admin would. */
-export async function seed(DB: D1Database, events: EventMeta[]) {
-  for (const e of events) await saveEvent(DB, e, "2026-11-01T00:00:00.000Z");
+export async function seed(db: Db, events: EventMeta[]) {
+  for (const e of events) await saveEvent(db, e, "2026-11-01T00:00:00.000Z");
 }
 
 type NewPerson = { name?: string; email?: string; admin?: boolean };
 
 /** Stores a person, as signing in or registering would, and returns its id. */
 export async function newPerson(
-  DB: D1Database,
+  db: Db,
   person: NewPerson = {},
   at = "2026-11-01T00:00:00.000Z",
 ) {
   const id = crypto.randomUUID();
-  await DB.prepare(
-    "INSERT INTO people (id, email, name, admin, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-  )
-    .bind(
+  await db
+    .insertInto("people")
+    .values({
       id,
-      person.email ?? null,
-      person.name ?? "David",
-      person.admin ? 1 : 0,
-      at,
-      at,
-    )
-    .run();
+      email: person.email ?? null,
+      name: person.name ?? "David",
+      admin: person.admin ? 1 : 0,
+      created_at: at,
+      updated_at: at,
+    })
+    .execute();
   return id;
 }
 
@@ -176,20 +184,16 @@ export async function newPerson(
  * Creates an account and returns its id and the Cookie header of a session
  * opened at `now`, which must fall within 30 days before the test's clock.
  */
-export async function signedIn(
-  DB: D1Database,
-  now: Date,
-  person: NewPerson = {},
-) {
+export async function signedIn(db: Db, now: Date, person: NewPerson = {}) {
   const at = now.toISOString();
-  const id = await newPerson(DB, person, at);
-  const token = await createSession(DB, id, at);
+  const id = await newPerson(db, person, at);
+  const token = await createSession(db, id, at);
   return { id, cookie: `up_session=${token}` };
 }
 
 /** Creates an admin and returns the Cookie header of their session. */
-export async function adminCookie(DB: D1Database, now: Date, name = "David") {
-  return (await signedIn(DB, now, { name, admin: true })).cookie;
+export async function adminCookie(db: Db, now: Date, name = "David") {
+  return (await signedIn(db, now, { name, admin: true })).cookie;
 }
 
 /** A form body that registers; `overrides` replaces or adds fields. */

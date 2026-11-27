@@ -37,7 +37,7 @@ export function adminPage(
 export const withEvent =
   (handler: (c: Ctx, event: EventMeta) => Promise<Response> | Response) =>
   async (c: Ctx) => {
-    const event = await findEvent(c.env.DB, c.req.param("slug") ?? "");
+    const event = await findEvent(c.var.db, c.req.param("slug") ?? "");
     return event ? handler(c, event) : notFound(c);
   };
 

@@ -1,3 +1,4 @@
+import type { Db } from "./db";
 import { hasEnded, type EventMeta } from "./events";
 import { roles, type Role } from "./roles";
 
@@ -24,41 +25,39 @@ const firstRole = (held: Role[]): Role | null =>
  * registered reads as a mentor.
  */
 export async function findCertificate(
-  db: D1Database,
+  db: Db,
   id: string,
 ): Promise<Certificate | null> {
   const ticket = await db
-    .prepare(
-      `SELECT r.event_slug AS eventSlug, r.person_id AS personId, p.name FROM registrations r
-       JOIN people p ON p.id = r.person_id
-       WHERE r.certificate_id = ? AND r.checked_in_at IS NOT NULL`,
-    )
-    .bind(id)
-    .first<{ eventSlug: string; personId: string; name: string }>();
+    .selectFrom("registrations as r")
+    .innerJoin("people as p", "p.id", "r.person_id")
+    .select(["r.event_slug as eventSlug", "r.person_id as personId", "p.name"])
+    .where("r.certificate_id", "=", id)
+    .where("r.checked_in_at", "is not", null)
+    .executeTakeFirst();
 
   if (ticket) {
-    const { results } = await db
-      .prepare(
-        "SELECT role FROM event_roles WHERE event_slug = ? AND person_id = ?",
-      )
-      .bind(ticket.eventSlug, ticket.personId)
-      .all<{ role: Role }>();
+    const held = await db
+      .selectFrom("event_roles")
+      .select("role")
+      .where("event_slug", "=", ticket.eventSlug)
+      .where("person_id", "=", ticket.personId)
+      .execute();
 
     return {
       id,
       eventSlug: ticket.eventSlug,
       name: ticket.name,
-      role: firstRole(results.map((row) => row.role)),
+      role: firstRole(held.map((row) => row.role)),
     };
   }
 
   const role = await db
-    .prepare(
-      `SELECT r.event_slug AS eventSlug, p.name, r.role FROM event_roles r
-       JOIN people p ON p.id = r.person_id WHERE r.certificate_id = ?`,
-    )
-    .bind(id)
-    .first<{ eventSlug: string; name: string; role: Role }>();
+    .selectFrom("event_roles as r")
+    .innerJoin("people as p", "p.id", "r.person_id")
+    .select(["r.event_slug as eventSlug", "p.name", "r.role"])
+    .where("r.certificate_id", "=", id)
+    .executeTakeFirst();
 
-  return role && { id, ...role };
+  return role ? { id, ...role } : null;
 }

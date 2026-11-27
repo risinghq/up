@@ -85,16 +85,16 @@ export function accountRoutes({ now }: Deps) {
           forms.contact ?? {
             values: {
               name: account.name,
-              phone: (await phoneOf(c.env.DB, account.id)) ?? "",
+              phone: (await phoneOf(c.var.db, account.id)) ?? "",
             },
             errors: {},
           }
         }
         emailForm={forms.emailForm ?? emptyForm}
-        tickets={await ticketsOf(c.env.DB, account.id, now())}
-        roles={await accountRoles(c.env.DB, account.id, now())}
-        profileId={await profileIdOf(c.env.DB, account.id)}
-        passkeys={await listPasskeys(c.env.DB, account.id)}
+        tickets={await ticketsOf(c.var.db, account.id, now())}
+        roles={await accountRoles(c.var.db, account.id, now())}
+        profileId={await profileIdOf(c.var.db, account.id)}
+        passkeys={await listPasskeys(c.var.db, account.id)}
         notice={notice}
       />,
       status,
@@ -128,7 +128,7 @@ export function accountRoutes({ now }: Deps) {
         422,
       );
 
-    await updateContact(c.env.DB, signedIn(c).id, { name, phone }, iso());
+    await updateContact(c.var.db, signedIn(c).id, { name, phone }, iso());
     return c.redirect("/cuenta?aviso=datos", 303);
   });
 
@@ -141,10 +141,10 @@ export function accountRoutes({ now }: Deps) {
     if (email === account.email)
       return emailRefused(c, email, "Ya entras con ese correo.");
 
-    const holder = await accountByEmail(c.env.DB, email);
+    const holder = await accountByEmail(c.var.db, email);
     if (holder && account.email) return emailRefused(c, email, takenEmail);
 
-    const code = await requestCode(c.env.DB, email, account.id, iso());
+    const code = await requestCode(c.var.db, email, account.id, iso());
     if (code) await mailCode(c, email, code, "add-email");
     return codeStep(c, {
       email,
@@ -160,7 +160,7 @@ export function accountRoutes({ now }: Deps) {
     const email = text(form, "email").toLowerCase();
 
     const result = await checkCode(
-      c.env.DB,
+      c.var.db,
       email,
       text(form, "code"),
       account.id,
@@ -181,30 +181,30 @@ export function accountRoutes({ now }: Deps) {
         422,
       );
 
-    const change = await claimEmail(c.env.DB, account, email, iso());
+    const change = await claimEmail(c.var.db, account, email, iso());
     if (change === "taken") return emailRefused(c, email, takenEmail);
     return c.redirect("/cuenta?aviso=correo", 303);
   });
 
   routes.post("/cuenta/perfil", async (c) => {
-    await openProfile(c.env.DB, signedIn(c).id);
+    await openProfile(c.var.db, signedIn(c).id);
     return c.redirect("/cuenta?aviso=perfil#perfil", 303);
   });
 
   routes.post("/cuenta/perfil/ocultar", async (c) => {
-    await closeProfile(c.env.DB, signedIn(c).id);
+    await closeProfile(c.var.db, signedIn(c).id);
     return c.redirect("/cuenta?aviso=perfil#perfil", 303);
   });
 
   routes.post("/cuenta/passkeys/opciones", async (c) => {
     const account = signedIn(c);
-    const existing = await listPasskeys(c.env.DB, account.id);
+    const existing = await listPasskeys(c.var.db, account.id);
     const options = await registrationOptions(
       rp(c),
       account,
       existing.map((p) => p.id),
     );
-    const challengeId = await saveChallenge(c.env.DB, options.challenge, iso());
+    const challengeId = await saveChallenge(c.var.db, options.challenge, iso());
     return c.json({ challengeId, options });
   });
 
@@ -217,25 +217,25 @@ export function accountRoutes({ now }: Deps) {
       c.json({ error: "No pudimos verificar la passkey." }, 400);
     if (!body.challengeId || !body.response) return failed();
 
-    const challenge = await takeChallenge(c.env.DB, body.challengeId, iso());
+    const challenge = await takeChallenge(c.var.db, body.challengeId, iso());
     const credential =
       challenge && (await verifyRegistration(rp(c), body.response, challenge));
     if (!credential) return failed();
 
-    if (await findCredential(c.env.DB, credential.id))
+    if (await findCredential(c.var.db, credential.id))
       return c.json({ error: "Esa passkey ya está registrada." }, 409);
-    await addCredential(c.env.DB, signedIn(c).id, credential, iso());
+    await addCredential(c.var.db, signedIn(c).id, credential, iso());
     return c.json({ redirect: "/cuenta?aviso=passkey#passkeys" });
   });
 
   routes.post("/cuenta/passkeys/:id/quitar", async (c) => {
     const account = signedIn(c);
-    const passkeys = await listPasskeys(c.env.DB, account.id);
+    const passkeys = await listPasskeys(c.var.db, account.id);
     // Without an email, the last passkey is the only way back in.
     if (!account.email && passkeys.length <= 1)
       return c.redirect("/cuenta#passkeys", 303);
 
-    await removeCredential(c.env.DB, account.id, c.req.param("id"));
+    await removeCredential(c.var.db, account.id, c.req.param("id"));
     return c.redirect("/cuenta?aviso=passkey-quitada#passkeys", 303);
   });
 
