@@ -63,7 +63,7 @@ export function ticketMail(
   site: string,
 ): Mail {
   const { subject, lead } = copy[kind];
-  const url = `${site}/entrada/${ticket.token}`;
+  const url = `${site}/ticket/${ticket.token}`;
   const greeting = `Hola, ${ticket.name.split(/\s+/)[0]}:`;
   const lines = details(event, ticket.status === "going");
   const footer =

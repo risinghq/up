@@ -45,8 +45,8 @@ WebAuthn API, and registering needs the Turnstile widget that
    from [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts). `after` in
    [`src/worker/web.tsx`](../src/worker/web.tsx) hands the send to `waitUntil`,
    so the response does not wait for it.
-6. The route redirects with 303 to `/entrada/<token>?nueva`. The ticket route
-   looks the token up with `findTicket`, turns the ticket and its event into a
+6. The route redirects with 303 to `/ticket/<token>?new`. The ticket route looks
+   the token up with `findTicket`, turns the ticket and its event into a
    `TicketView` with `ticketView` in
    [`src/pages/Ticket.view.ts`](../src/pages/Ticket.view.ts), and renders
    [`src/pages/Ticket.tsx`](../src/pages/Ticket.tsx). The view model decides
@@ -58,7 +58,7 @@ domain functions with D1 and the clock, builds a view model with `eventView`,
 `ticketView` or `profileView`, and renders it. Each view model sits beside its
 page as `<Page>.view.ts`.
 
-`POST /entrada/<token>/cancelar` calls `cancel`, which marks the registration
+`POST /ticket/<token>/cancel` calls `cancel`, which marks the registration
 `cancelled` and moves the oldest waitlisted registration to `going` when a seat
 frees. `cancel` and `fillSeats` return the seated tokens, and the route notifies
 them. A checked-in ticket does not cancel.
@@ -69,33 +69,39 @@ the door panel: `worksDoor` in
 [`src/worker/routes/door.tsx`](../src/worker/routes/door.tsx) admits an admin,
 or, until the event ends, an account that holds an organizer or volunteer role
 at it, which `holdsDoor` in [`src/worker/roles.ts`](../src/worker/roles.ts)
-checks. The panel posts to `/puerta/<slug>/ingreso/<token>`, and `checkIn` sets
+checks. The panel posts to `/door/<slug>/check-in/<token>`, and `checkIn` sets
 `checked_in_at` once.
 
-`doorRoutes` serves `/puerta`. A signed-out `GET /puerta/<slug>` redirects to
-`/entrar` with `volver` naming the door; any other refused request gets 404.
-`POST /puerta/<slug>/llegada` calls `walkIn` in
+`doorRoutes` serves `/door`. A signed-out `GET /door/<slug>` redirects to
+`/sign-in` with `next` naming the door; any other refused request gets 404.
+`POST /door/<slug>/walk-in` calls `walkIn` in
 [`src/worker/registrations.ts`](../src/worker/registrations.ts), which seats the
-person past the capacity and checks them in. `puerta` is a reserved slug.
+person past the capacity and checks them in. `door` is a reserved slug.
 
-`POST /entrada/<token>/compartir` calls `shareTicket` in
+`POST /ticket/<token>/share` calls `shareTicket` in
 [`src/worker/shares.ts`](../src/worker/shares.ts), which gives the registration
-a random `share_id` apart from its token. `GET /<slug>/voy/<id>` looks it up
-with `findShare` and renders [`src/pages/Voy.tsx`](../src/pages/Voy.tsx) with
-the holder's first name only. Its `og:image` is `GET /<slug>/voy/<id>.png`,
-which `renderCard` in [`src/worker/card.tsx`](../src/worker/card.tsx) draws:
-satori lays the card out as SVG and resvg turns it into a PNG. Cancelling or
-registering again clears `share_id`, so the old link answers 404.
+a random `share_id` apart from its token. `GET /<slug>/going/<id>` looks it up
+with `findShare` and renders [`src/pages/Going.tsx`](../src/pages/Going.tsx)
+with the holder's first name only. Its `og:image` is
+`GET /<slug>/going/<id>.png`, which `renderCard` in
+[`src/worker/card.tsx`](../src/worker/card.tsx) draws: satori lays the card out
+as SVG and resvg turns it into a PNG. Cancelling or registering again clears
+`share_id`, so the old link answers 404.
 
-`POST /entrada/<token>/perfil` calls `openProfile` in
+`POST /ticket/<token>/profile` calls `openProfile` in
 [`src/worker/profiles.ts`](../src/worker/profiles.ts), which gives the ticket's
 person a random `profile_id` unless they have one. `GET /p/<id>` looks it up
 with `findProfile`, which returns the first name, the slugs of the published
 events where the person checked in, and the roles the person holds with
 `rolesOf` in [`src/worker/roles.ts`](../src/worker/roles.ts), and renders
 [`src/pages/Profile.tsx`](../src/pages/Profile.tsx).
-`POST /entrada/<token>/perfil/ocultar` calls `closeProfile`, which clears
+`POST /ticket/<token>/profile/hide` calls `closeProfile`, which clears
 `profile_id`.
+
+`legacyRoutes` in
+[`src/worker/routes/legacy.ts`](../src/worker/routes/legacy.ts) answers the
+Spanish paths of links already sent with a 301: `/entrada/<token>`,
+`/privacidad` and `/<slug>/voy/<id>`.
 
 `checkIn` gives the registration a random `certificate_id` unless it has one,
 and `addRole` gives each role one. `GET /c/<id>` calls `findCertificate` in
@@ -128,11 +134,11 @@ notifies each seated ticket of an event that starts within a day and marks
 2. `adminRoutes` in
    [`src/worker/routes/admin/index.tsx`](../src/worker/routes/admin/index.tsx)
    serves `/admin` to an account with the admin flag. Without a session, a GET
-   redirects to `/entrar?volver=<path>` and a POST answers 403. A signed-in
+   redirects to `/sign-in?next=<path>` and a POST answers 403. A signed-in
    person who is not an admin gets 404. A form post whose `Origin` is not
    `SITE_URL` is refused. Behind that gate it mounts the settings, the editor,
    one event's pages and its team from the same folder.
-3. `POST /admin/eventos/<slug>/editar`, in
+3. `POST /admin/events/<slug>/edit`, in
    [`editor.tsx`](../src/worker/routes/admin/editor.tsx), reads the editor with
    `parseEventForm` in [`src/worker/eventForm.ts`](../src/worker/eventForm.ts).
    It turns Lima datetimes into ISO, the questions text into `Question[]` with
@@ -142,7 +148,7 @@ notifies each seated ticket of an event that starts within a day and marks
 4. A new cover goes to R2 under `covers/`, and the old one is deleted after the
    save. `saveEvent` writes the row and clears `featured` on every other event.
    `fillSeats` seats the waitlist when the capacity rose.
-   `/admin/eventos/<slug>/equipo` is `teamRoutes` in
+   `/admin/events/<slug>/team` is `teamRoutes` in
    [`src/worker/routes/admin/team.tsx`](../src/worker/routes/admin/team.tsx),
    mounted under the same guard. It finds accounts by name or email with
    `searchAccounts` in [`src/worker/accounts.ts`](../src/worker/accounts.ts),
@@ -155,9 +161,9 @@ notifies each seated ticket of an event that starts within a day and marks
 
 `signinRoutes` in
 [`src/worker/routes/signin.tsx`](../src/worker/routes/signin.tsx) serves
-`/entrar` and `/salir`, and `accountRoutes` in
+`/sign-in` and `/sign-out`, and `accountRoutes` in
 [`src/worker/routes/account.tsx`](../src/worker/routes/account.tsx) serves
-`/cuenta`. Both render through
+`/account`. Both render through
 [`src/worker/routes/accountPages.tsx`](../src/worker/routes/accountPages.tsx). A
 code sign-in goes through [`src/worker/codes.ts`](../src/worker/codes.ts):
 `requestCode` stores one code's hash per email, `checkCode` counts every try,

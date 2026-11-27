@@ -6,12 +6,12 @@ import { AccountName } from "./AccountName";
 export type GooglePanel = {
   /** The connected account's email. */
   account?: string;
-  notice?: "conectado" | "desconectado" | "error";
+  notice?: "connected" | "disconnected" | "error";
 };
 
 const googleNotice = {
-  conectado: "Google Calendar quedó conectado.",
-  desconectado: "Google Calendar quedó desconectado.",
+  connected: "Google Calendar quedó conectado.",
+  disconnected: "Google Calendar quedó desconectado.",
   error: "Google no aceptó la conexión. Inténtalo otra vez.",
 } as const;
 
@@ -41,7 +41,7 @@ function GoogleSection({ google }: { google: GooglePanel }) {
             </p>
             <form
               method="post"
-              action="/admin/google/desconectar"
+              action="/admin/google/disconnect"
               data-confirm="¿Desconectar Google Calendar? Los eventos ya creados quedan en el calendario."
             >
               <button class="button button-small button-quiet" type="submit">
@@ -52,7 +52,7 @@ function GoogleSection({ google }: { google: GooglePanel }) {
         ) : (
           <div class="google-account">
             <p>Ninguna cuenta conectada.</p>
-            <a class="button button-small" href="/admin/google/conectar">
+            <a class="button button-small" href="/admin/google/connect">
               Conectar Google
             </a>
           </div>
@@ -85,11 +85,11 @@ function WhatsAppSection({ mode }: { mode: WhatsAppMode }) {
   );
 }
 
-export type AdminsNotice = "agregado" | "quitado";
+export type AdminsNotice = "added" | "removed";
 
 const adminsNotice: Record<AdminsNotice, string> = {
-  agregado: "Listo: ya es admin.",
-  quitado: "Ya no es admin.",
+  added: "Listo: ya es admin.",
+  removed: "Ya no es admin.",
 };
 
 export type AdminsPanel = {
@@ -108,7 +108,7 @@ function AdminsSection(props: AdminsPanel) {
         <h2 id="admins-title">Admins</h2>
         <p class="hint">
           Los admins crean y editan eventos y ven a los inscritos. Para sumar a
-          alguien, primero debe crear su cuenta en /entrar.
+          alguien, primero debe crear su cuenta en /sign-in.
         </p>
       </div>
       <div class="manage-card">
@@ -126,7 +126,7 @@ function AdminsSection(props: AdminsPanel) {
               ) : (
                 <form
                   method="post"
-                  action={`/admin/admins/${a.id}/quitar`}
+                  action={`/admin/admins/${a.id}/remove`}
                   data-confirm={`¿Quitarle el acceso de admin a ${a.name}?`}
                 >
                   <button

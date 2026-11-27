@@ -12,7 +12,7 @@ bun run dev                       # http://localhost:5173
 The seed runs only on a database without events. Its upcoming events are dated
 from the day it runs. It writes to the local D1 alone.
 
-Sign in at `/entrar` as `ana@example.com`, the seeded admin. The local Worker
+Sign in at `/sign-in` as `ana@example.com`, the seeded admin. The local Worker
 sends no mail: the dev server prints each message, and the subject starts with
 the code. To make another account an admin:
 

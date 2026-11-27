@@ -209,7 +209,9 @@ const db = new Db(proxy.env.DB);
 
 if (await isEmpty(db)) {
   await seed(db, new Date());
-  console.log(`Seeded the local D1. Sign in at /entrar as ${ADMIN}, an admin.`);
+  console.log(
+    `Seeded the local D1. Sign in at /sign-in as ${ADMIN}, an admin.`,
+  );
 } else {
   console.log("The local D1 already holds events; nothing seeded.");
 }

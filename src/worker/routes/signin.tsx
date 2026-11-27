@@ -32,38 +32,38 @@ import {
   wrongCode,
 } from "./accountPages";
 
-/** Sign-in at /entrar, by an emailed code or a passkey, and sign-out at /salir. */
+/** Sign-in at /sign-in, by an emailed code or a passkey, and sign-out at /sign-out. */
 export function signinRoutes({ now, fetch: fetcher }: Deps) {
   const routes = new Hono<AppEnv>();
   const iso = () => now().toISOString();
   const rp = (c: Ctx) => relyingParty(c.env.SITE_URL);
 
-  for (const path of ["/entrar", "/entrar/*", "/salir"])
+  for (const path of ["/sign-in", "/sign-in/*", "/sign-out"])
     routes.use(path, sameOrigin);
 
-  const signInPage = (c: Ctx, form: FormState, volver: string, status = 200) =>
+  const signInPage = (c: Ctx, form: FormState, next: string, status = 200) =>
     view(
       c,
       "Entrar",
       <SignIn
         form={form}
-        volver={volver}
+        next={next}
         siteKey={humanCheck(c)?.siteKey ?? null}
       />,
       status,
     );
 
-  routes.get("/entrar", (c) => {
-    const volver = returnPath(c.req.query("volver"));
-    if (c.get("account")) return c.redirect(volver, 303);
+  routes.get("/sign-in", (c) => {
+    const next = returnPath(c.req.query("next"));
+    if (c.get("account")) return c.redirect(next, 303);
 
-    const email = c.req.query("correo") ?? "";
-    return signInPage(c, { values: { email }, errors: {} }, volver);
+    const email = c.req.query("email") ?? "";
+    return signInPage(c, { values: { email }, errors: {} }, next);
   });
 
-  routes.post("/entrar", async (c) => {
+  routes.post("/sign-in", async (c) => {
     const form = await c.req.formData();
-    const volver = returnPath(text(form, "volver"));
+    const next = returnPath(text(form, "next"));
     const email = text(form, "email").toLowerCase();
 
     const invalid = emailError(email);
@@ -71,7 +71,7 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
       return signInPage(
         c,
         { values: { email }, errors: { email: invalid } },
-        volver,
+        next,
         422,
       );
 
@@ -87,7 +87,7 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
         return signInPage(
           c,
           { values: { email }, errors: { human: humanErrors[verdict] } },
-          volver,
+          next,
           422,
         );
     }
@@ -95,12 +95,12 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
     // The answer is the same whether or not the email has an account.
     const code = await requestCode(c.var.db, email, null, iso());
     if (code) await mailCode(c, email, code, "sign-in");
-    return codeStep(c, { email, volver, notice: code ? "sent" : "cooldown" });
+    return codeStep(c, { email, next, notice: code ? "sent" : "cooldown" });
   });
 
-  routes.post("/entrar/codigo", async (c) => {
+  routes.post("/sign-in/code", async (c) => {
     const form = await c.req.formData();
-    const volver = returnPath(text(form, "volver"));
+    const next = returnPath(text(form, "next"));
     const email = text(form, "email").toLowerCase();
 
     const result = await checkCode(
@@ -114,38 +114,33 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
       return view(
         c,
         "Código vencido",
-        <CodeGone retry={retry(volver, email)} />,
+        <CodeGone retry={retry(next, email)} />,
         410,
       );
     if (result.kind === "wrong")
       return codeStep(
         c,
-        { email, volver, notice: "sent", error: wrongCode(result.left) },
+        { email, next, notice: "sent", error: wrongCode(result.left) },
         422,
       );
 
     const account = await accountByEmail(c.var.db, email);
     if (account) {
       await startSession(c, account.id, iso());
-      return c.redirect(volver, 303);
+      return c.redirect(next, 303);
     }
 
     const token = await issueVerified(c.var.db, email, iso());
     return view(
       c,
       "Crea tu cuenta",
-      <NewAccount
-        email={email}
-        token={token}
-        volver={volver}
-        form={emptyForm}
-      />,
+      <NewAccount email={email} token={token} next={next} form={emptyForm} />,
     );
   });
 
-  routes.post("/entrar/cuenta", async (c) => {
+  routes.post("/sign-in/account", async (c) => {
     const form = await c.req.formData();
-    const volver = returnPath(text(form, "volver"));
+    const next = returnPath(text(form, "next"));
     const email = text(form, "email").toLowerCase();
     const token = text(form, "token");
     const name = text(form, "name");
@@ -163,7 +158,7 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
         <NewAccount
           email={email}
           token={token}
-          volver={volver}
+          next={next}
           form={{ values: { name, privacy }, errors }}
         />,
         422,
@@ -173,7 +168,7 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
       return view(
         c,
         "Código vencido",
-        <CodeGone retry={retry(volver, email)} />,
+        <CodeGone retry={retry(next, email)} />,
         410,
       );
 
@@ -182,20 +177,20 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
       (await accountByEmail(c.var.db, email)) ??
       (await createAccount(c.var.db, { email, name }, iso()));
     await startSession(c, account.id, iso());
-    return c.redirect(volver, 303);
+    return c.redirect(next, 303);
   });
 
-  routes.post("/entrar/passkey/opciones", async (c) => {
+  routes.post("/sign-in/passkey/options", async (c) => {
     const options = await authenticationOptions(rp(c));
     const challengeId = await saveChallenge(c.var.db, options.challenge, iso());
     return c.json({ challengeId, options });
   });
 
-  routes.post("/entrar/passkey", async (c) => {
+  routes.post("/sign-in/passkey", async (c) => {
     const body = await json<{
       challengeId: string;
       response: AuthenticationResponseJSON;
-      volver: string;
+      next: string;
     }>(c);
     const refused = () =>
       c.json(
@@ -223,10 +218,10 @@ export function signinRoutes({ now, fetch: fetcher }: Deps) {
 
     await touchCredential(c.var.db, stored.id, counter, iso());
     await startSession(c, stored.personId, iso());
-    return c.json({ redirect: returnPath(body.volver) });
+    return c.json({ redirect: returnPath(body.next) });
   });
 
-  routes.post("/salir", async (c) => {
+  routes.post("/sign-out", async (c) => {
     await closeSession(c);
     return c.redirect("/", 303);
   });

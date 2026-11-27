@@ -7,6 +7,7 @@ import { adminRoutes } from "./routes/admin";
 import { certificateRoutes } from "./routes/certificate";
 import { doorRoutes } from "./routes/door";
 import { eventRoutes } from "./routes/event";
+import { legacyRoutes } from "./routes/legacy";
 import { profileRoutes } from "./routes/profile";
 import { shareRoutes } from "./routes/share";
 import { signinRoutes } from "./routes/signin";
@@ -46,13 +47,14 @@ export function createApp(options: AppOptions = {}) {
   });
 
   app.route("/admin", adminRoutes(deps));
-  app.route("/puerta", doorRoutes(deps));
+  app.route("/door", doorRoutes(deps));
   app.route("/", signinRoutes(deps));
   app.route("/", accountRoutes(deps));
   app.route("/", siteRoutes(deps));
-  app.route("/entrada", ticketRoutes(deps));
+  app.route("/ticket", ticketRoutes(deps));
   app.route("/p", profileRoutes());
   app.route("/c", certificateRoutes(deps));
+  app.route("/", legacyRoutes());
   // Event slugs take any first segment, so these mount last.
   app.route("/", shareRoutes(deps));
   app.route("/", eventRoutes(deps));

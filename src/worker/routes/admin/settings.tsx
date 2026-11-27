@@ -21,15 +21,15 @@ import { adminPage, pick } from "./page";
 
 const GOOGLE_STATE_COOKIE = "up_google_state";
 
-const googleNotices = ["conectado", "desconectado", "error"] as const;
-const adminsNotices: readonly AdminsNotice[] = ["agregado", "quitado"];
+const googleNotices = ["connected", "disconnected", "error"] as const;
+const adminsNotices: readonly AdminsNotice[] = ["added", "removed"];
 
-/** /admin/ajustes: the admins, the Google connection and the WhatsApp mode. */
+/** /admin/settings: the admins, the Google connection and the WhatsApp mode. */
 export function settingsRoutes({ now, fetch: fetcher }: Deps) {
   const routes = new Hono<AppEnv>();
   const iso = () => now().toISOString();
   const secure = (c: Ctx) => c.env.SITE_URL.startsWith("https:");
-  const googleReturn = (c: Ctx) => `${site(c)}/admin/google/vuelta`;
+  const googleReturn = (c: Ctx) => `${site(c)}/admin/google/callback`;
   const signedIn = (c: Ctx) => c.get("admin") as Account;
 
   const settings = async (
@@ -57,13 +57,13 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
         google={google}
         whatsapp={whatsappMode(c.env)}
       />,
-      { status, section: "ajustes" },
+      { status, section: "settings" },
     );
   };
 
-  routes.get("/ajustes", (c) => settings(c));
+  routes.get("/settings", (c) => settings(c));
 
-  routes.get("/google/conectar", (c) => {
+  routes.get("/google/connect", (c) => {
     const creds = credentials(c.env);
     if (!creds) return notFound(c);
 
@@ -78,7 +78,7 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
     return c.redirect(authUrl(creds, googleReturn(c), state), 302);
   });
 
-  routes.get("/google/vuelta", async (c) => {
+  routes.get("/google/callback", async (c) => {
     const creds = credentials(c.env);
     if (!creds) return notFound(c);
 
@@ -86,7 +86,7 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
     deleteCookie(c, GOOGLE_STATE_COOKIE, { path: "/admin/google" });
     const code = c.req.query("code");
     if (!code || !expected || c.req.query("state") !== expected)
-      return c.redirect("/admin/ajustes?google=error", 303);
+      return c.redirect("/admin/settings?google=error", 303);
 
     try {
       const granted = await exchangeCode(fetcher, creds, code, googleReturn(c));
@@ -95,20 +95,20 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
         connectedBy: signedIn(c).id,
         connectedAt: iso(),
       });
-      return c.redirect("/admin/ajustes?google=conectado", 303);
+      return c.redirect("/admin/settings?google=connected", 303);
     } catch (error) {
       console.error(error);
-      return c.redirect("/admin/ajustes?google=error", 303);
+      return c.redirect("/admin/settings?google=error", 303);
     }
   });
 
-  routes.post("/google/desconectar", async (c) => {
+  routes.post("/google/disconnect", async (c) => {
     const account = await findAccount(c.var.db);
     if (account) {
       await revoke(fetcher, account.refreshToken).catch(console.error);
       await deleteAccount(c.var.db);
     }
-    return c.redirect("/admin/ajustes?google=desconectado", 303);
+    return c.redirect("/admin/settings?google=disconnected", 303);
   });
 
   routes.post("/admins", async (c) => {
@@ -120,17 +120,17 @@ export function settingsRoutes({ now, fetch: fetcher }: Deps) {
       : null;
 
     if (change === "done")
-      return c.redirect("/admin/ajustes?admins=agregado#admins-title", 303);
+      return c.redirect("/admin/settings?admins=added#admins-title", 303);
 
     const error = change
-      ? "Esa persona aún no tiene cuenta. Pídele que entre en /entrar con ese correo."
+      ? "Esa persona aún no tiene cuenta. Pídele que entre en /sign-in con ese correo."
       : "Escribe un correo válido.";
     return settings(c, { email, error }, 422);
   });
 
-  routes.post("/admins/:id/quitar", async (c) => {
+  routes.post("/admins/:id/remove", async (c) => {
     await revokeAdmin(c.var.db, signedIn(c), c.req.param("id"), iso());
-    return c.redirect("/admin/ajustes?admins=quitado#admins-title", 303);
+    return c.redirect("/admin/settings?admins=removed#admins-title", 303);
   });
 
   return routes;

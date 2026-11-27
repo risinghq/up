@@ -4,14 +4,14 @@ import { ArrowIcon, DateRow, PlaceRow } from "../EventCard";
 import { CopyLink } from "./CopyLink";
 import { StatusPill } from "./Events";
 
-export type ManageTab = "resumen" | "inscritos" | "equipo" | "editar" | "mas";
+export type ManageTab = "summary" | "registrants" | "team" | "edit" | "more";
 
 const tabs: [ManageTab, string, string][] = [
-  ["resumen", "Resumen", ""],
-  ["inscritos", "Inscritos", "/inscritos"],
-  ["equipo", "Equipo", "/equipo"],
-  ["editar", "Editar", "/editar"],
-  ["mas", "Más", "/mas"],
+  ["summary", "Resumen", ""],
+  ["registrants", "Inscritos", "/registrants"],
+  ["team", "Equipo", "/team"],
+  ["edit", "Editar", "/edit"],
+  ["more", "Más", "/more"],
 ];
 
 /** The frame of every page of one event: its title, its page link and the tabs. */
@@ -21,7 +21,7 @@ export function ManageFrame(props: {
   tab: ManageTab;
   children: ComponentChildren;
 }) {
-  const base = `/admin/eventos/${props.slug}`;
+  const base = `/admin/events/${props.slug}`;
   return (
     <div class="admin">
       <div class="manage-head">
@@ -60,14 +60,14 @@ export type CalendarPanel = {
   /** The connected Google account's email; absent when none is connected. */
   account?: string;
   link?: CalendarLink;
-  notice?: "listo" | "error" | "quitado";
+  notice?: "synced" | "error" | "removed";
 };
 
 export const calendarNotice = {
-  listo: "El evento está en Google Calendar.",
+  synced: "El evento está en Google Calendar.",
   error:
     "Google no respondió bien; el evento en el calendario no cambió. Sincroniza otra vez.",
-  quitado: "El evento salió de Google Calendar.",
+  removed: "El evento salió de Google Calendar.",
 } as const;
 
 function CalendarCard({
@@ -78,7 +78,7 @@ function CalendarCard({
   calendar: CalendarPanel;
 }) {
   const { link, notice } = calendar;
-  const action = `/admin/eventos/${slug}/calendario`;
+  const action = `/admin/events/${slug}/calendar`;
   return (
     <section class="manage-card" aria-labelledby="calendar-title">
       <h2 id="calendar-title">Google Calendar y Meet</h2>
@@ -92,8 +92,8 @@ function CalendarCard({
       )}
       {!calendar.account ? (
         <p>
-          <a href="/admin/ajustes">Conecta Google</a> en Ajustes para crear este
-          evento en tu calendario con una llamada de Meet.
+          <a href="/admin/settings">Conecta Google</a> en Ajustes para crear
+          este evento en tu calendario con una llamada de Meet.
         </p>
       ) : link ? (
         <>
@@ -131,7 +131,7 @@ function CalendarCard({
             </form>
             <form
               method="post"
-              action={`${action}/quitar`}
+              action={`${action}/remove`}
               data-confirm="¿Quitar el evento de Google Calendar? La llamada de Meet deja de existir."
             >
               <button class="button button-small button-quiet" type="submit">
@@ -168,11 +168,11 @@ export function Overview(props: {
   calendar?: CalendarPanel;
 }) {
   const { event, counts } = props;
-  const base = `/admin/eventos/${event.slug}`;
+  const base = `/admin/events/${event.slug}`;
   const filled =
     event.capacity && Math.min(100, (counts.going / event.capacity) * 100);
   return (
-    <ManageFrame slug={event.slug} title={event.title} tab="resumen">
+    <ManageFrame slug={event.slug} title={event.title} tab="summary">
       {props.created && (
         <p class="notice" role="status">
           Evento creado.{" "}
@@ -190,7 +190,7 @@ export function Overview(props: {
             <DateRow event={event} />
             <PlaceRow event={event} />
           </div>
-          <a class="button button-light button-small" href={`${base}/editar`}>
+          <a class="button button-light button-small" href={`${base}/edit`}>
             Editar evento
           </a>
         </section>
@@ -206,7 +206,7 @@ export function Overview(props: {
         <section class="manage-card" aria-labelledby="guests-title">
           <div class="manage-card-head">
             <h2 id="guests-title">Inscritos</h2>
-            <a href={`${base}/inscritos`}>Ver lista</a>
+            <a href={`${base}/registrants`}>Ver lista</a>
           </div>
           <p class="stat">
             <strong>
@@ -240,7 +240,7 @@ export function More(props: {
 }) {
   const { event } = props;
   return (
-    <ManageFrame slug={event.slug} title={event.title} tab="mas">
+    <ManageFrame slug={event.slug} title={event.title} tab="more">
       <section class="danger" aria-labelledby="delete-title">
         <h2 id="delete-title">Eliminar evento</h2>
         {props.registrations ? (
@@ -256,7 +256,7 @@ export function More(props: {
             </p>
             <form
               method="post"
-              action={`/admin/eventos/${event.slug}/eliminar`}
+              action={`/admin/events/${event.slug}/delete`}
               data-confirm="¿Eliminar este evento? No se puede deshacer."
             >
               <button class="button button-quiet" type="submit">

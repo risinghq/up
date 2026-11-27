@@ -11,24 +11,24 @@ export type MessageKind = Exclude<MailKind, "again">;
 /**
  * The utility templates as they are submitted to Meta, in Spanish (`es`).
  * {{1}} is the first name, {{2}} the event, {{3}} when and {{4}} where. Each
- * has one URL button, "Ver mi entrada", to `<SITE_URL>/entrada/{{1}}`, whose
+ * has one URL button, "Ver mi entrada", to `<SITE_URL>/ticket/{{1}}`, whose
  * parameter is the ticket token.
  */
 export const templates: Record<MessageKind, { name: string; body: string }> = {
   going: {
-    name: "up_inscrito",
+    name: "up_going",
     body: "Hola, {{1}}. Tu cupo en {{2}} está confirmado.\n\n{{3}}\n{{4}}\n\n¿Ya no puedes ir? Cancela desde tu entrada y tu cupo pasa a otra persona.",
   },
   waitlist: {
-    name: "up_lista_espera",
+    name: "up_waitlist",
     body: "Hola, {{1}}. Los cupos de {{2}} se llenaron y quedaste en la lista de espera. Si alguien cancela, te damos su cupo y te avisamos.\n\n{{3}}\n{{4}}",
   },
   promoted: {
-    name: "up_cupo",
+    name: "up_promoted",
     body: "Hola, {{1}}. Se liberó un cupo en {{2}} y ahora es tuyo.\n\n{{3}}\n{{4}}\n\n¿Ya no puedes ir? Cancela desde tu entrada y tu cupo pasa a otra persona.",
   },
   reminder: {
-    name: "up_recordatorio",
+    name: "up_reminder",
     body: "Hola, {{1}}. {{2}} empieza en menos de un día. Te esperamos.\n\n{{3}}\n{{4}}",
   },
 };

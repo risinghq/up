@@ -38,7 +38,7 @@ export type TicketView = {
     /** The community link is the primary action when nothing outranks it. */
     communityPrimary: boolean;
   };
-  /** The public "voy" link, once the holder made one. */
+  /** The public "going" link, once the holder made one. */
   shareUrl?: string;
   /** The holder's certificate, once the event they came in to is over. */
   certificateUrl?: string;
@@ -79,7 +79,7 @@ export function ticketView(
   const ended = hasEnded(event, context.now);
   const live = ticket.status !== "cancelled" && !ended;
   const inside = Boolean(ticket.checkedInAt);
-  const ticketUrl = `${origin}/entrada/${ticket.token}`;
+  const ticketUrl = `${origin}/ticket/${ticket.token}`;
   const meetUrl =
     ticket.status === "going" ? event.calendar?.meetUrl : undefined;
   const profileUrl = ticket.profileId
@@ -125,7 +125,7 @@ export function ticketView(
       communityPrimary: !meetUrl && !inside,
     },
     shareUrl: ticket.shareId
-      ? `${eventUrl(origin, event)}/voy/${ticket.shareId}`
+      ? `${eventUrl(origin, event)}/going/${ticket.shareId}`
       : undefined,
     certificateUrl,
     profile: {

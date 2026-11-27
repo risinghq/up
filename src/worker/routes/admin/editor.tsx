@@ -81,7 +81,7 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
       { status },
     );
 
-  routes.get("/lugares", async (c) => {
+  routes.get("/places", async (c) => {
     const query = (c.req.query("q") ?? "").slice(0, 200);
     if (query.trim().length < 3) return c.json({ places: [] });
 
@@ -93,11 +93,11 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
     }
   });
 
-  routes.get("/eventos/nuevo", (c) =>
+  routes.get("/events/new", (c) =>
     editor(c, { form: { values: blankEvent, errors: {} }, registrations: 0 }),
   );
 
-  routes.post("/eventos/nuevo", async (c) => {
+  routes.post("/events/new", async (c) => {
     const parsed = parseEventForm(await c.req.formData());
     if (!parsed.ok)
       return editor(c, { form: parsed, registrations: 0 }, undefined, 422);
@@ -116,11 +116,11 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
 
     const cover = await placeCover(c.env.MEDIA, parsed, event.slug);
     await saveEvent(c.var.db, { ...event, coverKey: cover.key }, iso());
-    return c.redirect(`/admin/eventos/${event.slug}?creado`, 303);
+    return c.redirect(`/admin/events/${event.slug}?created`, 303);
   });
 
   routes.get(
-    "/eventos/:slug/editar",
+    "/events/:slug/edit",
     withEvent(async (c, event) =>
       editor(
         c,
@@ -128,8 +128,8 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
           form: { values: eventValues(event), errors: {} },
           registrations: await registrationCount(c.var.db, event.slug),
           coverUrl: coverUrl(event),
-          saved: c.req.query("guardado") !== undefined,
-          calendarError: c.req.query("calendario") === "error",
+          saved: c.req.query("saved") !== undefined,
+          calendarError: c.req.query("calendar") === "error",
         },
         event,
       ),
@@ -137,7 +137,7 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
   );
 
   routes.post(
-    "/eventos/:slug/editar",
+    "/events/:slug/edit",
     withEvent(async (c, current) => {
       const registrations = await registrationCount(c.var.db, current.slug);
       const parsed = parseEventForm(
@@ -190,7 +190,7 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
           eventUrl(site(c), saved),
         ));
       return c.redirect(
-        `/admin/eventos/${event.slug}/editar?guardado${synced ? "" : "&calendario=error"}`,
+        `/admin/events/${event.slug}/edit?saved${synced ? "" : "&calendar=error"}`,
         303,
       );
     }),

@@ -12,8 +12,8 @@ import { Check, Field, HumanCheck } from "./FormFields";
  * and errors into the status line under the button.
  */
 function PasskeyButton(props: {
-  action: "entrar" | "agregar";
-  volver?: string;
+  action: "sign-in" | "add";
+  next?: string;
   label: string;
   light?: boolean;
 }) {
@@ -27,7 +27,7 @@ function PasskeyButton(props: {
         }
         type="button"
         data-passkey={props.action}
-        data-volver={props.volver}
+        data-next={props.next}
         disabled
       >
         {props.label}
@@ -39,8 +39,8 @@ function PasskeyButton(props: {
   );
 }
 
-const Volver = ({ value }: { value: string }) => (
-  <input type="hidden" name="volver" value={value} />
+const NextField = ({ value }: { value: string }) => (
+  <input type="hidden" name="next" value={value} />
 );
 
 function Narrow(props: { title: string; children: ComponentChildren }) {
@@ -54,7 +54,7 @@ function Narrow(props: { title: string; children: ComponentChildren }) {
 
 export function SignIn(props: {
   form: FormState;
-  volver: string;
+  next: string;
   siteKey: string | null;
 }) {
   const errors = props.form.errors;
@@ -63,8 +63,8 @@ export function SignIn(props: {
       <p class="account-lead">
         Te enviamos un código a tu correo. No necesitas contraseña.
       </p>
-      <form class="card account-form" method="post" action="/entrar">
-        <Volver value={props.volver} />
+      <form class="card account-form" method="post" action="/sign-in">
+        <NextField value={props.next} />
         <Field
           name="email"
           label="Correo"
@@ -88,8 +88,8 @@ export function SignIn(props: {
       </form>
       <p class="account-or">o</p>
       <PasskeyButton
-        action="entrar"
-        volver={props.volver}
+        action="sign-in"
+        next={props.next}
         label="Entrar con passkey"
         light
       />
@@ -134,7 +134,7 @@ const codeNotice: Record<CodeNotice, string> = {
 /** The step after the email: type the mailed code. */
 export function CodeStep(props: {
   email: string;
-  volver: string;
+  next: string;
   notice: CodeNotice;
   error: string | null;
   action: string;
@@ -147,7 +147,7 @@ export function CodeStep(props: {
         {CODE_MINUTES} minutos.
       </p>
       <form class="card account-form" method="post" action={props.action}>
-        <Volver value={props.volver} />
+        <NextField value={props.next} />
         <input type="hidden" name="email" value={props.email} />
         <CodeField error={props.error} />
         <button class="button button-block" type="submit">
@@ -165,7 +165,7 @@ export function CodeStep(props: {
 export function NewAccount(props: {
   email: string;
   token: string;
-  volver: string;
+  next: string;
   form: FormState;
 }) {
   const errors = props.form.errors;
@@ -174,8 +174,8 @@ export function NewAccount(props: {
       <p class="account-lead">
         Es la primera vez que entras con <strong>{props.email}</strong>.
       </p>
-      <form class="card account-form" method="post" action="/entrar/cuenta">
-        <Volver value={props.volver} />
+      <form class="card account-form" method="post" action="/sign-in/account">
+        <NextField value={props.next} />
         <input type="hidden" name="email" value={props.email} />
         <input type="hidden" name="token" value={props.token} />
         <Field
@@ -186,7 +186,7 @@ export function NewAccount(props: {
           focus={!errors.privacy}
         />
         <Check name="privacy" form={props.form} focus={Boolean(errors.privacy)}>
-          Acepto la <a href="/privacidad">política de privacidad</a>.
+          Acepto la <a href="/privacy">política de privacidad</a>.
         </Check>
         <button class="button button-block" type="submit">
           Crear mi cuenta
@@ -208,18 +208,18 @@ export function CodeGone(props: { retry: string }) {
 }
 
 export type AccountNotice =
-  | "datos"
-  | "correo"
+  | "details"
+  | "email"
   | "passkey"
-  | "passkey-quitada"
-  | "perfil";
+  | "passkey-removed"
+  | "profile";
 
 const notices: Record<AccountNotice, string> = {
-  datos: "Guardamos tus datos.",
-  correo: "Tu correo quedó confirmado.",
+  details: "Guardamos tus datos.",
+  email: "Tu correo quedó confirmado.",
   passkey: "Agregamos la passkey. Ya puedes entrar con ella.",
-  "passkey-quitada": "Quitamos la passkey.",
-  perfil: "Actualizamos tu perfil.",
+  "passkey-removed": "Quitamos la passkey.",
+  profile: "Actualizamos tu perfil.",
 };
 
 export type AccountView = {
@@ -265,7 +265,7 @@ function Tickets({ tickets }: { tickets: AccountTicket[] }) {
     <ul class="account-list">
       {tickets.map((t) => (
         <li key={t.token}>
-          <a href={`/entrada/${t.token}`}>
+          <a href={`/ticket/${t.token}`}>
             <span class="account-item-title">{t.title}</span>
             <span class="account-item-meta">
               <time dateTime={t.start}>{shortDate(t.start)}</time>
@@ -284,7 +284,7 @@ function Tickets({ tickets }: { tickets: AccountTicket[] }) {
 function roleLink(r: AccountRole) {
   if (r.past) return { href: `/c/${r.certificateId}`, label: " · Certificado" };
   if (doorRoles.includes(r.role))
-    return { href: `/puerta/${r.slug}`, label: " · Abrir la puerta" };
+    return { href: `/door/${r.slug}`, label: " · Abrir la puerta" };
   return { href: `/${r.slug}`, label: "" };
 }
 
@@ -330,7 +330,7 @@ function Passkeys(props: { passkeys: Passkey[]; hasEmail: boolean }) {
               {removable && (
                 <form
                   method="post"
-                  action={`/cuenta/passkeys/${encodeURIComponent(p.id)}/quitar`}
+                  action={`/account/passkeys/${encodeURIComponent(p.id)}/remove`}
                   data-confirm="¿Quitar esta passkey? Ese dispositivo ya no podrá entrar con ella."
                 >
                   <button
@@ -345,7 +345,7 @@ function Passkeys(props: { passkeys: Passkey[]; hasEmail: boolean }) {
           ))}
         </ul>
       )}
-      <PasskeyButton action="agregar" label="Agregar una passkey" light />
+      <PasskeyButton action="add" label="Agregar una passkey" light />
     </>
   );
 }
@@ -365,7 +365,7 @@ export function AccountPage(view: AccountView) {
         </p>
       )}
 
-      <Section id="entradas" title="Tus entradas">
+      <Section id="tickets" title="Tus entradas">
         <Tickets tickets={view.tickets} />
       </Section>
 
@@ -375,8 +375,8 @@ export function AccountPage(view: AccountView) {
         </Section>
       )}
 
-      <Section id="datos" title="Tus datos">
-        <form class="account-form" method="post" action="/cuenta">
+      <Section id="details" title="Tus datos">
+        <form class="account-form" method="post" action="/account">
           <Field
             name="name"
             label="Nombre y apellido"
@@ -400,7 +400,7 @@ export function AccountPage(view: AccountView) {
       </Section>
 
       <Section
-        id="correo"
+        id="email"
         title="Correo"
         hint={
           view.email
@@ -408,7 +408,7 @@ export function AccountPage(view: AccountView) {
             : "Tu cuenta aún no tiene correo. Agrégalo para entrar con un código y recibir tus entradas."
         }
       >
-        <form class="account-inline" method="post" action="/cuenta/correo">
+        <form class="account-inline" method="post" action="/account/email">
           <Field
             name="email"
             label={view.email ? "Correo nuevo" : "Correo"}
@@ -425,7 +425,7 @@ export function AccountPage(view: AccountView) {
       </Section>
 
       <Section
-        id="perfil"
+        id="profile"
         title="Perfil público"
         hint="Muestra tu nombre, los eventos a los que fuiste y tus roles. Solo lo ve quien tenga el enlace."
       >
@@ -437,14 +437,14 @@ export function AccountPage(view: AccountView) {
             >
               Ver mi perfil
             </a>
-            <form method="post" action="/cuenta/perfil/ocultar">
+            <form method="post" action="/account/profile/hide">
               <button class="button button-light button-small" type="submit">
                 Ocultar
               </button>
             </form>
           </div>
         ) : (
-          <form method="post" action="/cuenta/perfil">
+          <form method="post" action="/account/profile">
             <button class="button button-light" type="submit">
               Abrir mi perfil
             </button>
@@ -460,7 +460,7 @@ export function AccountPage(view: AccountView) {
         <Passkeys passkeys={view.passkeys} hasEmail={Boolean(view.email)} />
       </Section>
 
-      <form class="account-signout" method="post" action="/salir">
+      <form class="account-signout" method="post" action="/sign-out">
         <button class="button button-quiet" type="submit">
           Salir
         </button>

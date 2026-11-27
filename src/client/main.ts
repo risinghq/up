@@ -7,7 +7,7 @@ import "../pages/Layout.css";
 import "../pages/Brand.css";
 import "../pages/Home.css";
 import "../pages/EventCard.css";
-import "../pages/Voy.css";
+import "../pages/Going.css";
 import "../pages/Event.css";
 import "../pages/Ticket.css";
 import "../pages/Profile.css";
@@ -63,13 +63,13 @@ if (editor)
 const place = document.querySelector<HTMLElement>(".place-picker");
 if (place) void import("./picker").then((m) => m.showPicker(place));
 
-const signup = document.querySelector<HTMLDetailsElement>("#inscripcion");
+const signup = document.querySelector<HTMLDetailsElement>("#register");
 if (signup) {
   // Turnstile loads only once a visitor opens the form.
   const human = signup.querySelector<HTMLElement>(".turnstile");
   if (human && signup.open) showTurnstile(human);
-  // A link to #inscripcion, as the home spotlight's, arrives with it open.
-  if (location.hash === "#inscripcion") signup.open = true;
+  // A link to #register, as the home spotlight's, arrives with it open.
+  if (location.hash === "#register") signup.open = true;
   signup.addEventListener("toggle", () => {
     if (!signup.open) return;
     if (human) showTurnstile(human);
@@ -79,7 +79,7 @@ if (signup) {
 }
 
 for (const human of document.querySelectorAll<HTMLElement>(".turnstile"))
-  if (!human.closest("#inscripcion")) showTurnstile(human);
+  if (!human.closest("#register")) showTurnstile(human);
 
 const nav = document.querySelector<HTMLElement>(".site-nav.sticky");
 if (nav) {

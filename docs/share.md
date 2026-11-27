@@ -5,7 +5,7 @@ A ticket holder opens their ticket and presses **Compartir que voy** under
 por WhatsApp** button:
 
 ```
-https://up.rising.sh/hackathon-ml-fisica/voy/t5layru7ff3AnPISLxdt3A
+https://up.rising.sh/hackathon-ml-fisica/going/t5layru7ff3AnPISLxdt3A
 ```
 
 The link opens a page that says **Lucía va a** over the event, with a button to

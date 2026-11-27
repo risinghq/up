@@ -144,7 +144,7 @@ function RegisterCard(view: EventView) {
             description is not buried under it. A failed post reopens it. */}
         <details
           class="register-details"
-          id="inscripcion"
+          id="register"
           open={hasErrors || view.notice !== null}
         >
           <summary class="button button-primary button-full">{action}</summary>
@@ -225,7 +225,7 @@ function RegisterForm({
         Avísenme por WhatsApp de los próximos eventos.
       </Check>
       <Check name="privacy" form={view.form} focus={focus === "privacy"}>
-        Acepto la <a href="/privacidad">política de privacidad</a>.
+        Acepto la <a href="/privacy">política de privacidad</a>.
       </Check>
       {/* A field people never see; a bot that fills it is refused. */}
       <div class="trap" aria-hidden="true">
@@ -315,9 +315,9 @@ export function EventPage(view: EventView) {
             )}
             {view.admin && (
               <p class="admin-bar">
-                <a href={`/admin/eventos/${meta.slug}`}>Gestionar</a> ·{" "}
-                <a href={`/admin/eventos/${meta.slug}/editar`}>Editar</a> ·{" "}
-                <a href={`/admin/eventos/${meta.slug}/inscritos`}>Inscritos</a>
+                <a href={`/admin/events/${meta.slug}`}>Gestionar</a> ·{" "}
+                <a href={`/admin/events/${meta.slug}/edit`}>Editar</a> ·{" "}
+                <a href={`/admin/events/${meta.slug}/registrants`}>Inscritos</a>
               </p>
             )}
             <h1 class="event-title">{meta.title}</h1>
@@ -335,7 +335,7 @@ export function EventPage(view: EventView) {
               </a>
               <a
                 class="button button-light button-small button-round"
-                href={`/${meta.slug}/calendario.ics`}
+                href={`/${meta.slug}/calendar.ics`}
               >
                 Descargar .ics
               </a>

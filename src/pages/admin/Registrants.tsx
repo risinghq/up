@@ -9,8 +9,8 @@ function CheckIn(props: { slug: string; registrant: Registrant }) {
   if (r.checkedInAt) return <>{clock(r.checkedInAt)}</>;
   if (r.status === "cancelled") return null;
   return (
-    <form method="post" action={`/puerta/${props.slug}/ingreso/${r.token}`}>
-      <input type="hidden" name="volver" value="inscritos" />
+    <form method="post" action={`/door/${props.slug}/check-in/${r.token}`}>
+      <input type="hidden" name="next" value="registrants" />
       <button class="button button-light button-small" type="submit">
         Registrar
       </button>
@@ -31,7 +31,7 @@ export function Registrants(props: {
   const { event, registrants } = props;
   const count = (s: Status) => registrants.filter((r) => r.status === s).length;
   return (
-    <ManageFrame slug={event.slug} title={event.title} tab="inscritos">
+    <ManageFrame slug={event.slug} title={event.title} tab="registrants">
       <div class="section-head">
         <p>
           {count("going")} con cupo
@@ -42,13 +42,13 @@ export function Registrants(props: {
         <span class="actions">
           <a
             class="button button-light button-small"
-            href={`/puerta/${event.slug}`}
+            href={`/door/${event.slug}`}
           >
             Puerta
           </a>
           <a
             class="button button-light button-small"
-            href={`/admin/eventos/${event.slug}/inscritos.csv`}
+            href={`/admin/events/${event.slug}/registrants.csv`}
           >
             Descargar CSV
           </a>

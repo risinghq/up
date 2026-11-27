@@ -12,12 +12,12 @@ WhatsApp Cloud API. `WHATSAPP_PHONE_NUMBER_ID` in
 
 Ajustes in the admin shows the mode. Production runs `mock`.
 
-| Template          | Sent when                                                      |
-| ----------------- | -------------------------------------------------------------- |
-| `up_inscrito`     | A registration takes a seat.                                   |
-| `up_lista_espera` | A registration joins the waitlist.                             |
-| `up_cupo`         | A cancellation or a raised capacity seats a waitlisted ticket. |
-| `up_recordatorio` | The hourly cron sends the [reminder](email.md).                |
+| Template      | Sent when                                                      |
+| ------------- | -------------------------------------------------------------- |
+| `up_going`    | A registration takes a seat.                                   |
+| `up_waitlist` | A registration joins the waitlist.                             |
+| `up_promoted` | A cancellation or a raised capacity seats a waitlisted ticket. |
+| `up_reminder` | The hourly cron sends the [reminder](email.md).                |
 
 A repeat registration gets its ticket link by email only. A failed message is
 logged and never fails the request or blocks the email. A reminder is marked
@@ -26,7 +26,7 @@ sent by its email alone, so a failed WhatsApp reminder is not retried.
 The template bodies, in Spanish, are `templates` in
 [`src/worker/whatsapp.ts`](../src/worker/whatsapp.ts). `{{1}}` is the first
 name, `{{2}}` the event, `{{3}}` when and `{{4}}` where. Each template has one
-URL button, "Ver mi entrada", to `https://up.rising.sh/entrada/{{1}}`; its
+URL button, "Ver mi entrada", to `https://up.rising.sh/ticket/{{1}}`; its
 parameter is the ticket token.
 
 ## Go live

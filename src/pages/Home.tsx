@@ -2,7 +2,7 @@ import type { EventMeta } from "../worker/events";
 import { EventCard, Spotlight } from "./EventCard";
 import type { Community } from "./Layout";
 
-export type Tab = "proximos" | "pasados";
+export type Tab = "upcoming" | "past";
 
 export function Home(props: {
   upcoming: EventMeta[];
@@ -11,10 +11,10 @@ export function Home(props: {
   community: Community;
 }) {
   const featured =
-    props.tab === "proximos"
+    props.tab === "upcoming"
       ? props.upcoming.find((e) => e.featured && e.status === "published")
       : undefined;
-  const list = props.tab === "proximos" ? props.upcoming : props.past;
+  const list = props.tab === "upcoming" ? props.upcoming : props.past;
   const { whatsapp, instagram } = props.community;
   // The featured event's title is the page heading when there is one.
   const ListingTitle = featured ? "h2" : "h1";
@@ -30,13 +30,13 @@ export function Home(props: {
             <nav class="tabs" aria-label="Filtrar eventos">
               <a
                 href="/"
-                aria-current={props.tab === "proximos" ? "page" : undefined}
+                aria-current={props.tab === "upcoming" ? "page" : undefined}
               >
                 Próximos <span>{props.upcoming.length}</span>
               </a>
               <a
-                href="/?ver=pasados"
-                aria-current={props.tab === "pasados" ? "page" : undefined}
+                href="/?period=past"
+                aria-current={props.tab === "past" ? "page" : undefined}
               >
                 Pasados <span>{props.past.length}</span>
               </a>
@@ -48,16 +48,16 @@ export function Home(props: {
                 <EventCard
                   key={event.slug}
                   event={event}
-                  past={props.tab === "pasados"}
+                  past={props.tab === "past"}
                 />
               ))}
             </ul>
           ) : (
             <p class="empty">
-              {props.tab === "proximos"
+              {props.tab === "upcoming"
                 ? "Pronto anunciamos el próximo evento."
                 : "Todavía no hay eventos pasados."}
-              {props.tab === "proximos" &&
+              {props.tab === "upcoming" &&
                 (whatsapp || instagram) &&
                 " Síguenos para enterarte primero."}
             </p>

@@ -30,7 +30,7 @@ export function ticketRoutes({ now, fetch: fetcher }: Deps) {
     const view = ticketView(viewContext(c, now()), {
       ticket,
       event,
-      fresh: c.req.query("nueva") !== undefined,
+      fresh: c.req.query("new") !== undefined,
       door: await worksDoor(c, event, now()),
       whatsapp: c.env.WHATSAPP_COMMUNITY_URL,
       hasRole: (await rolesOf(c.var.db, ticket.personId)).length > 0,
@@ -50,33 +50,33 @@ export function ticketRoutes({ now, fetch: fetcher }: Deps) {
     );
   });
 
-  routes.post("/:token/perfil", async (c) => {
+  routes.post("/:token/profile", async (c) => {
     const token = c.req.param("token");
     const ticket = await findTicket(c.var.db, token);
     if (!ticket) return notFound(c, "ticket");
 
     await openProfile(c.var.db, ticket.personId);
-    return c.redirect(`/entrada/${token}#perfil`, 303);
+    return c.redirect(`/ticket/${token}#profile`, 303);
   });
 
-  routes.post("/:token/perfil/ocultar", async (c) => {
+  routes.post("/:token/profile/hide", async (c) => {
     const token = c.req.param("token");
     const ticket = await findTicket(c.var.db, token);
     if (!ticket) return notFound(c, "ticket");
 
     await closeProfile(c.var.db, ticket.personId);
-    return c.redirect(`/entrada/${token}#perfil`, 303);
+    return c.redirect(`/ticket/${token}#profile`, 303);
   });
 
-  routes.post("/:token/compartir", async (c) => {
+  routes.post("/:token/share", async (c) => {
     const token = c.req.param("token");
     if (!(await findTicket(c.var.db, token))) return notFound(c, "ticket");
 
     await shareTicket(c.var.db, token);
-    return c.redirect(`/entrada/${token}#compartir`, 303);
+    return c.redirect(`/ticket/${token}#share`, 303);
   });
 
-  routes.post("/:token/cancelar", async (c) => {
+  routes.post("/:token/cancel", async (c) => {
     const token = c.req.param("token");
     const ticket = await findTicket(c.var.db, token);
     const event = ticket && (await findEvent(c.var.db, ticket.eventSlug));
@@ -89,7 +89,7 @@ export function ticketRoutes({ now, fetch: fetcher }: Deps) {
         notifyTickets(c.var.db, c.env, fetcher, "promoted", event, seated),
       );
     }
-    return c.redirect(`/entrada/${token}`, 303);
+    return c.redirect(`/ticket/${token}`, 303);
   });
 
   return routes;

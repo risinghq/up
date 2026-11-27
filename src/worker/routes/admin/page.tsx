@@ -27,7 +27,7 @@ export function adminPage(
     {
       shell: {
         name: c.get("admin")?.name ?? "",
-        section: options.section ?? "eventos",
+        section: options.section ?? "events",
       },
     },
   );

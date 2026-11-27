@@ -16,7 +16,7 @@ export function siteRoutes({ now }: Deps) {
   const routes = new Hono<AppEnv>();
 
   routes.get("/", async (c) => {
-    const tab: Tab = c.req.query("ver") === "pasados" ? "pasados" : "proximos";
+    const tab: Tab = c.req.query("period") === "past" ? "past" : "upcoming";
     const admin = Boolean(c.get("admin"));
     const all = (await listEvents(c.var.db)).filter(
       (e) => admin || e.status === "published",
@@ -41,13 +41,13 @@ export function siteRoutes({ now }: Deps) {
     );
   });
 
-  routes.get("/privacidad", (c) =>
+  routes.get("/privacy", (c) =>
     page(
       c,
       {
         title: "Privacidad",
         description: "Qué datos pide up.rising.sh y para qué.",
-        url: `${site(c)}/privacidad`,
+        url: `${site(c)}/privacy`,
       },
       <Privacy />,
     ),
