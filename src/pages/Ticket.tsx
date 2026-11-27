@@ -2,7 +2,7 @@ import { Fragment } from "preact";
 import { kindLabel, type EventMeta } from "../worker/events";
 import type { Ticket } from "../worker/registrations";
 import { clock, shortDate } from "../worker/time";
-import { DateRow, PlaceRow, VenueCard } from "./EventCard";
+import { DateRow, PlaceRow } from "./EventCard";
 import type { Standing, TicketView } from "./Ticket.view";
 import { cardColors } from "./theme";
 
@@ -254,7 +254,6 @@ export function TicketPage(view: TicketView) {
       <CertificatePanel url={view.certificateUrl} />
     ),
     next: <NextSteps token={ticket.token} slug={event.slug} next={view.next} />,
-    venue: <VenueCard event={event} />,
     share: (
       <SharePanel
         token={ticket.token}
