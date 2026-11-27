@@ -62,16 +62,16 @@ describe("ticketView", () => {
       {
         name: "seated, before the event",
         t: ticket(),
-        panels: ["next", "venue", "share"],
+        panels: ["next", "share"],
       },
       {
         name: "a role holder, before check-in",
         t: ticket(),
         hasRole: true,
-        panels: ["next", "venue", "share", "profile"],
+        panels: ["next", "share", "profile"],
       },
       {
-        name: "checked in: the profile leads, the venue goes",
+        name: "checked in: the profile leads",
         t: inside,
         panels: ["profile", "next", "share"],
       },

@@ -574,13 +574,16 @@ describe("ticket page", () => {
     expect(later.document.querySelector(`[data-copy="${url}"]`)).toBeNull();
   });
 
-  test("a check-in drops the calendar and the venue, and leads with the profile", async () => {
+  test("a check-in drops the calendar and leads with the profile", async () => {
     const token = await registerAs("charla", { email: "dentro@example.com" });
     const before = await open(`/ticket/${token}`);
     expect(
       before.screen.getByRole("link", { name: "Agregar a Google Calendar" }),
     ).toBeTruthy();
-    expect(cards(before)).toContain("Lugar");
+    expect(cards(before)).toEqual([
+      "Antes del evento",
+      "Cuéntale a tus amigos",
+    ]);
 
     await checkIn(db, token, now.toISOString());
     const after = await open(`/ticket/${token}`);

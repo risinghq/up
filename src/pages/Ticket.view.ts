@@ -6,12 +6,7 @@ import type { Ticket } from "../worker/registrations";
 import type { ViewContext } from "../worker/web";
 
 /** The panels under the ticket, in the order the page shows them. */
-export type TicketPanel =
-  | "certificate"
-  | "next"
-  | "venue"
-  | "share"
-  | "profile";
+export type TicketPanel = "certificate" | "next" | "share" | "profile";
 
 /** Where the holder stands: the ticket's status until the event ends. */
 export type Standing = Ticket["status"] | "attended" | "missed";
@@ -60,7 +55,7 @@ export type TicketView = {
  * Decides what a ticket page shows. A live ticket (not cancelled, event not
  * ended) gets the next steps and the share panel. The profile panel shows
  * once there is something to put on it: a check-in, an open profile, or a
- * role at an event. After check-in the profile leads and the venue goes;
+ * role at an event. After check-in the profile leads;
  * once the event is over, the certificate leads.
  */
 export function ticketView(
@@ -95,11 +90,10 @@ export function ticketView(
   const showProfile = inside || Boolean(profileUrl) || input.hasRole;
   const order: TicketPanel[] = inside
     ? ["certificate", "profile", "next", "share"]
-    : ["next", "venue", "share", "profile"];
+    : ["next", "share", "profile"];
   const shown: Record<TicketPanel, boolean> = {
     certificate: Boolean(certificateUrl),
     next: showNext,
-    venue: live,
     share: live,
     profile: showProfile,
   };

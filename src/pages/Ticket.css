@@ -73,10 +73,11 @@
   color: var(--brand-active-color);
 }
 
-/* The ticket card is narrower than the event page, so the venue wraps
-   instead of cutting its name. */
+/* The ticket card is narrower than the event page, so the place and its
+   description wrap instead of cutting the text. */
 .ticket-page .meta-title,
-.ticket-page .meta-title > span:first-child {
+.ticket-page .meta-title > span:first-child,
+.ticket-page .meta-desc {
   white-space: normal;
 }
 
