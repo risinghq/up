@@ -93,9 +93,9 @@ const lastCode = (email: string) =>
   (mail.subjects(email).at(-1) ?? "").slice(0, 6);
 
 /** Asks for a sign-in code and returns it. */
-async function requestCode(email: string, volver = "") {
+async function requestCode(email: string, next = "") {
   tick();
-  const res = await post("/entrar", { email, volver });
+  const res = await post("/sign-in", { email, next });
   expect(res.status).toBe(200);
   return lastCode(email);
 }
@@ -117,10 +117,10 @@ describe("signing in with a code", () => {
     const code = await requestCode("nueva@example.com", "/charla");
     expect(code).toMatch(/^\d{6}$/);
 
-    const named = await post("/entrar/codigo", {
+    const named = await post("/sign-in/code", {
       email: "nueva@example.com",
       code,
-      volver: "/charla",
+      next: "/charla",
     });
     const step = await page(named);
     expect(step.screen.getByRole("heading", { level: 1 }).textContent).toBe(
@@ -130,23 +130,23 @@ describe("signing in with a code", () => {
       step.document.querySelector<HTMLInputElement>("input[name=token]")
         ?.value ?? "";
 
-    const unchecked = await post("/entrar/cuenta", {
+    const unchecked = await post("/sign-in/account", {
       email: "nueva@example.com",
       token,
       name: "Lucía Rojas",
-      volver: "/charla",
+      next: "/charla",
     });
     expect(unchecked.status).toBe(422);
 
-    const created = await post("/entrar/cuenta", {
+    const created = await post("/sign-in/account", {
       email: "nueva@example.com",
       token,
       name: "Lucía Rojas",
       privacy: "on",
-      volver: "/charla",
+      next: "/charla",
     });
     expect(location(created)).toBe("/charla");
-    const account = await page(await get("/cuenta", session(created)));
+    const account = await page(await get("/account", session(created)));
     expect(account.screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "Tu cuenta",
     );
@@ -155,7 +155,7 @@ describe("signing in with a code", () => {
     );
 
     // The proof is spent with the account.
-    const again = await post("/entrar/cuenta", {
+    const again = await post("/sign-in/account", {
       email: "nueva@example.com",
       token,
       name: "Otra",
@@ -167,10 +167,10 @@ describe("signing in with a code", () => {
   test("an existing account signs in and returns where it was going", async () => {
     await signedIn(db, clock, { email: "rosa@example.com", name: "Rosa" });
     const code = await requestCode("rosa@example.com", "/charla");
-    const res = await post("/entrar/codigo", {
+    const res = await post("/sign-in/code", {
       email: "rosa@example.com",
       code,
-      volver: "/charla",
+      next: "/charla",
     });
     expect(location(res)).toBe("/charla");
     expect(session(res)).toStartWith("up_session=");
@@ -178,18 +178,18 @@ describe("signing in with a code", () => {
 
   test("a return path off the site falls back to the account page", async () => {
     const code = await requestCode("rosa@example.com", "//evil.example");
-    const res = await post("/entrar/codigo", {
+    const res = await post("/sign-in/code", {
       email: "rosa@example.com",
       code,
-      volver: "//evil.example",
+      next: "//evil.example",
     });
-    expect(location(res)).toBe("/cuenta");
+    expect(location(res)).toBe("/account");
   });
 
   test("one address gets one code a minute", async () => {
     await requestCode("espera@example.com");
     const sent = mail.subjects("espera@example.com").length;
-    const res = await post("/entrar", { email: "espera@example.com" });
+    const res = await post("/sign-in", { email: "espera@example.com" });
     expect(res.status).toBe(200);
     expect(mail.subjects("espera@example.com")).toHaveLength(sent);
   });
@@ -199,7 +199,7 @@ describe("signing in with a code", () => {
     const wrong = code === "000000" ? "111111" : "000000";
     const answers = [];
     for (let i = 0; i < 5; i++) {
-      const res = await post("/entrar/codigo", {
+      const res = await post("/sign-in/code", {
         email: "tries@example.com",
         code: wrong,
       });
@@ -207,7 +207,7 @@ describe("signing in with a code", () => {
     }
     expect(answers).toEqual([422, 422, 422, 422, 410]);
 
-    const late = await post("/entrar/codigo", {
+    const late = await post("/sign-in/code", {
       email: "tries@example.com",
       code,
     });
@@ -216,7 +216,7 @@ describe("signing in with a code", () => {
 
   test("a post from another site is refused", async () => {
     const res = await app.request(
-      "/entrar",
+      "/sign-in",
       {
         method: "POST",
         body: fields({ email: "rosa@example.com" }),
@@ -236,9 +236,9 @@ describe("passkeys", () => {
     });
     const key = await softPasskey(ORIGIN);
 
-    const start = await begin("/cuenta/passkeys/opciones", cookie);
+    const start = await begin("/account/passkeys/options", cookie);
     const added = await postJson(
-      "/cuenta/passkeys",
+      "/account/passkeys",
       {
         challengeId: start.challengeId,
         response: await key.create(start.options.challenge),
@@ -246,24 +246,24 @@ describe("passkeys", () => {
       cookie,
     );
     expect(await added.json()).toEqual({
-      redirect: "/cuenta?aviso=passkey#passkeys",
+      redirect: "/account?notice=passkey#passkeys",
     });
 
-    const signIn = await begin("/entrar/passkey/opciones");
+    const signIn = await begin("/sign-in/passkey/options");
     const answer = await key.get(signIn.options.challenge);
-    const res = await postJson("/entrar/passkey", {
+    const res = await postJson("/sign-in/passkey", {
       challengeId: signIn.challengeId,
       response: answer,
-      volver: "/charla",
+      next: "/charla",
     });
     expect(await res.json()).toEqual({ redirect: "/charla" });
-    const account = await page(await get("/cuenta", session(res)));
+    const account = await page(await get("/account", session(res)));
     expect(
       account.screen.getByRole("textbox", { name: "Nombre y apellido" }),
     ).toHaveProperty("value", "Llave");
 
     // A challenge answers once.
-    const replay = await postJson("/entrar/passkey", {
+    const replay = await postJson("/sign-in/passkey", {
       challengeId: signIn.challengeId,
       response: answer,
     });
@@ -272,8 +272,8 @@ describe("passkeys", () => {
 
   test("an unknown passkey is refused", async () => {
     const key = await softPasskey(ORIGIN);
-    const start = await begin("/entrar/passkey/opciones");
-    const res = await postJson("/entrar/passkey", {
+    const start = await begin("/sign-in/passkey/options");
+    const res = await postJson("/sign-in/passkey", {
       challengeId: start.challengeId,
       response: await key.get(start.options.challenge),
     });
@@ -283,9 +283,9 @@ describe("passkeys", () => {
   test("an account without an email keeps its last passkey", async () => {
     const { id, cookie } = await signedIn(db, clock, { name: "Sin correo" });
     const key = await softPasskey(ORIGIN);
-    const start = await begin("/cuenta/passkeys/opciones", cookie);
+    const start = await begin("/account/passkeys/options", cookie);
     await postJson(
-      "/cuenta/passkeys",
+      "/account/passkeys",
       {
         challengeId: start.challengeId,
         response: await key.create(start.options.challenge),
@@ -293,7 +293,7 @@ describe("passkeys", () => {
       cookie,
     );
 
-    await post(`/cuenta/passkeys/${key.id}/quitar`, {}, cookie);
+    await post(`/account/passkeys/${key.id}/remove`, {}, cookie);
     const kept = await DB.prepare(
       "SELECT COUNT(*) AS n FROM credentials WHERE person_id = ?",
     )
@@ -305,14 +305,14 @@ describe("passkeys", () => {
 
 describe("the account", () => {
   test("a visitor is sent to sign in", async () => {
-    expect(location(await get("/cuenta"))).toBe("/entrar?volver=%2Fcuenta");
+    expect(location(await get("/account"))).toBe("/sign-in?next=%2Faccount");
   });
 
   test("signing out ends the session", async () => {
     const { cookie } = await signedIn(db, clock, { name: "Sale" });
-    const res = await post("/salir", {}, cookie);
+    const res = await post("/sign-out", {}, cookie);
     expect(location(res)).toBe("/");
-    expect(location(await get("/cuenta", cookie))).toStartWith("/entrar");
+    expect(location(await get("/account", cookie))).toStartWith("/sign-in");
   });
 
   test("proving an email folds that person's tickets into the account", async () => {
@@ -329,13 +329,13 @@ describe("the account", () => {
 
     const { id, cookie } = await signedIn(db, clock, { name: "Doble" });
     tick();
-    await post("/cuenta/correo", { email: "doble@example.com" }, cookie);
+    await post("/account/email", { email: "doble@example.com" }, cookie);
     const res = await post(
-      "/cuenta/correo/codigo",
+      "/account/email/code",
       { email: "doble@example.com", code: lastCode("doble@example.com") },
       cookie,
     );
-    expect(location(res)).toBe("/cuenta?aviso=correo");
+    expect(location(res)).toBe("/account?notice=email");
 
     const after = await personByEmail("doble@example.com");
     expect(after?.id).toBe(id);
@@ -354,7 +354,7 @@ describe("the account", () => {
       name: "Propia",
     });
     const res = await post(
-      "/cuenta/correo",
+      "/account/email",
       { email: "rosa@example.com" },
       cookie,
     );
@@ -399,7 +399,7 @@ describe("the account", () => {
         .bind(`lista-${i}`, slug, id, clock.toISOString())
         .run();
 
-    const { screen } = await page(await get("/cuenta", cookie));
+    const { screen } = await page(await get("/account", cookie));
     const list = screen.getByRole("region", { name: "Tus entradas" });
     const items = [...list.querySelectorAll("li")].map((li) => li.textContent);
 

@@ -92,9 +92,9 @@ function SiteHeader(props: {
         {props.admin && <a href="/admin">Admin</a>}
         {community.instagram && <a href={community.instagram}>Instagram</a>}
         {props.signedIn ? (
-          <a href="/cuenta">Cuenta</a>
+          <a href="/account">Cuenta</a>
         ) : (
-          <a href="/entrar">Entrar</a>
+          <a href="/sign-in">Entrar</a>
         )}
         <SchemeToggle />
         {community.whatsapp && (
@@ -226,7 +226,7 @@ export function Layout(props: {
                 <a href="https://rising.sh">rising.sh</a>.
               </p>
               <nav aria-label="Legal">
-                <a href="/privacidad">Privacidad</a>
+                <a href="/privacy">Privacidad</a>
               </nav>
             </div>
           </footer>

@@ -53,7 +53,7 @@ function Member({
         )}
         <form
           method="post"
-          action={`/admin/eventos/${slug}/equipo/${person.id}/quitar`}
+          action={`/admin/events/${slug}/team/${person.id}/remove`}
         >
           <button
             class="button button-small button-quiet"
@@ -80,7 +80,7 @@ function Result({
   return (
     <li class="team-member">
       <AccountName name={account.name} email={account.email} />
-      <form method="post" action={`/admin/eventos/${slug}/equipo`}>
+      <form method="post" action={`/admin/events/${slug}/team`}>
         <input type="hidden" name="person" value={account.id} />
         <input type="hidden" name="role" value={role} />
         <button class="button button-small button-light" type="submit">
@@ -113,25 +113,24 @@ function AddPerson({
   signInUrl: string;
 }) {
   const form = {
-    values: { q: search.query, rol: search.role },
+    values: { q: search.query, role: search.role },
     errors: {},
   };
 
   return (
-    <section class="manage-card" aria-labelledby="agregar">
-      <h2 id="agregar">Agregar a alguien</h2>
+    <section class="manage-card" aria-labelledby="add">
+      <h2 id="add">Agregar a alguien</h2>
       <p>
         Cada persona del equipo entra con su cuenta. Quien organiza o es
-        voluntario abre la puerta del evento en /puerta/{slug} hasta que
-        termine.
+        voluntario abre la puerta del evento en /door/{slug} hasta que termine.
       </p>
       <form
         class="team-search"
         method="get"
-        action={`/admin/eventos/${slug}/equipo`}
+        action={`/admin/events/${slug}/team`}
       >
         <Choice
-          name="rol"
+          name="role"
           label="Rol"
           form={form}
           options={roles.map((role) => [role, roleLabel[role].one])}
@@ -181,7 +180,7 @@ export function Team({
     .filter((group) => group.people.length);
 
   return (
-    <ManageFrame slug={event.slug} title={event.title} tab="equipo">
+    <ManageFrame slug={event.slug} title={event.title} tab="team">
       {error && (
         <p class="notice notice-error" role="alert">
           {error}
@@ -192,9 +191,9 @@ export function Team({
           <section
             key={group.role}
             class="manage-card"
-            aria-labelledby={`rol-${group.role}`}
+            aria-labelledby={`role-${group.role}`}
           >
-            <h2 id={`rol-${group.role}`}>{roleLabel[group.role].many}</h2>
+            <h2 id={`role-${group.role}`}>{roleLabel[group.role].many}</h2>
             <ul class="team-list">
               {group.people.map((person) => (
                 <Member

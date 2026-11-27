@@ -28,5 +28,5 @@ export async function closeSession(c: Ctx) {
  */
 export function returnPath(value: string | undefined | null): string {
   const path = String(value ?? "");
-  return /^\/(?![/\\])/.test(path) ? path : "/cuenta";
+  return /^\/(?![/\\])/.test(path) ? path : "/account";
 }

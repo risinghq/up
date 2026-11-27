@@ -23,28 +23,28 @@ async function post<T>(path: string, body: unknown): Promise<T & Answer> {
 
 type Options<O> = { challengeId: string; options: O };
 
-async function signIn(volver: string): Promise<Answer> {
+async function signIn(next: string): Promise<Answer> {
   const start = await post<
     Options<Parameters<typeof startAuthentication>[0]["optionsJSON"]>
-  >("/entrar/passkey/opciones", {});
+  >("/sign-in/passkey/options", {});
   if (start.error) return start;
 
   const response = await startAuthentication({ optionsJSON: start.options });
-  return post("/entrar/passkey", {
+  return post("/sign-in/passkey", {
     challengeId: start.challengeId,
     response,
-    volver,
+    next,
   });
 }
 
 async function add(): Promise<Answer> {
   const start = await post<
     Options<Parameters<typeof startRegistration>[0]["optionsJSON"]>
-  >("/cuenta/passkeys/opciones", {});
+  >("/account/passkeys/options", {});
   if (start.error) return start;
 
   const response = await startRegistration({ optionsJSON: start.options });
-  return post("/cuenta/passkeys", {
+  return post("/account/passkeys", {
     challengeId: start.challengeId,
     response,
   });
@@ -79,9 +79,9 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(
     say("Esperando tu passkey…");
     try {
       const answer =
-        button.dataset.passkey === "agregar"
+        button.dataset.passkey === "add"
           ? await add()
-          : await signIn(button.dataset.volver ?? "");
+          : await signIn(button.dataset.next ?? "");
       if (answer.redirect) {
         say("Listo.");
         location.assign(answer.redirect);

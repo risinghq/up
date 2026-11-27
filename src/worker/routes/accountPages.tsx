@@ -29,8 +29,8 @@ export const wrongCode = (left: number) =>
     ? "El código no coincide. Te queda 1 intento."
     : `El código no coincide. Te quedan ${left} intentos.`;
 
-export const retry = (volver: string, email = "") =>
-  `/entrar?${new URLSearchParams({ volver, ...(email && { correo: email }) })}`;
+export const retry = (next: string, email = "") =>
+  `/sign-in?${new URLSearchParams({ next, ...(email && { email }) })}`;
 
 /**
  * Form posts must come from this origin. The passkey endpoints take JSON,
@@ -75,7 +75,7 @@ export const codeStep = (
   c: Ctx,
   props: {
     email: string;
-    volver: string;
+    next: string;
     notice: CodeNotice;
     error?: string;
     forAccount?: boolean;
@@ -87,12 +87,12 @@ export const codeStep = (
     "Revisa tu correo",
     <CodeStep
       email={props.email}
-      volver={props.volver}
+      next={props.next}
       notice={props.notice}
       error={props.error ?? null}
-      action={props.forAccount ? "/cuenta/correo/codigo" : "/entrar/codigo"}
+      action={props.forAccount ? "/account/email/code" : "/sign-in/code"}
       retry={
-        props.forAccount ? "/cuenta#correo" : retry(props.volver, props.email)
+        props.forAccount ? "/account#email" : retry(props.next, props.email)
       }
     />,
     status,

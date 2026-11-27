@@ -23,7 +23,7 @@ import {
 import { site, type AppEnv, type Ctx, type Deps } from "../../web";
 import { adminPage, pick, withEvent } from "./page";
 
-const calendarNotices = ["listo", "error", "quitado"] as const;
+const calendarNotices = ["synced", "error", "removed"] as const;
 
 /** One event's admin: overview, calendar copy, more, and its registrants. */
 export function eventRoutes({ fetch: fetcher }: Deps) {
@@ -39,7 +39,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
     return {
       account: account?.email,
       link: event.calendar,
-      notice: pick(calendarNotices, c.req.query("calendario")),
+      notice: pick(calendarNotices, c.req.query("calendar")),
     };
   };
 
@@ -56,7 +56,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
     );
 
   routes.get(
-    "/eventos/:slug",
+    "/events/:slug",
     withEvent(async (c, event) =>
       adminPage(
         c,
@@ -65,7 +65,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
           event={event}
           url={eventUrl(site(c), event)}
           counts={await statusCounts(c.var.db, event.slug)}
-          created={c.req.query("creado") !== undefined}
+          created={c.req.query("created") !== undefined}
           calendar={await calendarPanel(c, event)}
         />,
       ),
@@ -73,7 +73,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
   );
 
   routes.post(
-    "/eventos/:slug/calendario",
+    "/events/:slug/calendar",
     withEvent(async (c, event) => {
       const synced = await syncCalendar(
         c.var.db,
@@ -83,28 +83,28 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
         eventUrl(site(c), event),
       );
       return c.redirect(
-        `/admin/eventos/${event.slug}?calendario=${synced ? "listo" : "error"}`,
+        `/admin/events/${event.slug}?calendar=${synced ? "synced" : "error"}`,
         303,
       );
     }),
   );
 
   routes.post(
-    "/eventos/:slug/calendario/quitar",
+    "/events/:slug/calendar/remove",
     withEvent(async (c, event) => {
       await dropCalendar(c.var.db, c.env, fetcher, event);
       await linkCalendar(c.var.db, event.slug, null);
-      return c.redirect(`/admin/eventos/${event.slug}?calendario=quitado`, 303);
+      return c.redirect(`/admin/events/${event.slug}?calendar=removed`, 303);
     }),
   );
 
   routes.get(
-    "/eventos/:slug/mas",
+    "/events/:slug/more",
     withEvent((c, event) => more(c, event)),
   );
 
   routes.post(
-    "/eventos/:slug/eliminar",
+    "/events/:slug/delete",
     withEvent(async (c, event) => {
       if (await registrationCount(c.var.db, event.slug))
         return more(c, event, "Tiene inscripciones; déjalo en borrador.");
@@ -117,7 +117,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
   );
 
   routes.get(
-    "/eventos/:slug/inscritos",
+    "/events/:slug/registrants",
     withEvent(async (c, event) =>
       adminPage(
         c,
@@ -131,7 +131,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
   );
 
   routes.get(
-    "/eventos/:slug/inscritos.csv",
+    "/events/:slug/registrants.csv",
     withEvent(async (c, event) => {
       const csv = registrantsCsv(
         event,

@@ -15,7 +15,7 @@ bun run db:migrate:local
 bun run dev
 ```
 
-Sign in at `http://localhost:5173/entrar` with the code the dev server prints,
+Sign in at `http://localhost:5173/sign-in` with the code the dev server prints,
 then make yourself an admin with `bun run admin:grant --email <you>` and add an
 event from `/admin`.
 
@@ -25,7 +25,7 @@ event from `/admin`.
   Instagram.
 - A register form that asks each event's own questions and turns bots away with
   Cloudflare Turnstile.
-- A private ticket page at `/entrada/<token>` with calendar links and
+- A private ticket page at `/ticket/<token>` with calendar links and
   cancellation.
 - A capacity per event. Registrations past it join a waitlist, and a
   cancellation gives the seat to the oldest waitlisted person.
@@ -38,7 +38,7 @@ event from `/admin`.
 - Light and dark schemes: the system's, or the one picked in the header.
 - Recorded consent: the privacy policy is required and WhatsApp news is opt-in.
 - Accounts that sign in with a mailed code or a passkey, and list their own
-  tickets at `/cuenta`.
+  tickets at `/account`.
 - An admin area for accounts with the admin flag: upcoming and past events, a
   page per event with its seat count and share link, an editor with a kind, an
   accent color, a backdrop, a cover and a featured spot on the home page, a

@@ -38,7 +38,7 @@ export async function worksDoor(c: Ctx, event: EventMeta, now: Date) {
   return holdsDoor(c.var.db, event.slug, account.id);
 }
 
-/** The door of an event, at /puerta, for its organizers, volunteers and the admins. */
+/** The door of an event, at /door, for its organizers, volunteers and the admins. */
 export function doorRoutes({ now, fetch: fetcher }: Deps) {
   const door = new Hono<AppEnv>();
   const iso = () => now().toISOString();
@@ -88,7 +88,7 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
       if (event && (await worksDoor(c, event, now()))) return handler(c, event);
 
       if (event && !c.get("account") && c.req.method === "GET")
-        return c.redirect(retry(`/puerta/${event.slug}`), 303);
+        return c.redirect(retry(`/door/${event.slug}`), 303);
       return notFound(c);
     };
 
@@ -98,7 +98,7 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
   );
 
   door.post(
-    "/:slug/llegada",
+    "/:slug/walk-in",
     withDoor(async (c, event) => {
       if (hasEnded(event, now()))
         return doorPage(c, event, emptyForm, null, 410);
@@ -121,7 +121,7 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
   );
 
   // A scan opens the ticket page, whose Puerta panel posts here. The
-  // registrants list posts here too, with `volver` naming it.
+  // registrants list posts here too, with `next` naming it.
   const checkInRoute = (act: (db: Db, token: string) => Promise<void>) =>
     withDoor(async (c, event) => {
       const ticket = await findTicket(c.var.db, c.req.param("token") ?? "");
@@ -130,18 +130,18 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
       await act(c.var.db, ticket.token);
       const form = await c.req.formData();
       return c.redirect(
-        form.get("volver") === "inscritos" && c.get("admin")
-          ? `/admin/eventos/${event.slug}/inscritos#n${ticket.number}`
-          : `/entrada/${ticket.token}`,
+        form.get("next") === "registrants" && c.get("admin")
+          ? `/admin/events/${event.slug}/registrants#n${ticket.number}`
+          : `/ticket/${ticket.token}`,
         303,
       );
     });
 
   door.post(
-    "/:slug/ingreso/:token",
+    "/:slug/check-in/:token",
     checkInRoute((db, token) => checkIn(db, token, iso())),
   );
-  door.post("/:slug/ingreso/:token/deshacer", checkInRoute(undoCheckIn));
+  door.post("/:slug/check-in/:token/undo", checkInRoute(undoCheckIn));
 
   return door;
 }

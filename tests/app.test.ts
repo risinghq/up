@@ -106,8 +106,8 @@ async function registerAs(slug: string, fields: Record<string, string>) {
   const res = await post(`/${slug}`, form(fields));
   expect(res.status).toBe(303);
   const location = res.headers.get("location") ?? "";
-  expect(location).toMatch(/^\/entrada\/[\w-]{22}\?nueva$/);
-  return location.slice("/entrada/".length, -"?nueva".length);
+  expect(location).toMatch(/^\/ticket\/[\w-]{22}\?new$/);
+  return location.slice("/ticket/".length, -"?new".length);
 }
 
 /** The event titles a listing shows. */
@@ -167,7 +167,7 @@ describe("home", () => {
   });
 
   test("the past tab lists ended events", async () => {
-    expect(listed(await open("/?ver=pasados"))).toEqual([
+    expect(listed(await open("/?period=past"))).toEqual([
       "Meetup organizado",
       "Evento pasado",
     ]);
@@ -258,7 +258,7 @@ describe("registration", () => {
       news_opt_in_at: now.toISOString(),
     });
 
-    const p = await open(`/entrada/${token}?nueva`);
+    const p = await open(`/ticket/${token}?new`);
     expect(p.headers.get("cache-control")).toBe("no-store");
     expect(p.screen.getByText(/^¡Listo, Luis!/)).toBeTruthy();
     expect(p.screen.getByText("Tienes un cupo")).toBeTruthy();
@@ -300,13 +300,13 @@ describe("registration", () => {
     const token = await registerAs("charla", { email: "mail@example.com" });
     const [message] = mail.sent.filter((m) => m.to === "mail@example.com");
     expect(message?.subject).toBe("Estás inscrito: Charla abierta");
-    expect(message?.text).toContain(`https://up.test/entrada/${token}`);
+    expect(message?.text).toContain(`https://up.test/ticket/${token}`);
     expect(message?.text).toContain("Hola, Ana:");
     const links = [
       ...parse(message?.html ?? "").document.querySelectorAll("a"),
     ];
     expect(links.map((a) => a.getAttribute("href"))).toContain(
-      `https://up.test/entrada/${token}`,
+      `https://up.test/ticket/${token}`,
     );
   });
 
@@ -320,7 +320,7 @@ describe("registration", () => {
     expect(notice.getAttribute("role")).toBe("status");
     expect(notice.hasAttribute("autofocus")).toBe(true);
     expect(
-      p.document.querySelector('[href*="/entrada/"], [action*="/entrada/"]'),
+      p.document.querySelector('[href*="/ticket/"], [action*="/ticket/"]'),
     ).toBeNull();
 
     // A third post inside the cooldown sends nothing more.
@@ -330,7 +330,7 @@ describe("registration", () => {
       "Tu entrada: Charla abierta",
     ]);
     const resent = mail.sent.filter((m) => m.to === "twice@example.com")[1];
-    expect(resent?.text).toContain(`/entrada/${token}`);
+    expect(resent?.text).toContain(`/ticket/${token}`);
   });
 
   test("a title with markup reaches the email as text", async () => {
@@ -358,7 +358,7 @@ describe("registration", () => {
 
 /** What the ticket page says about the seat. */
 const seat = async (token: string) =>
-  (await open(`/entrada/${token}`)).document
+  (await open(`/ticket/${token}`)).document
     .querySelector(".ticket-status")
     ?.textContent?.trim();
 
@@ -378,7 +378,7 @@ describe("capacity and cancellation", () => {
       button(await open("/taller"), "Unirme a la lista de espera"),
     ).not.toBeNull();
 
-    const cancelled = await post(`/entrada/${first}/cancelar`, new FormData());
+    const cancelled = await post(`/ticket/${first}/cancel`, new FormData());
     expect(cancelled.status).toBe(303);
     expect(await seat(first)).toBe("Cancelaste tu inscripción");
     expect(await seat(second)).toBe("Tienes un cupo");
@@ -390,15 +390,15 @@ describe("capacity and cancellation", () => {
 
   test("registering again after cancelling issues a new ticket", async () => {
     const old = await registerAs("charla", { email: "vuelve@example.com" });
-    await post(`/entrada/${old}/cancelar`, new FormData());
+    await post(`/ticket/${old}/cancel`, new FormData());
     const fresh = await registerAs("charla", { email: "vuelve@example.com" });
     expect(fresh).not.toBe(old);
-    expect((await get(`/entrada/${old}`)).status).toBe(404);
+    expect((await get(`/ticket/${old}`)).status).toBe(404);
     expect(await seat(fresh)).toBe("Tienes un cupo");
   });
 
   test("an unknown ticket is a 404", async () => {
-    const p = await open("/entrada/AAAAAAAAAAAAAAAAAAAAAA");
+    const p = await open("/ticket/AAAAAAAAAAAAAAAAAAAAAA");
     expect(p.status).toBe(404);
     expect(p.screen.getByRole("heading", { level: 1 }).textContent).toBe(
       "No encontramos esa entrada",
@@ -409,19 +409,19 @@ describe("capacity and cancellation", () => {
 describe("share link", () => {
   /** Shares the ticket and returns the public link's path. */
   async function share(token: string) {
-    const res = await post(`/entrada/${token}/compartir`, new FormData());
+    const res = await post(`/ticket/${token}/share`, new FormData());
     expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe(`/entrada/${token}#compartir`);
+    expect(res.headers.get("location")).toBe(`/ticket/${token}#share`);
 
-    const p = await open(`/entrada/${token}`);
+    const p = await open(`/ticket/${token}`);
     const url = button(p, "Copiar el enlace")?.getAttribute("data-copy") ?? "";
-    expect(url).toMatch(/^https:\/\/up\.test\/charla\/voy\/[\w-]{22}$/);
+    expect(url).toMatch(/^https:\/\/up\.test\/charla\/going\/[\w-]{22}$/);
     return new URL(url).pathname;
   }
 
   test("a ticket offers the share button until it has a link", async () => {
     const token = await registerAs("charla", { email: "sofia@example.com" });
-    const ticket = await open(`/entrada/${token}`);
+    const ticket = await open(`/ticket/${token}`);
     expect(button(ticket, "Compartir que voy")).not.toBeNull();
     const path = await share(token);
     expect(await share(token)).toBe(path);
@@ -455,7 +455,7 @@ describe("share link", () => {
     const token = await registerAs("charla", { email: "pedro@example.com" });
     const path = await share(token);
     expect((await get(path.replace("/charla/", "/taller/"))).status).toBe(404);
-    await post(`/entrada/${token}/cancelar`, new FormData());
+    await post(`/ticket/${token}/cancel`, new FormData());
     expect((await get(path)).status).toBe(404);
     expect((await get(`${path}.png`)).status).toBe(404);
   });
@@ -464,9 +464,9 @@ describe("share link", () => {
 describe("profile", () => {
   /** Opens the ticket holder's profile and returns its path. */
   async function openProfile(token: string) {
-    const res = await post(`/entrada/${token}/perfil`, new FormData());
+    const res = await post(`/ticket/${token}/profile`, new FormData());
     expect(res.status).toBe(303);
-    const p = await open(`/entrada/${token}`);
+    const p = await open(`/ticket/${token}`);
     const link = p.screen.getByRole("link", { name: "Ver mi perfil" });
     const url = new URL(link.getAttribute("href") ?? "");
     expect(url.origin).toBe("https://up.test");
@@ -490,12 +490,10 @@ describe("profile", () => {
       q_carrera: "Física",
     });
 
-    expect(
-      button(await open(`/entrada/${went}`), "Crear mi perfil"),
-    ).toBeNull();
+    expect(button(await open(`/ticket/${went}`), "Crear mi perfil")).toBeNull();
     await checkIn(db, went, now.toISOString());
     expect(
-      button(await open(`/entrada/${went}`), "Crear mi perfil"),
+      button(await open(`/ticket/${went}`), "Crear mi perfil"),
     ).not.toBeNull();
 
     const path = await openProfile(went);
@@ -520,11 +518,11 @@ describe("profile", () => {
     await checkIn(db, token, now.toISOString());
     const path = await openProfile(token);
 
-    const res = await post(`/entrada/${token}/perfil/ocultar`, new FormData());
+    const res = await post(`/ticket/${token}/profile/hide`, new FormData());
     expect(res.status).toBe(303);
     expect((await get(path)).status).toBe(404);
     expect(
-      button(await open(`/entrada/${token}`), "Crear mi perfil"),
+      button(await open(`/ticket/${token}`), "Crear mi perfil"),
     ).not.toBeNull();
   });
 
@@ -533,7 +531,7 @@ describe("profile", () => {
       email: "ana@example.com",
       name: "Ana Quispe",
     });
-    const ticket = await open(`/entrada/${token}`);
+    const ticket = await open(`/ticket/${token}`);
     expect(
       button(ticket, "Crear mi perfil"),
       "a role opens the profile before check-in",
@@ -564,28 +562,28 @@ describe("profile", () => {
 describe("ticket page", () => {
   test("only the fresh notice offers to copy the ticket's link", async () => {
     const token = await registerAs("charla", { email: "nueva@example.com" });
-    const url = `https://up.test/entrada/${token}`;
+    const url = `https://up.test/ticket/${token}`;
 
-    const fresh = await open(`/entrada/${token}?nueva`);
+    const fresh = await open(`/ticket/${token}?new`);
     expect(button(fresh, "Copiar el enlace")?.getAttribute("data-copy")).toBe(
       url,
     );
     expect(fresh.document.querySelector("input")).toBeNull();
 
-    const later = await open(`/entrada/${token}`);
+    const later = await open(`/ticket/${token}`);
     expect(later.document.querySelector(`[data-copy="${url}"]`)).toBeNull();
   });
 
   test("a check-in drops the calendar and the venue, and leads with the profile", async () => {
     const token = await registerAs("charla", { email: "dentro@example.com" });
-    const before = await open(`/entrada/${token}`);
+    const before = await open(`/ticket/${token}`);
     expect(
       before.screen.getByRole("link", { name: "Agregar a Google Calendar" }),
     ).toBeTruthy();
     expect(cards(before)).toContain("Lugar");
 
     await checkIn(db, token, now.toISOString());
-    const after = await open(`/entrada/${token}`);
+    const after = await open(`/ticket/${token}`);
     expect(
       after.screen.queryByRole("link", { name: "Agregar a Google Calendar" }),
     ).toBeNull();
@@ -615,12 +613,12 @@ describe("certificate", () => {
     });
     await checkIn(db, token, now.toISOString());
     expect(
-      (await open(`/entrada/${token}`)).screen.queryByRole("link", {
+      (await open(`/ticket/${token}`)).screen.queryByRole("link", {
         name: "Ver mi certificado",
       }),
     ).toBeNull();
 
-    const ticket = await openLater(`/entrada/${token}`);
+    const ticket = await openLater(`/ticket/${token}`);
     expect(ticket.text(".ticket-status")).toBe("Asististe");
     expect(ticket.document.querySelector(".credential")).toBeNull();
     const link = ticket.screen.getByRole("link", {
@@ -672,7 +670,7 @@ describe("credential", () => {
       name: "Rosa Mamani",
     });
     const credential = async () =>
-      (await open(`/entrada/${token}`)).document.querySelector<HTMLElement>(
+      (await open(`/ticket/${token}`)).document.querySelector<HTMLElement>(
         ".credential",
       );
 
@@ -681,7 +679,7 @@ describe("credential", () => {
     expect(seated?.dataset.name).toBe("Rosa Mamani");
     expect(seated?.dataset.title).toBe("Charla abierta");
 
-    const res = await post(`/entrada/${token}/cancelar`, new FormData());
+    const res = await post(`/ticket/${token}/cancel`, new FormData());
     expect(res.status).toBe(303);
     expect(await credential()).toBeNull();
   });
@@ -743,7 +741,7 @@ describe("reminders", () => {
 
 describe("calendar", () => {
   test("serves an .ics file with escaped text", async () => {
-    const res = await get("/charla/calendario.ics");
+    const res = await get("/charla/calendar.ics");
     expect(res.headers.get("content-type")).toBe(
       "text/calendar; charset=utf-8",
     );
@@ -751,6 +749,22 @@ describe("calendar", () => {
     expect(lines).toContain("DTSTART:20261212T200000Z");
     expect(lines).toContain("LOCATION:FCF\\, UNMSM\\, Av. Venezuela s/n");
     expect(lines).toContain("URL:https://up.test/charla");
+  });
+});
+
+describe("legacy paths", () => {
+  test("Spanish links already sent move permanently to English", async () => {
+    const cases: [string, string][] = [
+      ["/entrada/T1", "/ticket/T1"],
+      ["/privacidad", "/privacy"],
+      ["/charla/voy/S1", "/charla/going/S1"],
+    ];
+
+    for (const [from, to] of cases) {
+      const res = await get(from);
+      expect(res.status).toBe(301);
+      expect(res.headers.get("location")).toBe(to);
+    }
   });
 });
 
@@ -884,7 +898,7 @@ describe("whatsapp", () => {
     expect(headers.get("authorization")).toBe("Bearer token-de-prueba");
     const body = JSON.parse(String(call?.init.body));
     expect(body.to).toBe("51912345678");
-    expect(body.template.name).toBe("up_inscrito");
+    expect(body.template.name).toBe("up_going");
     expect(body.template.components[0].parameters[0].text).toBe("Lucía");
     expect(body.template.components[0].parameters[1].text).toBe(
       "Charla abierta",
@@ -928,7 +942,7 @@ describe("whatsapp", () => {
     }
     expect(calls).toHaveLength(0);
     expect(logs).toHaveLength(1);
-    expect(logs[0]).toStartWith("whatsapp mock: up_inscrito to +51…321\n");
+    expect(logs[0]).toStartWith("whatsapp mock: up_going to +51…321\n");
     expect(logs[0]).toContain("Hola, Ana. Tu cupo en Charla abierta");
   });
 
@@ -936,7 +950,7 @@ describe("whatsapp", () => {
     const cookie = await adminCookie(db, now);
     const mode = async (vars: Partial<Env>) => {
       const res = await app.request(
-        "/admin/ajustes",
+        "/admin/settings",
         { headers: { cookie } },
         { ...env, ...vars },
       );

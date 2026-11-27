@@ -4,7 +4,7 @@ import { Lockup, SchemeToggle } from "../Brand";
 export type AdminShell = {
   name: string;
   /** The current admin section, marked in the nav. */
-  section?: "eventos" | "ajustes";
+  section?: "events" | "settings";
 };
 
 const current = (shell: AdminShell, section: AdminShell["section"]) =>
@@ -25,21 +25,21 @@ function AdminMenu({ shell, name }: { shell: AdminShell; name: string }) {
         <a
           class="admin-narrow"
           href="/admin"
-          aria-current={current(shell, "eventos")}
+          aria-current={current(shell, "events")}
         >
           Eventos
         </a>
         <a
           class="admin-narrow"
-          href="/admin/ajustes"
-          aria-current={current(shell, "ajustes")}
+          href="/admin/settings"
+          aria-current={current(shell, "settings")}
         >
           Ajustes
         </a>
-        <a href="/cuenta">Mi cuenta</a>
+        <a href="/account">Mi cuenta</a>
         <a href="/">Ver sitio</a>
         <SchemeToggle labeled />
-        <form method="post" action="/salir">
+        <form method="post" action="/sign-out">
           <button type="submit">Salir</button>
         </form>
       </nav>
@@ -58,17 +58,17 @@ export function AdminHeader({ shell }: { shell: AdminShell }) {
         <Lockup /> <span class="admin-badge">admin</span>
       </a>
       <nav class="admin-sections" aria-label="Admin">
-        <a href="/admin" aria-current={current(shell, "eventos")}>
+        <a href="/admin" aria-current={current(shell, "events")}>
           Eventos
         </a>
-        <a href="/admin/ajustes" aria-current={current(shell, "ajustes")}>
+        <a href="/admin/settings" aria-current={current(shell, "settings")}>
           Ajustes
         </a>
       </nav>
       <div class="site-links">
         <a
           class="button button-light button-small button-round"
-          href="/admin/eventos/nuevo"
+          href="/admin/events/new"
         >
           Crear<span class="admin-wide"> evento</span>
         </a>

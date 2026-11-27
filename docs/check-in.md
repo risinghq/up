@@ -27,15 +27,15 @@ An admin works the door of every event, signed in on the phone.
 An organizer or volunteer of an event works its door from their account, signed
 in on the phone. Give them the role on the event's **Equipo** tab; see
 [Team](add-an-event.md#team). **Tus roles** on their account page then links
-**Abrir la puerta**. Opening `/puerta/<slug>` signed out asks them to sign in
+**Abrir la puerta**. Opening `/door/<slug>` signed out asks them to sign in
 first. The door closes for them when the event ends, and **Quitar** closes it at
 once.
 
 ## The door page
 
-`/puerta/<slug>` shows the event, a count such as **12 ingresaron · 40 con
-cupo**, and the form for someone who arrives without registering. An admin
-reaches it from **Puerta** on the **Inscritos** tab.
+`/door/<slug>` shows the event, a count such as **12 ingresaron · 40 con cupo**,
+and the form for someone who arrives without registering. An admin reaches it
+from **Puerta** on the **Inscritos** tab.
 
 **Llegó sin inscribirse** takes a name, an email, a WhatsApp number and the
 privacy consent, then registers and checks the person in at once. A walk-in gets

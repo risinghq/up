@@ -63,12 +63,12 @@ export function EventEditor(props: { view: EditorView; event?: EditedEvent }) {
         <div class="admin-head">
           <h1>Crear evento</h1>
         </div>
-        <EditorForm view={view} action="/admin/eventos/nuevo" />
+        <EditorForm view={view} action="/admin/events/new" />
       </div>
     );
   return (
-    <ManageFrame slug={event.slug} title={event.title} tab="editar">
-      <EditorForm view={view} action={`/admin/eventos/${event.slug}/editar`} />
+    <ManageFrame slug={event.slug} title={event.title} tab="edit">
+      <EditorForm view={view} action={`/admin/events/${event.slug}/edit`} />
     </ManageFrame>
   );
 }

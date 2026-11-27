@@ -3,7 +3,7 @@ import { coverUrl, kindLabel, type EventMeta } from "../../worker/events";
 import { clock, longDate } from "../../worker/time";
 import { themeClass, themeStyle } from "../theme";
 
-export type Period = "proximos" | "pasados";
+export type Period = "upcoming" | "past";
 
 export type HostEvent = { event: EventMeta; going: number };
 
@@ -23,7 +23,7 @@ function HostRow({ event, going }: HostEvent) {
       class={`host-row tint ${themeClass(event.theme)}`}
       style={themeStyle(event.theme)}
     >
-      <a href={`/admin/eventos/${event.slug}`}>
+      <a href={`/admin/events/${event.slug}`}>
         <div class="host-row-text">
           <p class="host-row-time">
             <span class="kind-dot" aria-hidden="true" />
@@ -78,15 +78,15 @@ export function Events(props: {
         <nav class="tabs" aria-label="Periodo">
           <a
             href="/admin"
-            aria-current={props.period === "proximos" ? "page" : undefined}
+            aria-current={props.period === "upcoming" ? "page" : undefined}
           >
-            Próximos <span>{props.counts.proximos}</span>
+            Próximos <span>{props.counts.upcoming}</span>
           </a>
           <a
-            href="/admin?periodo=pasados"
-            aria-current={props.period === "pasados" ? "page" : undefined}
+            href="/admin?period=past"
+            aria-current={props.period === "past" ? "page" : undefined}
           >
-            Pasados <span>{props.counts.pasados}</span>
+            Pasados <span>{props.counts.past}</span>
           </a>
         </nav>
       </div>
@@ -106,12 +106,12 @@ export function Events(props: {
       ) : (
         <div class="empty-state">
           <p class="empty">
-            {props.period === "proximos"
+            {props.period === "upcoming"
               ? "No hay eventos próximos."
               : "Todavía no hay eventos pasados."}
           </p>
-          {props.period === "proximos" && (
-            <a class="button" href="/admin/eventos/nuevo">
+          {props.period === "upcoming" && (
+            <a class="button" href="/admin/events/new">
               Crear evento
             </a>
           )}

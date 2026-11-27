@@ -199,8 +199,8 @@ describe("ticketView", () => {
 
   test("the share and profile links are absolute, from their own ids", () => {
     const v = view(ticket({ shareId: "S1", profileId: "P1" }));
-    expect(v.ticketUrl).toBe(`${origin}/entrada/${"T".repeat(22)}`);
-    expect(v.shareUrl).toBe(`${origin}/charla/voy/S1`);
+    expect(v.ticketUrl).toBe(`${origin}/ticket/${"T".repeat(22)}`);
+    expect(v.shareUrl).toBe(`${origin}/charla/going/S1`);
     expect(v.profile.url).toBe(`${origin}/p/P1`);
   });
 });

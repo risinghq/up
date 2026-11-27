@@ -169,7 +169,7 @@ function wireSearch(search: HTMLElement, choose: (found: Found) => void) {
   const ask = async (query: string) => {
     const mine = ++asked;
     try {
-      const res = await fetch(`/admin/lugares?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/admin/places?q=${encodeURIComponent(query)}`);
       const body = (await res.json()) as { places?: Found[]; error?: string };
       if (mine !== asked) return;
       if (!res.ok) note(body.error ?? "La búsqueda no respondió.");

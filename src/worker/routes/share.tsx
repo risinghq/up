@@ -1,12 +1,12 @@
 import { Hono } from "hono";
-import { Voy } from "../../pages/Voy";
+import { Going } from "../../pages/Going";
 import { renderCard } from "../card";
 import { eventUrl, hasEnded } from "../events";
 import { findShare } from "../shares";
 import { notFound, page, site, type AppEnv, type Ctx, type Deps } from "../web";
 import { visibleEvent } from "./event";
 
-/** A holder's public "voy" page and its preview card. */
+/** A holder's public "going" page and its preview card. */
 export function shareRoutes({ now, card }: Deps) {
   const routes = new Hono<AppEnv>();
 
@@ -17,7 +17,7 @@ export function shareRoutes({ now, card }: Deps) {
     return share && event ? { share, event } : null;
   };
 
-  routes.get("/:slug/voy/:file{[A-Za-z0-9_-]+\\.png}", async (c) => {
+  routes.get("/:slug/going/:file{[A-Za-z0-9_-]+\\.png}", async (c) => {
     const shareId = c.req.param("file").slice(0, -".png".length);
     const found = await sharedEvent(c, c.req.param("slug"), shareId);
     if (!found || !card) return notFound(c);
@@ -35,14 +35,14 @@ export function shareRoutes({ now, card }: Deps) {
     });
   });
 
-  routes.get("/:slug/voy/:shareId", async (c) => {
+  routes.get("/:slug/going/:shareId", async (c) => {
     const shareId = c.req.param("shareId");
     const found = await sharedEvent(c, c.req.param("slug"), shareId);
     if (!found) return notFound(c);
 
     const { share, event } = found;
     const ended = hasEnded(event, now());
-    const url = `${eventUrl(site(c), event)}/voy/${shareId}`;
+    const url = `${eventUrl(site(c), event)}/going/${shareId}`;
     return page(
       c,
       {
@@ -53,7 +53,7 @@ export function shareRoutes({ now, card }: Deps) {
         noindex: true,
         theme: event.theme,
       },
-      <Voy firstName={share.firstName} event={event} ended={ended} />,
+      <Going firstName={share.firstName} event={event} ended={ended} />,
     );
   });
 

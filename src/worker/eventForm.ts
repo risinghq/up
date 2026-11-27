@@ -14,12 +14,19 @@ import { formatQuestions, parseQuestions } from "./questions";
 
 /** Paths the Worker routes itself; an event cannot take them. */
 const reservedSlugs = new Set([
+  "account",
   "admin",
-  "entrada",
-  "privacidad",
-  "puerta",
-  "media",
   "assets",
+  "c",
+  "door",
+  "entrada",
+  "media",
+  "p",
+  "privacidad",
+  "privacy",
+  "sign-in",
+  "sign-out",
+  "ticket",
 ]);
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;

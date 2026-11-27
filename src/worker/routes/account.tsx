@@ -36,17 +36,17 @@ import {
 } from "./accountPages";
 
 const accountNotices: AccountNotice[] = [
-  "datos",
-  "correo",
+  "details",
+  "email",
   "passkey",
-  "passkey-quitada",
-  "perfil",
+  "passkey-removed",
+  "profile",
 ];
 
 const takenEmail =
   "Ese correo ya es de otra cuenta. Entra con él y agrega desde ahí lo que necesites.";
 
-/** The signed-in person's page at /cuenta: contact, email, profile and passkeys. */
+/** The signed-in person's page at /account: contact, email, profile and passkeys. */
 export function accountRoutes({ now }: Deps) {
   const routes = new Hono<AppEnv>();
   const iso = () => now().toISOString();
@@ -55,11 +55,11 @@ export function accountRoutes({ now }: Deps) {
   const guard = async (c: Ctx, next: () => Promise<void>) => {
     if (c.get("account")) return next();
     return c.redirect(
-      retry(c.req.method === "GET" ? c.req.path : "/cuenta"),
+      retry(c.req.method === "GET" ? c.req.path : "/account"),
       303,
     );
   };
-  for (const path of ["/cuenta", "/cuenta/*"]) {
+  for (const path of ["/account", "/account/*"]) {
     routes.use(path, sameOrigin);
     routes.use(path, guard);
   }
@@ -73,7 +73,7 @@ export function accountRoutes({ now }: Deps) {
   ) => {
     const account = signedIn(c);
     const notice =
-      accountNotices.find((n) => n === c.req.query("aviso")) ?? null;
+      accountNotices.find((n) => n === c.req.query("notice")) ?? null;
     return view(
       c,
       "Tu cuenta",
@@ -108,9 +108,9 @@ export function accountRoutes({ now }: Deps) {
       422,
     );
 
-  routes.get("/cuenta", (c) => accountPage(c));
+  routes.get("/account", (c) => accountPage(c));
 
-  routes.post("/cuenta", async (c) => {
+  routes.post("/account", async (c) => {
     const form = await c.req.formData();
     const name = text(form, "name");
     const rawPhone = text(form, "phone");
@@ -129,10 +129,10 @@ export function accountRoutes({ now }: Deps) {
       );
 
     await updateContact(c.var.db, signedIn(c).id, { name, phone }, iso());
-    return c.redirect("/cuenta?aviso=datos", 303);
+    return c.redirect("/account?notice=details", 303);
   });
 
-  routes.post("/cuenta/correo", async (c) => {
+  routes.post("/account/email", async (c) => {
     const account = signedIn(c);
     const email = text(await c.req.formData(), "email").toLowerCase();
 
@@ -148,13 +148,13 @@ export function accountRoutes({ now }: Deps) {
     if (code) await mailCode(c, email, code, "add-email");
     return codeStep(c, {
       email,
-      volver: "/cuenta",
+      next: "/account",
       notice: code ? "sent" : "cooldown",
       forAccount: true,
     });
   });
 
-  routes.post("/cuenta/correo/codigo", async (c) => {
+  routes.post("/account/email/code", async (c) => {
     const account = signedIn(c);
     const form = await c.req.formData();
     const email = text(form, "email").toLowerCase();
@@ -173,7 +173,7 @@ export function accountRoutes({ now }: Deps) {
         c,
         {
           email,
-          volver: "/cuenta",
+          next: "/account",
           notice: "sent",
           error: wrongCode(result.left),
           forAccount: true,
@@ -183,20 +183,20 @@ export function accountRoutes({ now }: Deps) {
 
     const change = await claimEmail(c.var.db, account, email, iso());
     if (change === "taken") return emailRefused(c, email, takenEmail);
-    return c.redirect("/cuenta?aviso=correo", 303);
+    return c.redirect("/account?notice=email", 303);
   });
 
-  routes.post("/cuenta/perfil", async (c) => {
+  routes.post("/account/profile", async (c) => {
     await openProfile(c.var.db, signedIn(c).id);
-    return c.redirect("/cuenta?aviso=perfil#perfil", 303);
+    return c.redirect("/account?notice=profile#profile", 303);
   });
 
-  routes.post("/cuenta/perfil/ocultar", async (c) => {
+  routes.post("/account/profile/hide", async (c) => {
     await closeProfile(c.var.db, signedIn(c).id);
-    return c.redirect("/cuenta?aviso=perfil#perfil", 303);
+    return c.redirect("/account?notice=profile#profile", 303);
   });
 
-  routes.post("/cuenta/passkeys/opciones", async (c) => {
+  routes.post("/account/passkeys/options", async (c) => {
     const account = signedIn(c);
     const existing = await listPasskeys(c.var.db, account.id);
     const options = await registrationOptions(
@@ -208,7 +208,7 @@ export function accountRoutes({ now }: Deps) {
     return c.json({ challengeId, options });
   });
 
-  routes.post("/cuenta/passkeys", async (c) => {
+  routes.post("/account/passkeys", async (c) => {
     const body = await json<{
       challengeId: string;
       response: RegistrationResponseJSON;
@@ -225,18 +225,18 @@ export function accountRoutes({ now }: Deps) {
     if (await findCredential(c.var.db, credential.id))
       return c.json({ error: "Esa passkey ya está registrada." }, 409);
     await addCredential(c.var.db, signedIn(c).id, credential, iso());
-    return c.json({ redirect: "/cuenta?aviso=passkey#passkeys" });
+    return c.json({ redirect: "/account?notice=passkey#passkeys" });
   });
 
-  routes.post("/cuenta/passkeys/:id/quitar", async (c) => {
+  routes.post("/account/passkeys/:id/remove", async (c) => {
     const account = signedIn(c);
     const passkeys = await listPasskeys(c.var.db, account.id);
     // Without an email, the last passkey is the only way back in.
     if (!account.email && passkeys.length <= 1)
-      return c.redirect("/cuenta#passkeys", 303);
+      return c.redirect("/account#passkeys", 303);
 
     await removeCredential(c.var.db, account.id, c.req.param("id"));
-    return c.redirect("/cuenta?aviso=passkey-quitada#passkeys", 303);
+    return c.redirect("/account?notice=passkey-removed#passkeys", 303);
   });
 
   return routes;

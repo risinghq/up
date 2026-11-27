@@ -16,12 +16,12 @@ bunx wrangler secret put GOOGLE_CLIENT_SECRET
 
 They come from a Google Cloud project with the Google Calendar API enabled and
 an OAuth client of type **Web application** whose authorized redirect URI is
-`https://up.rising.sh/admin/google/vuelta`. The consent screen asks for the
+`https://up.rising.sh/admin/google/callback`. The consent screen asks for the
 `openid`, `email` and `calendar.events` scopes.
 
 ## Connect the account
 
-In **Ajustes** (`/admin/ajustes`), **Conectar Google** opens Google's consent
+In **Ajustes** (`/admin/settings`), **Conectar Google** opens Google's consent
 page. After consent, Ajustes names the connected account. One account serves the
 whole site; connecting another replaces it. **Desconectar** revokes the access
 and forgets the account; events already in its calendar stay there.

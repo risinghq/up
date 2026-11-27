@@ -21,7 +21,7 @@ const doorText = {
 } as const;
 
 function DoorPanel({ ticket }: { ticket: Ticket }) {
-  const action = `/puerta/${ticket.eventSlug}/ingreso/${ticket.token}`;
+  const action = `/door/${ticket.eventSlug}/check-in/${ticket.token}`;
   return (
     <section class="content-card door" aria-labelledby="door-title">
       <h2 class="card-title" id="door-title">
@@ -31,7 +31,7 @@ function DoorPanel({ ticket }: { ticket: Ticket }) {
         #{ticket.number} {ticket.name} · {doorText[ticket.status]}
       </p>
       {ticket.checkedInAt ? (
-        <form method="post" action={`${action}/deshacer`} class="door-done">
+        <form method="post" action={`${action}/undo`} class="door-done">
           <p role="status">Ingresó a las {clock(ticket.checkedInAt)}</p>
           <button class="link-button" type="submit">
             Deshacer
@@ -76,7 +76,7 @@ function Credential({ ticket, event }: { ticket: Ticket; event: EventMeta }) {
 /** Makes or shows the public link that says the holder is going. */
 function SharePanel(props: { token: string; title: string; url?: string }) {
   return (
-    <section class="content-card" id="compartir" aria-labelledby="share-title">
+    <section class="content-card" id="share" aria-labelledby="share-title">
       <h2 class="card-title" id="share-title">
         Cuéntale a tus amigos
       </h2>
@@ -100,7 +100,7 @@ function SharePanel(props: { token: string; title: string; url?: string }) {
       ) : (
         <form
           method="post"
-          action={`/entrada/${props.token}/compartir`}
+          action={`/ticket/${props.token}/share`}
           class="ticket-actions"
         >
           <p class="ticket-note">
@@ -142,10 +142,10 @@ function ProfilePanel(props: {
   primary: boolean;
   hasRole: boolean;
 }) {
-  const action = `/entrada/${props.token}/perfil`;
+  const action = `/ticket/${props.token}/profile`;
   const weight = props.primary ? "button-primary" : "button-light";
   return (
-    <section class="content-card" id="perfil" aria-labelledby="profile-title">
+    <section class="content-card" id="profile" aria-labelledby="profile-title">
       <h2 class="card-title" id="profile-title">
         Tus insignias
       </h2>
@@ -154,7 +154,7 @@ function ProfilePanel(props: {
           <a class={`button ${weight} button-full`} href={props.url}>
             Ver mi perfil
           </a>
-          <form method="post" action={`${action}/ocultar`} class="cancel">
+          <form method="post" action={`${action}/hide`} class="cancel">
             <button class="link-button" type="submit">
               Ocultar mi perfil
             </button>
@@ -215,7 +215,7 @@ function NextSteps(props: {
             </a>
             <a
               class="button button-light button-small button-round"
-              href={`/${props.slug}/calendario.ics`}
+              href={`/${props.slug}/calendar.ics`}
             >
               Descargar .ics
             </a>
@@ -232,7 +232,7 @@ function NextSteps(props: {
         {!next.inside && (
           <form
             method="post"
-            action={`/entrada/${props.token}/cancelar`}
+            action={`/ticket/${props.token}/cancel`}
             class="cancel"
             data-confirm="¿Seguro que quieres cancelar tu inscripción?"
           >

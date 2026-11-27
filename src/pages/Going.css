@@ -1,5 +1,5 @@
-/* A shared "voy" page: who is going, over the event's band. */
-.voy-lead {
+/* A shared "going" page: who is going, over the event's band. */
+.going-lead {
   max-width: var(--max-width);
   margin: 0 auto;
   padding: 2rem 1rem 1rem;

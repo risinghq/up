@@ -16,18 +16,18 @@ import { adminPage, withEvent } from "./page";
 /** A query shorter than this lists nobody. */
 const minQuery = 2;
 
-/** Reads `?q=` and `?rol=` into the search the page shows. */
+/** Reads `?q=` and `?role=` into the search the page shows. */
 async function teamSearch(c: Ctx): Promise<TeamSearch> {
   const query = (c.req.query("q") ?? "").trim().slice(0, 120);
-  const rol = c.req.query("rol") ?? "";
-  const role: Role = isRole(rol) ? rol : "organizer";
+  const asked = c.req.query("role") ?? "";
+  const role: Role = isRole(asked) ? asked : "organizer";
   const results =
     query.length >= minQuery ? await searchAccounts(c.var.db, query) : null;
 
   return { query, role, results };
 }
 
-/** The Equipo tab: who holds a role at one event. Mounted under /admin/eventos/:slug/equipo. */
+/** The team tab: who holds a role at one event. Mounted under /admin/events/:slug/team. */
 export function teamRoutes({ now }: Deps) {
   const team = new Hono<AppEnv>();
 
@@ -45,14 +45,14 @@ export function teamRoutes({ now }: Deps) {
         team={await eventRoles(c.var.db, event.slug)}
         search={search}
         error={error}
-        signInUrl={`${site(c)}/entrar`}
+        signInUrl={`${site(c)}/sign-in`}
         certificates={issuesCertificates(event, now())}
       />,
       { status: error ? 422 : 200 },
     );
 
   const back = (c: Ctx, event: EventMeta) =>
-    c.redirect(`/admin/eventos/${event.slug}/equipo`, 303);
+    c.redirect(`/admin/events/${event.slug}/team`, 303);
 
   team.get(
     "/",
@@ -81,7 +81,7 @@ export function teamRoutes({ now }: Deps) {
   );
 
   team.post(
-    "/:id/quitar",
+    "/:id/remove",
     withEvent(async (c, event) => {
       const id = Number(c.req.param("id"));
       if (Number.isInteger(id)) await removeRole(c.var.db, event.slug, id);

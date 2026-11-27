@@ -75,7 +75,7 @@ export function eventRoutes({ now, fetch: fetcher }: Deps) {
     );
   };
 
-  routes.get("/:slug/calendario.ics", async (c) => {
+  routes.get("/:slug/calendar.ics", async (c) => {
     const event = await visibleEvent(c, c.req.param("slug"));
     if (!event) return notFound(c);
 
@@ -130,7 +130,7 @@ export function eventRoutes({ now, fetch: fetcher }: Deps) {
       case "refused":
         return eventPage(c, event, outcome.form, null, 422);
       case "exists":
-        if (outcome.own) return c.redirect(`/entrada/${outcome.token}`, 303);
+        if (outcome.own) return c.redirect(`/ticket/${outcome.token}`, 303);
         if (outcome.notify)
           await after(
             c,
@@ -146,7 +146,7 @@ export function eventRoutes({ now, fetch: fetcher }: Deps) {
             outcome.token,
           ]),
         );
-        return c.redirect(`/entrada/${outcome.token}?nueva`, 303);
+        return c.redirect(`/ticket/${outcome.token}?new`, 303);
     }
   });
 

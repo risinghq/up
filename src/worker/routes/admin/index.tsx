@@ -20,7 +20,7 @@ export function adminRoutes(deps: Deps) {
     csrf({ origin: (origin, c) => origin === new URL(c.env.SITE_URL).origin }),
   );
 
-  admin.get("/entrar", (c) => c.redirect("/entrar?volver=/admin", 303));
+  admin.get("/sign-in", (c) => c.redirect("/sign-in?next=/admin", 303));
 
   // Every route below needs a signed-in admin. A signed-in person who is not
   // one finds no admin here at all.
@@ -32,7 +32,7 @@ export function adminRoutes(deps: Deps) {
         : c.text("Necesitas ser admin.", 403);
     if (c.req.method === "GET")
       return c.redirect(
-        `/entrar?${new URLSearchParams({ volver: c.req.path })}`,
+        `/sign-in?${new URLSearchParams({ next: c.req.path })}`,
         303,
       );
     return c.text("Necesitas entrar como admin.", 403);
@@ -41,11 +41,11 @@ export function adminRoutes(deps: Deps) {
   // Upcoming runs soonest first; past runs newest first.
   admin.get("/", async (c) => {
     const period: Period =
-      c.req.query("periodo") === "pasados" ? "pasados" : "proximos";
+      c.req.query("period") === "past" ? "past" : "upcoming";
     const events = await listEvents(c.var.db);
     const upcoming = events.filter((e) => !hasEnded(e, now()));
     const past = events.filter((e) => hasEnded(e, now())).reverse();
-    const shown = period === "proximos" ? upcoming : past;
+    const shown = period === "upcoming" ? upcoming : past;
     const rows = await Promise.all(
       shown.map(async (event) => ({
         event,
@@ -59,7 +59,7 @@ export function adminRoutes(deps: Deps) {
       <Events
         period={period}
         events={rows}
-        counts={{ proximos: upcoming.length, pasados: past.length }}
+        counts={{ upcoming: upcoming.length, past: past.length }}
       />,
     );
   });
@@ -67,7 +67,7 @@ export function adminRoutes(deps: Deps) {
   admin.route("/", settingsRoutes(deps));
   admin.route("/", editorRoutes(deps));
   admin.route("/", eventRoutes(deps));
-  admin.route("/eventos/:slug/equipo", teamRoutes(deps));
+  admin.route("/events/:slug/team", teamRoutes(deps));
 
   return admin;
 }

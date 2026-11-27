@@ -38,7 +38,7 @@ function WalkInForm({ slug, form }: { slug: string; form: FormState }) {
             Revisa los campos marcados.
           </p>
         )}
-        <form method="post" action={`/puerta/${slug}/llegada`} novalidate>
+        <form method="post" action={`/door/${slug}/walk-in`} novalidate>
           <Field
             name="name"
             label="Nombre y apellido"
@@ -63,7 +63,7 @@ function WalkInForm({ slug, form }: { slug: string; form: FormState }) {
             autocomplete="off"
           />
           <Check name="privacy" form={form}>
-            Aceptó la <a href="/privacidad">política de privacidad</a>.
+            Aceptó la <a href="/privacy">política de privacidad</a>.
           </Check>
           <button class="button button-primary button-full" type="submit">
             Registrar e ingresar
