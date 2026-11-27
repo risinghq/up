@@ -756,6 +756,7 @@ describe("legacy paths", () => {
   test("Spanish links already sent move permanently to English", async () => {
     const cases: [string, string][] = [
       ["/entrada/T1", "/ticket/T1"],
+      ["/entrar", "/sign-in"],
       ["/privacidad", "/privacy"],
       ["/charla/voy/S1", "/charla/going/S1"],
     ];

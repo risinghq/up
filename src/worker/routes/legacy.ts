@@ -2,8 +2,8 @@ import { Hono } from "hono";
 import type { AppEnv } from "../web";
 
 /**
- * Spanish paths that left the site in sent emails, shared links and the
- * Google consent screen. Each moves permanently to its English path.
+ * Spanish paths that left the site in sent emails, shared links and the team
+ * tab's sign-in link. Each moves permanently to its English path.
  */
 export function legacyRoutes() {
   const routes = new Hono<AppEnv>();
@@ -11,6 +11,8 @@ export function legacyRoutes() {
   routes.get("/entrada/:token", (c) =>
     c.redirect(`/ticket/${c.req.param("token")}`, 301),
   );
+
+  routes.get("/entrar", (c) => c.redirect("/sign-in", 301));
 
   routes.get("/privacidad", (c) => c.redirect("/privacy", 301));
 
