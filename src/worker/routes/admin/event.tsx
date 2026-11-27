@@ -35,7 +35,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
   ): Promise<CalendarPanel | undefined> => {
     if (!credentials(c.env)) return undefined;
 
-    const account = await findAccount(c.env.DB);
+    const account = await findAccount(c.var.db);
     return {
       account: account?.email,
       link: event.calendar,
@@ -49,7 +49,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
       `Más: ${event.title}`,
       <More
         event={event}
-        registrations={await registrationCount(c.env.DB, event.slug)}
+        registrations={await registrationCount(c.var.db, event.slug)}
         deleteError={deleteError}
       />,
       { status: deleteError ? 409 : 200 },
@@ -64,7 +64,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
         <Overview
           event={event}
           url={eventUrl(site(c), event)}
-          counts={await statusCounts(c.env.DB, event.slug)}
+          counts={await statusCounts(c.var.db, event.slug)}
           created={c.req.query("creado") !== undefined}
           calendar={await calendarPanel(c, event)}
         />,
@@ -76,6 +76,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
     "/eventos/:slug/calendario",
     withEvent(async (c, event) => {
       const synced = await syncCalendar(
+        c.var.db,
         c.env,
         fetcher,
         event,
@@ -91,8 +92,8 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
   routes.post(
     "/eventos/:slug/calendario/quitar",
     withEvent(async (c, event) => {
-      await dropCalendar(c.env, fetcher, event);
-      await linkCalendar(c.env.DB, event.slug, null);
+      await dropCalendar(c.var.db, c.env, fetcher, event);
+      await linkCalendar(c.var.db, event.slug, null);
       return c.redirect(`/admin/eventos/${event.slug}?calendario=quitado`, 303);
     }),
   );
@@ -105,11 +106,11 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
   routes.post(
     "/eventos/:slug/eliminar",
     withEvent(async (c, event) => {
-      if (await registrationCount(c.env.DB, event.slug))
+      if (await registrationCount(c.var.db, event.slug))
         return more(c, event, "Tiene inscripciones; déjalo en borrador.");
 
-      await dropCalendar(c.env, fetcher, event);
-      await deleteEvent(c.env.DB, event.slug);
+      await dropCalendar(c.var.db, c.env, fetcher, event);
+      await deleteEvent(c.var.db, event.slug);
       if (event.coverKey) await c.env.MEDIA.delete(event.coverKey);
       return c.redirect("/admin", 303);
     }),
@@ -123,7 +124,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
         `Inscritos: ${event.title}`,
         <Registrants
           event={event}
-          registrants={await listRegistrants(c.env.DB, event.slug)}
+          registrants={await listRegistrants(c.var.db, event.slug)}
         />,
       ),
     ),
@@ -134,7 +135,7 @@ export function eventRoutes({ fetch: fetcher }: Deps) {
     withEvent(async (c, event) => {
       const csv = registrantsCsv(
         event,
-        await listRegistrants(c.env.DB, event.slug),
+        await listRegistrants(c.var.db, event.slug),
       );
       return c.body(csv, 200, {
         "Content-Type": "text/csv; charset=utf-8",

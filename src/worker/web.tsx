@@ -6,6 +6,7 @@ import { Layout, type Community, type Head } from "../pages/Layout";
 import { NotFound } from "../pages/NotFound";
 import type { Account } from "./accounts";
 import type { CardAssets } from "./card";
+import type { Db } from "./db";
 import type { WhatsAppEnv } from "./whatsapp";
 
 export type Env = {
@@ -30,6 +31,7 @@ export type Env = {
 export type AppEnv = {
   Bindings: Env;
   Variables: {
+    db: Db;
     /** The person whose session cookie came with the request, or null. */
     account: Account | null;
     /** The same person when they are an admin, or null. */

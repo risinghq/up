@@ -1,3 +1,4 @@
+import type { Db } from "./db";
 import type { EventMeta } from "./events";
 import { parseRegistration, type FormState } from "./form";
 import { claimResend, register } from "./registrations";
@@ -5,7 +6,7 @@ import { TOKEN_FIELD, verifyHuman, type Verdict } from "./turnstile";
 import type { Fetch } from "./web";
 
 export type SignupDeps = {
-  db: D1Database;
+  db: Db;
   fetch: Fetch;
   now: Date;
   /** The Turnstile secret; without it no check runs. */

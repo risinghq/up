@@ -1,3 +1,4 @@
+import type { Db } from "./db";
 import type { EventMeta } from "./events";
 import { sendMail, ticketMail, type MailKind } from "./mail";
 import type { Fetch } from "./web";
@@ -5,7 +6,6 @@ import { findTicket } from "./registrations";
 import { sendWhatsApp, ticketMessage, type WhatsAppEnv } from "./whatsapp";
 
 export type NotifyEnv = WhatsAppEnv & {
-  DB: D1Database;
   EMAIL?: SendEmail;
   SITE_URL: string;
 };
@@ -15,6 +15,7 @@ export type NotifyEnv = WhatsAppEnv & {
  * email went out. WhatsApp is best effort: its failure is only logged.
  */
 export async function notifyTickets(
+  db: Db,
   env: NotifyEnv,
   fetcher: Fetch,
   kind: MailKind,
@@ -24,7 +25,7 @@ export async function notifyTickets(
   const site = env.SITE_URL.replace(/\/$/, "");
   const emailed: string[] = [];
   for (const token of tokens) {
-    const ticket = await findTicket(env.DB, token);
+    const ticket = await findTicket(db, token);
     if (!ticket) continue;
     if (await sendMail(env.EMAIL, ticketMail(kind, event, ticket, site)))
       emailed.push(token);

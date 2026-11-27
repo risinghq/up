@@ -1,3 +1,5 @@
+import type { Selectable } from "kysely";
+import type { Db, EventsTable } from "./db";
 import { pointUrl, type Point } from "./geo";
 
 /** A question the register form asks besides name, email and phone. */
@@ -23,7 +25,7 @@ export type Place =
 export const mapLink = (place: Place): string | undefined =>
   place.kind === "venue" && place.point ? pointUrl(place.point) : undefined;
 
-export const kinds = ["hackathon", "taller", "charla", "meetup"] as const;
+export const kinds = ["hackathon", "workshop", "talk", "meetup"] as const;
 export const backdrops = ["plain", "grid", "dots", "glow"] as const;
 export const fonts = ["sans", "pixel", "mono", "serif"] as const;
 export type Kind = (typeof kinds)[number];
@@ -76,8 +78,8 @@ export type EventMeta = {
 
 export const kindLabel: Record<Kind, string> = {
   hackathon: "Hackathon",
-  taller: "Taller",
-  charla: "Charla",
+  workshop: "Taller",
+  talk: "Charla",
   meetup: "Meetup",
 };
 
@@ -102,34 +104,7 @@ export const coverUrl = (event: EventMeta) =>
 export const eventUrl = (origin: string, event: EventMeta) =>
   `${origin}/${event.slug}`;
 
-type Row = {
-  slug: string;
-  title: string;
-  summary: string;
-  body: string;
-  start_at: string;
-  end_at: string;
-  place_kind: "venue" | "online";
-  place_name: string;
-  place_address: string;
-  lat: number | null;
-  lng: number | null;
-  capacity: number | null;
-  cover_key: string | null;
-  questions: string;
-  status: EventStatus;
-  recording_url: string | null;
-  kind: Kind;
-  accent: string;
-  backdrop: Backdrop;
-  font: Font;
-  featured: number;
-  google_event_id: string | null;
-  google_event_url: string | null;
-  meet_url: string | null;
-};
-
-function fromRow(r: Row): EventMeta {
+function fromRow(r: Selectable<EventsTable>): EventMeta {
   return {
     slug: r.slug,
     title: r.title,
@@ -172,108 +147,108 @@ function fromRow(r: Row): EventMeta {
   };
 }
 
+/** The columns the admin's editor writes. */
+function toRow(event: EventMeta) {
+  const place = event.place;
+  const venue = place.kind === "venue" ? place : null;
+
+  return {
+    slug: event.slug,
+    title: event.title,
+    summary: event.summary,
+    body: event.body,
+    start_at: event.start,
+    end_at: event.end,
+    place_kind: place.kind,
+    place_name: place.kind === "venue" ? place.name : place.platform,
+    place_address: venue?.address ?? "",
+    lat: venue?.point?.lat ?? null,
+    lng: venue?.point?.lng ?? null,
+    capacity: event.capacity ?? null,
+    cover_key: event.coverKey ?? null,
+    questions: JSON.stringify(event.questions),
+    status: event.status,
+    recording_url: event.recordingUrl ?? null,
+    kind: event.theme.kind,
+    accent: event.theme.accent,
+    backdrop: event.theme.backdrop,
+    font: event.theme.font,
+    featured: event.featured ? 1 : 0,
+  } as const;
+}
+
 /** Every event, drafts included, by start date. */
-export async function listEvents(db: D1Database): Promise<EventMeta[]> {
-  const { results } = await db
-    .prepare("SELECT * FROM events ORDER BY start_at")
-    .all<Row>();
-  return results.map(fromRow);
+export async function listEvents(db: Db): Promise<EventMeta[]> {
+  const rows = await db
+    .selectFrom("events")
+    .selectAll()
+    .orderBy("start_at")
+    .execute();
+  return rows.map(fromRow);
 }
 
 export async function findEvent(
-  db: D1Database,
+  db: Db,
   slug: string,
 ): Promise<EventMeta | null> {
   const row = await db
-    .prepare("SELECT * FROM events WHERE slug = ?")
-    .bind(slug)
-    .first<Row>();
-  return row && fromRow(row);
+    .selectFrom("events")
+    .selectAll()
+    .where("slug", "=", slug)
+    .executeTakeFirst();
+  return row ? fromRow(row) : null;
 }
 
 /**
- * Inserts an event, or replaces the one at `previousSlug`. The caller keeps
- * the slug of an event with registrations, which point at it by slug. A
- * featured event takes the flag from every other event: the home page has
- * one spotlight.
+ * Inserts an event, or replaces the one at `previousSlug`. Registrations and
+ * roles follow a changed slug. A featured event takes the flag from every
+ * other event: the home page has one spotlight.
  */
 export async function saveEvent(
-  db: D1Database,
+  db: Db,
   event: EventMeta,
   now: string,
   previousSlug?: string,
 ): Promise<void> {
-  const place = event.place;
-  const values = [
-    event.slug,
-    event.title,
-    event.summary,
-    event.body,
-    event.start,
-    event.end,
-    place.kind,
-    place.kind === "venue" ? place.name : place.platform,
-    place.kind === "venue" ? place.address : "",
-    place.kind === "venue" ? (place.point?.lat ?? null) : null,
-    place.kind === "venue" ? (place.point?.lng ?? null) : null,
-    event.capacity ?? null,
-    event.coverKey ?? null,
-    JSON.stringify(event.questions),
-    event.status,
-    event.recordingUrl ?? null,
-    event.theme.kind,
-    event.theme.accent,
-    event.theme.backdrop,
-    event.theme.font,
-    event.featured ? 1 : 0,
-  ];
-  const columns = `slug, title, summary, body, start_at, end_at, place_kind,
-    place_name, place_address, lat, lng, capacity, cover_key, questions,
-    status, recording_url, kind, accent, backdrop, font, featured`;
-  const at = values.length + 1;
-  const sets = columns
-    .split(",")
-    .map((c, i) => `${c.trim()} = ?${i + 1}`)
-    .join(", ");
+  const row = toRow(event);
+
   const write =
     previousSlug === undefined
       ? db
-          .prepare(
-            `INSERT INTO events (${columns}, created_at, updated_at)
-             VALUES (${values.map((_, i) => `?${i + 1}`).join(", ")}, ?${at}, ?${at})`,
-          )
-          .bind(...values, now)
+          .insertInto("events")
+          .values({ ...row, created_at: now, updated_at: now })
       : db
-          .prepare(
-            `UPDATE events SET ${sets}, updated_at = ?${at} WHERE slug = ?${at + 1}`,
-          )
-          .bind(...values, now, previousSlug);
+          .updateTable("events")
+          .set({ ...row, updated_at: now })
+          .where("slug", "=", previousSlug);
+
   const unfeature = db
-    .prepare("UPDATE events SET featured = 0 WHERE slug != ? AND featured = 1")
-    .bind(event.slug);
+    .updateTable("events")
+    .set({ featured: 0 })
+    .where("slug", "!=", event.slug)
+    .where("featured", "=", 1);
+
   await db.batch(event.featured ? [write, unfeature] : [write]);
 }
 
 /** Records the event's Google Calendar copy, or forgets it with null. */
 export async function linkCalendar(
-  db: D1Database,
+  db: Db,
   slug: string,
   link: CalendarLink | null,
 ) {
   await db
-    .prepare(
-      `UPDATE events SET google_event_id = ?, google_event_url = ?, meet_url = ?
-       WHERE slug = ?`,
-    )
-    .bind(
-      link?.eventId ?? null,
-      link?.htmlUrl ?? null,
-      link?.meetUrl ?? null,
-      slug,
-    )
-    .run();
+    .updateTable("events")
+    .set({
+      google_event_id: link?.eventId ?? null,
+      google_event_url: link?.htmlUrl ?? null,
+      meet_url: link?.meetUrl ?? null,
+    })
+    .where("slug", "=", slug)
+    .execute();
 }
 
-export async function deleteEvent(db: D1Database, slug: string) {
-  await db.prepare("DELETE FROM events WHERE slug = ?").bind(slug).run();
+/** Deletes the event and its roles. The database refuses one with registrations. */
+export async function deleteEvent(db: Db, slug: string) {
+  await db.deleteFrom("events").where("slug", "=", slug).execute();
 }

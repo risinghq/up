@@ -226,10 +226,10 @@ describe("eventView", () => {
       event: charla,
       going: 0,
       team: [
-        person(1, "Rosa", "jurado"),
-        person(2, "Ana Quispe", "organiza", "P1"),
-        person(3, "Luis", "organiza"),
-        person(4, "Pedro", "ponente"),
+        person(1, "Rosa", "judge"),
+        person(2, "Ana Quispe", "organizer", "P1"),
+        person(3, "Luis", "organizer"),
+        person(4, "Pedro", "speaker"),
       ],
       form: { values: {}, errors: {} },
       notice: null,
@@ -238,12 +238,12 @@ describe("eventView", () => {
     });
     expect(v.team).toEqual([
       {
-        role: "organiza",
+        role: "organizer",
         label: "Organizan",
         people: [{ name: "Ana Quispe", url: "/p/P1" }, { name: "Luis" }],
       },
-      { role: "ponente", label: "Ponentes", people: [{ name: "Pedro" }] },
-      { role: "jurado", label: "Jurado", people: [{ name: "Rosa" }] },
+      { role: "speaker", label: "Ponentes", people: [{ name: "Pedro" }] },
+      { role: "judge", label: "Jurado", people: [{ name: "Rosa" }] },
     ]);
   });
 
@@ -294,8 +294,8 @@ describe("profileView", () => {
         ...profile,
         roles: [
           { slug: "a", role: "mentor" },
-          { slug: "a", role: "organiza" },
-          { slug: "b", role: "organiza" },
+          { slug: "a", role: "organizer" },
+          { slug: "b", role: "organizer" },
         ],
       },
       events,
@@ -303,7 +303,7 @@ describe("profileView", () => {
     expect(
       v.roles.map((g) => [g.role, g.tally, g.events.map((e) => e.slug)]),
     ).toEqual([
-      ["organiza", "organizados", ["b", "a"]],
+      ["organizer", "organizados", ["b", "a"]],
       ["mentor", "como mentor", ["a"]],
     ]);
     expect(v.description).toBe(
@@ -319,7 +319,7 @@ describe("certificateView", () => {
     const cases = [
       { role: null, verb: "asistió a", e: charla, place: "FCF, UNMSM" },
       { role: "mentor", verb: "fue mentor en", e: online, place: "En línea" },
-      { role: "organiza", verb: "organizó", e: charla, place: "FCF, UNMSM" },
+      { role: "organizer", verb: "organizó", e: charla, place: "FCF, UNMSM" },
     ] as const;
 
     for (const c of cases) {

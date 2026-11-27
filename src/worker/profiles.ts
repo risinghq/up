@@ -1,3 +1,5 @@
+import { sql } from "kysely";
+import type { Db } from "./db";
 import { firstName } from "./people";
 import { rolesOf, type Role } from "./roles";
 import { newToken } from "./tokens";
@@ -13,70 +15,61 @@ export type Profile = {
 };
 
 /** Opens the person's public profile; a second call keeps its link. */
-export async function openProfile(
-  db: D1Database,
-  personId: string,
-): Promise<void> {
+export async function openProfile(db: Db, personId: string) {
   await db
-    .prepare(
-      "UPDATE people SET profile_id = COALESCE(profile_id, ?) WHERE id = ?",
-    )
-    .bind(newToken(), personId)
-    .run();
+    .updateTable("people")
+    .set({ profile_id: sql`coalesce(profile_id, ${newToken()})` })
+    .where("id", "=", personId)
+    .execute();
 }
 
 /** Hides the person's profile; its link stops working. */
-export async function closeProfile(
-  db: D1Database,
-  personId: string,
-): Promise<void> {
+export async function closeProfile(db: Db, personId: string) {
   await db
-    .prepare("UPDATE people SET profile_id = NULL WHERE id = ?")
-    .bind(personId)
-    .run();
+    .updateTable("people")
+    .set({ profile_id: null })
+    .where("id", "=", personId)
+    .execute();
 }
 
 /** The person's profile id, or null while the profile is hidden. */
 export async function profileIdOf(
-  db: D1Database,
+  db: Db,
   personId: string,
 ): Promise<string | null> {
   const row = await db
-    .prepare("SELECT profile_id AS profileId FROM people WHERE id = ?")
-    .bind(personId)
-    .first<{ profileId: string | null }>();
-  return row?.profileId ?? null;
+    .selectFrom("people")
+    .select("profile_id")
+    .where("id", "=", personId)
+    .executeTakeFirst();
+  return row?.profile_id ?? null;
 }
 
 /** What a profile shows: the first name, the events attended, the roles. */
 export async function findProfile(
-  db: D1Database,
+  db: Db,
   profileId: string,
 ): Promise<Profile | null> {
   const person = await db
-    .prepare("SELECT id, name, created_at FROM people WHERE profile_id = ?")
-    .bind(profileId)
-    .first<{
-      id: string;
-      name: string;
-      created_at: string;
-    }>();
+    .selectFrom("people")
+    .select(["id", "name", "created_at"])
+    .where("profile_id", "=", profileId)
+    .executeTakeFirst();
   if (!person) return null;
 
-  const { results } = await db
-    .prepare(
-      `SELECT r.event_slug AS slug
-       FROM registrations r JOIN events e ON e.slug = r.event_slug
-       WHERE r.person_id = ? AND r.checked_in_at IS NOT NULL
-         AND e.status = 'published'`,
-    )
-    .bind(person.id)
-    .all<{ slug: string }>();
+  const attended = await db
+    .selectFrom("registrations as r")
+    .innerJoin("events as e", "e.slug", "r.event_slug")
+    .select("r.event_slug as slug")
+    .where("r.person_id", "=", person.id)
+    .where("r.checked_in_at", "is not", null)
+    .where("e.status", "=", "published")
+    .execute();
 
   return {
     firstName: firstName(person.name),
     since: person.created_at,
-    attended: results.map((r) => r.slug),
+    attended: attended.map((r) => r.slug),
     roles: await rolesOf(db, person.id),
   };
 }

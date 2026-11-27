@@ -24,7 +24,7 @@ the door decides. A cancelled ticket cannot.
 
 An admin works the door of every event, signed in on the phone.
 
-An organiza or voluntario of an event works its door from their account, signed
+An organizer or volunteer of an event works its door from their account, signed
 in on the phone. Give them the role on the event's **Equipo** tab; see
 [Team](add-an-event.md#team). **Tus roles** on their account page then links
 **Abrir la puerta**. Opening `/puerta/<slug>` signed out asks them to sign in

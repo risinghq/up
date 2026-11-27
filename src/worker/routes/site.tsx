@@ -18,7 +18,7 @@ export function siteRoutes({ now }: Deps) {
   routes.get("/", async (c) => {
     const tab: Tab = c.req.query("ver") === "pasados" ? "pasados" : "proximos";
     const admin = Boolean(c.get("admin"));
-    const all = (await listEvents(c.env.DB)).filter(
+    const all = (await listEvents(c.var.db)).filter(
       (e) => admin || e.status === "published",
     );
     if (admin) c.header("Cache-Control", "no-store");

@@ -20,9 +20,9 @@ const minQuery = 2;
 async function teamSearch(c: Ctx): Promise<TeamSearch> {
   const query = (c.req.query("q") ?? "").trim().slice(0, 120);
   const rol = c.req.query("rol") ?? "";
-  const role: Role = isRole(rol) ? rol : "organiza";
+  const role: Role = isRole(rol) ? rol : "organizer";
   const results =
-    query.length >= minQuery ? await searchAccounts(c.env.DB, query) : null;
+    query.length >= minQuery ? await searchAccounts(c.var.db, query) : null;
 
   return { query, role, results };
 }
@@ -42,7 +42,7 @@ export function teamRoutes({ now }: Deps) {
       `Equipo · ${event.title}`,
       <Team
         event={event}
-        team={await eventRoles(c.env.DB, event.slug)}
+        team={await eventRoles(c.var.db, event.slug)}
         search={search}
         error={error}
         signInUrl={`${site(c)}/entrar`}
@@ -67,7 +67,7 @@ export function teamRoutes({ now }: Deps) {
       const role = String(form.get("role") ?? "");
       if (!isRole(role)) return back(c, event);
 
-      const added = await addRole(c.env.DB, event.slug, person, role);
+      const added = await addRole(c.var.db, event.slug, person, role);
       if (added === "exists")
         return teamPage(
           c,
@@ -84,7 +84,7 @@ export function teamRoutes({ now }: Deps) {
     "/:id/quitar",
     withEvent(async (c, event) => {
       const id = Number(c.req.param("id"));
-      if (Number.isInteger(id)) await removeRole(c.env.DB, event.slug, id);
+      if (Number.isInteger(id)) await removeRole(c.var.db, event.slug, id);
       return back(c, event);
     }),
   );

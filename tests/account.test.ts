@@ -8,6 +8,7 @@ import {
 } from "bun:test";
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
+import type { Db } from "../src/worker/db";
 import { softPasskey } from "./authenticator";
 import { page } from "./dom";
 import {
@@ -30,13 +31,14 @@ const mail = outbox();
 
 let mf: Miniflare;
 let DB: D1Database;
+let db: Db;
 let env: Env;
 
 beforeAll(async () => {
   let MEDIA: R2Bucket;
-  ({ mf, DB, MEDIA } = await migratedDb("account"));
+  ({ mf, DB, db, MEDIA } = await migratedDb("account"));
   env = testEnv(DB, MEDIA, { EMAIL: mail.binding });
-  await seed(DB, [event({ slug: "charla" })]);
+  await seed(db, [event({ slug: "charla" })]);
 });
 
 afterAll(() => mf.dispose());
@@ -163,7 +165,7 @@ describe("signing in with a code", () => {
   });
 
   test("an existing account signs in and returns where it was going", async () => {
-    await signedIn(DB, clock, { email: "rosa@example.com", name: "Rosa" });
+    await signedIn(db, clock, { email: "rosa@example.com", name: "Rosa" });
     const code = await requestCode("rosa@example.com", "/charla");
     const res = await post("/entrar/codigo", {
       email: "rosa@example.com",
@@ -228,7 +230,7 @@ describe("signing in with a code", () => {
 
 describe("passkeys", () => {
   test("an account adds a passkey and signs in with it", async () => {
-    const { cookie } = await signedIn(DB, clock, {
+    const { cookie } = await signedIn(db, clock, {
       email: "llave@example.com",
       name: "Llave",
     });
@@ -279,7 +281,7 @@ describe("passkeys", () => {
   });
 
   test("an account without an email keeps its last passkey", async () => {
-    const { id, cookie } = await signedIn(DB, clock, { name: "Sin correo" });
+    const { id, cookie } = await signedIn(db, clock, { name: "Sin correo" });
     const key = await softPasskey(ORIGIN);
     const start = await begin("/cuenta/passkeys/opciones", cookie);
     await postJson(
@@ -307,7 +309,7 @@ describe("the account", () => {
   });
 
   test("signing out ends the session", async () => {
-    const { cookie } = await signedIn(DB, clock, { name: "Sale" });
+    const { cookie } = await signedIn(db, clock, { name: "Sale" });
     const res = await post("/salir", {}, cookie);
     expect(location(res)).toBe("/");
     expect(location(await get("/cuenta", cookie))).toStartWith("/entrar");
@@ -325,7 +327,7 @@ describe("the account", () => {
     expect(registered.status).toBe(303);
     const before = await personByEmail("doble@example.com");
 
-    const { id, cookie } = await signedIn(DB, clock, { name: "Doble" });
+    const { id, cookie } = await signedIn(db, clock, { name: "Doble" });
     tick();
     await post("/cuenta/correo", { email: "doble@example.com" }, cookie);
     const res = await post(
@@ -347,7 +349,7 @@ describe("the account", () => {
   });
 
   test("an account with an email cannot take another person's", async () => {
-    const { cookie } = await signedIn(DB, clock, {
+    const { cookie } = await signedIn(db, clock, {
       email: "propia@example.com",
       name: "Propia",
     });
@@ -360,7 +362,7 @@ describe("the account", () => {
   });
 
   test("a registration without proof keeps the account's name and phone", async () => {
-    await signedIn(DB, clock, { email: "fija@example.com", name: "Fija" });
+    await signedIn(db, clock, { email: "fija@example.com", name: "Fija" });
     await app.request(
       "/charla",
       {
@@ -373,7 +375,7 @@ describe("the account", () => {
   });
 
   test("tickets list the next event first and mark the ended ones", async () => {
-    await seed(DB, [
+    await seed(db, [
       event({
         slug: "pasado",
         title: "Pasado",
@@ -388,7 +390,7 @@ describe("the account", () => {
       }),
       event({ slug: "cercano", title: "Cercano" }),
     ]);
-    const { id, cookie } = await signedIn(DB, clock, { name: "Lista" });
+    const { id, cookie } = await signedIn(db, clock, { name: "Lista" });
     for (const [i, slug] of ["pasado", "lejano", "cercano"].entries())
       await DB.prepare(
         `INSERT INTO registrations (id, event_slug, person_id, number, status, answers, created_at)

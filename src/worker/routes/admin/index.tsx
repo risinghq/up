@@ -42,14 +42,14 @@ export function adminRoutes(deps: Deps) {
   admin.get("/", async (c) => {
     const period: Period =
       c.req.query("periodo") === "pasados" ? "pasados" : "proximos";
-    const events = await listEvents(c.env.DB);
+    const events = await listEvents(c.var.db);
     const upcoming = events.filter((e) => !hasEnded(e, now()));
     const past = events.filter((e) => hasEnded(e, now())).reverse();
     const shown = period === "proximos" ? upcoming : past;
     const rows = await Promise.all(
       shown.map(async (event) => ({
         event,
-        going: await goingCount(c.env.DB, event.slug),
+        going: await goingCount(c.var.db, event.slug),
       })),
     );
 

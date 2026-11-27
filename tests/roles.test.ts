@@ -5,6 +5,7 @@ import {
   findAccount,
   searchAccounts,
 } from "../src/worker/accounts";
+import type { Db } from "../src/worker/db";
 import {
   accountRoles,
   addRole,
@@ -15,16 +16,16 @@ import {
 import { event, migratedDb, seed, signedIn } from "./support";
 
 let mf: Miniflare;
-let DB: D1Database;
+let db: Db;
 
 const now = new Date("2026-11-20T12:00:00.000Z");
 
 const person = async (name: string, email?: string) =>
-  (await signedIn(DB, now, { name, email })).id;
+  (await signedIn(db, now, { name, email })).id;
 
 beforeAll(async () => {
-  ({ mf, DB } = await migratedDb("roles"));
-  await seed(DB, [
+  ({ mf, db } = await migratedDb("roles"));
+  await seed(db, [
     event({ slug: "abierto" }),
     event({ slug: "borrador", status: "draft" }),
     event({
@@ -43,60 +44,58 @@ beforeAll(async () => {
 afterAll(() => mf.dispose());
 
 test("an event lists its people in role order, then in the order added", async () => {
-  await addRole(DB, "abierto", await person("Pedro"), "ponente");
-  await addRole(DB, "abierto", await person("Ana"), "organiza");
-  await addRole(DB, "abierto", await person("Luis"), "organiza");
+  await addRole(db, "abierto", await person("Pedro"), "speaker");
+  await addRole(db, "abierto", await person("Ana"), "organizer");
+  await addRole(db, "abierto", await person("Luis"), "organizer");
 
   expect(
-    (await eventRoles(DB, "abierto")).map((p) => [p.role, p.name]),
+    (await eventRoles(db, "abierto")).map((p) => [p.role, p.name]),
   ).toEqual([
-    ["organiza", "Ana"],
-    ["organiza", "Luis"],
-    ["ponente", "Pedro"],
+    ["organizer", "Ana"],
+    ["organizer", "Luis"],
+    ["speaker", "Pedro"],
   ]);
 });
 
 test("a role goes to an existing person once", async () => {
   const rosa = await person("Rosa", "rosa@example.com");
 
-  expect(await addRole(DB, "abierto", rosa, "jurado")).toBe("added");
-  expect(await addRole(DB, "abierto", rosa, "jurado")).toBe("exists");
-  expect(await addRole(DB, "abierto", "nadie", "jurado")).toBe("unknown");
+  expect(await addRole(db, "abierto", rosa, "judge")).toBe("added");
+  expect(await addRole(db, "abierto", rosa, "judge")).toBe("exists");
+  expect(await addRole(db, "abierto", "nadie", "judge")).toBe("unknown");
 
-  await addRole(DB, "borrador", rosa, "mentor");
-  expect(await rolesOf(DB, rosa)).toEqual([
-    { slug: "abierto", role: "jurado" },
-  ]);
+  await addRole(db, "borrador", rosa, "mentor");
+  expect(await rolesOf(db, rosa)).toEqual([{ slug: "abierto", role: "judge" }]);
 });
 
-test("organizers and voluntarios hold the door of their own event", async () => {
+test("organizers and volunteers hold the door of their own event", async () => {
   const cases = [
-    { role: "organiza", slug: "abierto", door: true },
-    { role: "voluntario", slug: "abierto", door: true },
+    { role: "organizer", slug: "abierto", door: true },
+    { role: "volunteer", slug: "abierto", door: true },
     { role: "mentor", slug: "abierto", door: false },
-    { role: "voluntario", slug: "borrador", door: false },
+    { role: "volunteer", slug: "borrador", door: false },
   ] as const;
 
   for (const c of cases) {
     const id = await person(`Door ${c.role} ${c.slug}`);
-    await addRole(DB, c.slug, id, c.role);
+    await addRole(db, c.slug, id, c.role);
 
-    expect({ ...c, door: await holdsDoor(DB, "abierto", id) }).toEqual(c);
+    expect({ ...c, door: await holdsDoor(db, "abierto", id) }).toEqual(c);
   }
 });
 
 test("an account lists its published roles, upcoming first, then the latest past", async () => {
   const id = await person("Sara");
-  await addRole(DB, "lejano", id, "ponente");
-  await addRole(DB, "pasado", id, "mentor");
-  await addRole(DB, "abierto", id, "voluntario");
-  await addRole(DB, "borrador", id, "organiza");
+  await addRole(db, "lejano", id, "speaker");
+  await addRole(db, "pasado", id, "mentor");
+  await addRole(db, "abierto", id, "volunteer");
+  await addRole(db, "borrador", id, "organizer");
 
   expect(
-    (await accountRoles(DB, id, now)).map((r) => [r.slug, r.role, r.past]),
+    (await accountRoles(db, id, now)).map((r) => [r.slug, r.role, r.past]),
   ).toEqual([
-    ["abierto", "voluntario", false],
-    ["lejano", "ponente", false],
+    ["abierto", "volunteer", false],
+    ["lejano", "speaker", false],
     ["pasado", "mentor", true],
   ]);
 });
@@ -107,7 +106,7 @@ test("the team search matches a name or an email, people with an email first", a
   await person("100% Real", "real@example.com");
 
   const names = async (query: string) =>
-    (await searchAccounts(DB, query)).map((a) => a.name);
+    (await searchAccounts(db, query)).map((a) => a.name);
 
   expect(await names("mart")).toEqual(["Martín Soto", "Martina Ruiz"]);
   expect(await names("MSOTO@")).toEqual(["Martín Soto"]);
@@ -117,24 +116,24 @@ test("the team search matches a name or an email, people with an email first", a
 
 test("proving a role holder's email moves the role to the account", async () => {
   const holder = await person("Teo", "teo@example.com");
-  await addRole(DB, "abierto", holder, "mentor");
-  await addRole(DB, "lejano", holder, "jurado");
+  await addRole(db, "abierto", holder, "mentor");
+  await addRole(db, "lejano", holder, "judge");
 
   const accountId = await person("Teo");
-  await addRole(DB, "abierto", accountId, "mentor");
-  const account = await findAccount(DB, accountId);
+  await addRole(db, "abierto", accountId, "mentor");
+  const account = await findAccount(db, accountId);
   if (!account) throw new Error("no account");
 
   expect(
-    await claimEmail(DB, account, "teo@example.com", now.toISOString()),
+    await claimEmail(db, account, "teo@example.com", now.toISOString()),
   ).toBe("changed");
-  expect(await rolesOf(DB, accountId)).toEqual(
+  expect(await rolesOf(db, accountId)).toEqual(
     expect.arrayContaining([
       { slug: "abierto", role: "mentor" },
-      { slug: "lejano", role: "jurado" },
+      { slug: "lejano", role: "judge" },
     ]),
   );
   expect(
-    (await eventRoles(DB, "abierto")).filter((r) => r.name === "Teo"),
+    (await eventRoles(db, "abierto")).filter((r) => r.name === "Teo"),
   ).toHaveLength(1);
 });

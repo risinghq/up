@@ -1,3 +1,5 @@
+import { sql } from "kysely";
+import type { Db } from "./db";
 import { firstName } from "./people";
 import { newToken } from "./tokens";
 
@@ -8,32 +10,31 @@ export type Share = { eventSlug: string; firstName: string };
  * gets none.
  */
 export async function shareTicket(
-  db: D1Database,
+  db: Db,
   token: string,
 ): Promise<string | null> {
   const row = await db
-    .prepare(
-      `UPDATE registrations SET share_id = COALESCE(share_id, ?)
-       WHERE id = ? AND status != 'cancelled'
-       RETURNING share_id AS shareId`,
-    )
-    .bind(newToken(), token)
-    .first<{ shareId: string }>();
-  return row?.shareId ?? null;
+    .updateTable("registrations")
+    .set({ share_id: sql`coalesce(share_id, ${newToken()})` })
+    .where("id", "=", token)
+    .where("status", "!=", "cancelled")
+    .returning("share_id")
+    .executeTakeFirst();
+  return row?.share_id ?? null;
 }
 
 /** What a share link shows: the event and the holder's first name only. */
 export async function findShare(
-  db: D1Database,
+  db: Db,
   shareId: string,
 ): Promise<Share | null> {
   const row = await db
-    .prepare(
-      `SELECT r.event_slug AS eventSlug, p.name
-       FROM registrations r JOIN people p ON p.id = r.person_id
-       WHERE r.share_id = ?`,
-    )
-    .bind(shareId)
-    .first<{ eventSlug: string; name: string }>();
-  return row && { eventSlug: row.eventSlug, firstName: firstName(row.name) };
+    .selectFrom("registrations as r")
+    .innerJoin("people as p", "p.id", "r.person_id")
+    .select(["r.event_slug as eventSlug", "p.name"])
+    .where("r.share_id", "=", shareId)
+    .executeTakeFirst();
+  return row
+    ? { eventSlug: row.eventSlug, firstName: firstName(row.name) }
+    : null;
 }

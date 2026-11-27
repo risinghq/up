@@ -10,9 +10,9 @@ export function certificateRoutes({ now }: Deps) {
   const routes = new Hono<AppEnv>();
 
   routes.get("/:id", async (c) => {
-    const certificate = await findCertificate(c.env.DB, c.req.param("id"));
+    const certificate = await findCertificate(c.var.db, c.req.param("id"));
     const event =
-      certificate && (await findEvent(c.env.DB, certificate.eventSlug));
+      certificate && (await findEvent(c.var.db, certificate.eventSlug));
     if (!certificate || !event || !issuesCertificates(event, now()))
       return notFound(c);
 

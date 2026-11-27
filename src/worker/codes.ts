@@ -1,3 +1,5 @@
+import { sql } from "kysely";
+import type { Db } from "./db";
 import { hashToken, newToken } from "./tokens";
 
 const MINUTE = 60 * 1000;
@@ -25,35 +27,37 @@ const sixDigits = () =>
  * inside the resend cooldown, so one address gets at most one code a minute.
  */
 export async function requestCode(
-  db: D1Database,
+  db: Db,
   email: string,
   personId: string | null,
   now: string,
 ): Promise<string | null> {
   const code = sixDigits();
   const row = await db
-    .prepare(
-      `INSERT INTO sign_in_codes (email, code_hash, person_id, attempts, sent_at, expires_at)
-       VALUES (?1, ?2, ?3, 0, ?4, ?5)
-       ON CONFLICT (email) DO UPDATE SET
-         code_hash = excluded.code_hash,
-         person_id = excluded.person_id,
-         attempts = 0,
-         sent_at = excluded.sent_at,
-         expires_at = excluded.expires_at,
-         verified_at = NULL
-       WHERE sign_in_codes.sent_at <= ?6
-       RETURNING email`,
-    )
-    .bind(
+    .insertInto("sign_in_codes")
+    .values({
       email,
-      await codeHash(email, code),
-      personId,
-      now,
-      later(now, CODE_MINUTES * MINUTE),
-      later(now, -RESEND_MS),
+      code_hash: await codeHash(email, code),
+      person_id: personId,
+      attempts: 0,
+      sent_at: now,
+      expires_at: later(now, CODE_MINUTES * MINUTE),
+    })
+    .onConflict((oc) =>
+      oc
+        .column("email")
+        .doUpdateSet({
+          code_hash: sql`excluded.code_hash`,
+          person_id: sql`excluded.person_id`,
+          attempts: 0,
+          sent_at: sql`excluded.sent_at`,
+          expires_at: sql`excluded.expires_at`,
+          verified_at: null,
+        })
+        .where("sign_in_codes.sent_at", "<=", later(now, -RESEND_MS)),
     )
-    .first();
+    .returning("email")
+    .executeTakeFirst();
   return row ? code : null;
 }
 
@@ -67,32 +71,30 @@ export type CodeCheck =
  * spends the code. A code past its tries or its time is gone.
  */
 export async function checkCode(
-  db: D1Database,
+  db: Db,
   email: string,
   code: string,
   personId: string | null,
   now: string,
 ): Promise<CodeCheck> {
   const row = await db
-    .prepare(
-      `UPDATE sign_in_codes SET attempts = attempts + 1
-       WHERE email = ? AND person_id IS ? AND verified_at IS NULL
-         AND expires_at > ? AND attempts < ?
-       RETURNING code_hash AS hash, attempts`,
-    )
-    .bind(email, personId, now, CODE_TRIES)
-    .first<{ hash: string; attempts: number }>();
+    .updateTable("sign_in_codes")
+    .set((eb) => ({ attempts: eb("attempts", "+", 1) }))
+    .where("email", "=", email)
+    .where(sql<boolean>`person_id is ${personId}`)
+    .where("verified_at", "is", null)
+    .where("expires_at", ">", now)
+    .where("attempts", "<", CODE_TRIES)
+    .returning(["code_hash", "attempts"])
+    .executeTakeFirst();
   if (!row) return { kind: "gone" };
 
-  if (row.hash !== (await codeHash(email, code.replace(/\s/g, "")))) {
+  if (row.code_hash !== (await codeHash(email, code.replace(/\s/g, "")))) {
     const left = CODE_TRIES - row.attempts;
     return left > 0 ? { kind: "wrong", left } : { kind: "gone" };
   }
 
-  await db
-    .prepare("DELETE FROM sign_in_codes WHERE email = ?")
-    .bind(email)
-    .run();
+  await db.deleteFrom("sign_in_codes").where("email", "=", email).execute();
   return { kind: "ok" };
 }
 
@@ -101,35 +103,40 @@ export async function checkCode(
  * returns the token the new-account form carries back.
  */
 export async function issueVerified(
-  db: D1Database,
+  db: Db,
   email: string,
   now: string,
 ): Promise<string> {
   const token = newToken();
   await db
-    .prepare(
-      `INSERT OR REPLACE INTO sign_in_codes (email, code_hash, attempts, sent_at, expires_at, verified_at)
-       VALUES (?1, ?2, 0, ?3, ?4, ?3)`,
-    )
-    .bind(email, await codeHash(email, token), now, later(now, VERIFIED_MS))
-    .run();
+    .insertInto("sign_in_codes")
+    .orReplace()
+    .values({
+      email,
+      code_hash: await codeHash(email, token),
+      attempts: 0,
+      sent_at: now,
+      expires_at: later(now, VERIFIED_MS),
+      verified_at: now,
+    })
+    .execute();
   return token;
 }
 
 /** Spends the token issueVerified made; true when the email is still proven. */
 export async function takeVerified(
-  db: D1Database,
+  db: Db,
   email: string,
   token: string,
   now: string,
 ): Promise<boolean> {
   const row = await db
-    .prepare(
-      `DELETE FROM sign_in_codes
-       WHERE email = ? AND code_hash = ? AND verified_at IS NOT NULL AND expires_at > ?
-       RETURNING email`,
-    )
-    .bind(email, await codeHash(email, token), now)
-    .first();
+    .deleteFrom("sign_in_codes")
+    .where("email", "=", email)
+    .where("code_hash", "=", await codeHash(email, token))
+    .where("verified_at", "is not", null)
+    .where("expires_at", ">", now)
+    .returning("email")
+    .executeTakeFirst();
   return Boolean(row);
 }

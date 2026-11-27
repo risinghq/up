@@ -8,6 +8,7 @@ import {
 } from "bun:test";
 import type { Miniflare } from "miniflare";
 import { createApp, type Env } from "../src/worker/app";
+import type { Db } from "../src/worker/db";
 import { findEvent } from "../src/worker/events";
 import { findAccount } from "../src/worker/google/account";
 import {
@@ -98,19 +99,20 @@ const google = fakeGoogle();
 const app = createApp({ now: () => now, fetch: google.fetch });
 
 let mf: Miniflare;
-let DB: D1Database;
+let db: Db;
 let env: Env;
 let cookie: string;
 
 beforeAll(async () => {
+  let DB: D1Database;
   let MEDIA: R2Bucket;
-  ({ mf, DB, MEDIA } = await migratedDb("google"));
+  ({ mf, DB, db, MEDIA } = await migratedDb("google"));
   env = testEnv(DB, MEDIA, {
     GOOGLE_CLIENT_ID: "client",
     GOOGLE_CLIENT_SECRET: "secret",
   });
-  cookie = await adminCookie(DB, now);
-  await seed(DB, [
+  cookie = await adminCookie(db, now);
+  await seed(db, [
     event({
       slug: "online",
       title: "Charla en línea",
@@ -167,7 +169,7 @@ function editForm(title: string) {
     place_name: "Google Meet",
     capacity: "1",
     status: "published",
-    kind: "charla",
+    kind: "talk",
     accent: "#2563eb",
     backdrop: "grid",
     font: "sans",
@@ -218,7 +220,7 @@ describe("connecting", () => {
   test("a return without the state cookie is refused", async () => {
     const res = await get("/admin/google/vuelta?code=good&state=forged");
     expect(location(res)).toBe("/admin/ajustes?google=error");
-    expect(await findAccount(DB)).toBeNull();
+    expect(await findAccount(db)).toBeNull();
   });
 
   test("consent stores the account and its refresh token", async () => {
@@ -240,7 +242,7 @@ describe("connecting", () => {
       cookie: `${cookie}; up_google_state=${state}`,
     });
     expect(location(back)).toBe("/admin/ajustes?google=conectado");
-    expect(await findAccount(DB)).toMatchObject({
+    expect(await findAccount(db)).toMatchObject({
       email: "rising@example.com",
       refreshToken: "r1",
     });
@@ -275,7 +277,7 @@ describe("the event's calendar copy", () => {
       dateTime: "2026-12-12T15:00:00-05:00",
       timeZone: "America/Lima",
     });
-    expect((await findEvent(DB, "online"))?.calendar).toEqual({
+    expect((await findEvent(db, "online"))?.calendar).toEqual({
       eventId: "g1",
       htmlUrl: "https://calendar.google.com/event?eid=g1",
       meetUrl: MEET,
@@ -314,7 +316,7 @@ describe("the event's calendar copy", () => {
     expect(location(res)).toBe(
       "/admin/eventos/online/editar?guardado&calendario=error",
     );
-    expect((await findEvent(DB, "online"))?.title).toBe("Charla otra");
+    expect((await findEvent(db, "online"))?.title).toBe("Charla otra");
     const editor = await open(
       "/admin/eventos/online/editar?guardado&calendario=error",
     );
@@ -329,14 +331,14 @@ describe("the event's calendar copy", () => {
   test("a copy deleted in Google is created again on sync", async () => {
     google.calendar.delete("g1");
     await post("/admin/eventos/online/calendario");
-    expect((await findEvent(DB, "online"))?.calendar?.eventId).toBe("g2");
+    expect((await findEvent(db, "online"))?.calendar?.eventId).toBe("g2");
   });
 
   test("removing it deletes the copy and forgets the link", async () => {
     const res = await post("/admin/eventos/online/calendario/quitar");
     expect(location(res)).toBe("/admin/eventos/online?calendario=quitado");
     expect(google.calendar.has("g2")).toBe(false);
-    expect((await findEvent(DB, "online"))?.calendar).toBeUndefined();
+    expect((await findEvent(db, "online"))?.calendar).toBeUndefined();
   });
 });
 
@@ -346,6 +348,6 @@ describe("disconnecting", () => {
     expect(location(res)).toBe("/admin/ajustes?google=desconectado");
     const revoke = google.calls.find((c) => c.url.pathname === "/revoke");
     expect(revoke?.body).toBe("token=r1");
-    expect(await findAccount(DB)).toBeNull();
+    expect(await findAccount(db)).toBeNull();
   });
 });

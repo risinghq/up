@@ -78,7 +78,7 @@ the person by the name or email of their account, and press **Agregar como …**
 next to them. For a person without an account, the tab shows the sign-in link to
 send them; search again once they have signed in. See [Roles](profile.md#roles).
 **Quitar** removes a role. One person can hold several roles at one event, each
-once. An organiza or voluntario opens the event's door from their account; see
+once. An organizer or volunteer opens the event's door from their account; see
 [Who works the door](check-in.md#who-works-the-door). Once the event is over,
 each person gets a **Certificado** link instead; see
 [Certificates](certificates.md#roles).

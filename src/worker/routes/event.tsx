@@ -29,7 +29,7 @@ import {
 
 /** An event the visitor may see: published, or any event for an admin. */
 export async function visibleEvent(c: Ctx, slug: string) {
-  const event = await findEvent(c.env.DB, slug);
+  const event = await findEvent(c.var.db, slug);
   return event && (event.status === "published" || c.get("admin"))
     ? event
     : null;
@@ -48,8 +48,8 @@ export function eventRoutes({ now, fetch: fetcher }: Deps) {
   ) => {
     const view = eventView(viewContext(c, now()), {
       event,
-      going: await goingCount(c.env.DB, event.slug),
-      team: await eventRoles(c.env.DB, event.slug),
+      going: await goingCount(c.var.db, event.slug),
+      team: await eventRoles(c.var.db, event.slug),
       form,
       notice,
       admin: Boolean(c.get("admin")),
@@ -97,7 +97,7 @@ export function eventRoutes({ now, fetch: fetcher }: Deps) {
           values: {
             name: account.name,
             email: account.email ?? "",
-            phone: (await phoneOf(c.env.DB, account.id)) ?? "",
+            phone: (await phoneOf(c.var.db, account.id)) ?? "",
           },
           errors: {},
         }
@@ -113,7 +113,7 @@ export function eventRoutes({ now, fetch: fetcher }: Deps) {
 
     const outcome = await signUp(
       {
-        db: c.env.DB,
+        db: c.var.db,
         fetch: fetcher,
         now: now(),
         turnstileSecret: humanCheck(c)?.secret ?? null,
@@ -134,7 +134,7 @@ export function eventRoutes({ now, fetch: fetcher }: Deps) {
         if (outcome.notify)
           await after(
             c,
-            notifyTickets(c.env, fetcher, outcome.notify, event, [
+            notifyTickets(c.var.db, c.env, fetcher, outcome.notify, event, [
               outcome.token,
             ]),
           );
@@ -142,7 +142,9 @@ export function eventRoutes({ now, fetch: fetcher }: Deps) {
       case "created":
         await after(
           c,
-          notifyTickets(c.env, fetcher, outcome.notify, event, [outcome.token]),
+          notifyTickets(c.var.db, c.env, fetcher, outcome.notify, event, [
+            outcome.token,
+          ]),
         );
         return c.redirect(`/entrada/${outcome.token}?nueva`, 303);
     }

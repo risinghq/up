@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { csrf } from "hono/csrf";
 import { DoorPage, type Arrival } from "../../pages/Door";
+import type { Db } from "../db";
 import { eventUrl, findEvent, hasEnded, type EventMeta } from "../events";
 import { emptyForm, parseRegistration, type FormState } from "../form";
 import { notifyTickets } from "../notify";
@@ -26,7 +27,7 @@ import { retry } from "./accountPages";
 
 /**
  * Whether the request may work the event's door: an admin always, an
- * account that organizes or volunteers at the event until it ends.
+ * account that holds a door role at the event until it ends.
  */
 export async function worksDoor(c: Ctx, event: EventMeta, now: Date) {
   if (c.get("admin")) return true;
@@ -34,10 +35,10 @@ export async function worksDoor(c: Ctx, event: EventMeta, now: Date) {
   const account = c.get("account");
   if (!account || hasEnded(event, now)) return false;
 
-  return holdsDoor(c.env.DB, event.slug, account.id);
+  return holdsDoor(c.var.db, event.slug, account.id);
 }
 
-/** The door of an event, at /puerta, for its organizers, voluntarios and the admins. */
+/** The door of an event, at /puerta, for its organizers, volunteers and the admins. */
 export function doorRoutes({ now, fetch: fetcher }: Deps) {
   const door = new Hono<AppEnv>();
   const iso = () => now().toISOString();
@@ -65,8 +66,8 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
       },
       <DoorPage
         event={event}
-        going={await goingCount(c.env.DB, event.slug)}
-        checkedIn={await checkedInCount(c.env.DB, event.slug)}
+        going={await goingCount(c.var.db, event.slug)}
+        checkedIn={await checkedInCount(c.var.db, event.slug)}
         open={!hasEnded(event, now())}
         form={form}
         arrival={arrival}
@@ -83,7 +84,7 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
   const withDoor =
     (handler: (c: Ctx, event: EventMeta) => Promise<Response>) =>
     async (c: Ctx) => {
-      const event = await findEvent(c.env.DB, c.req.param("slug") ?? "");
+      const event = await findEvent(c.var.db, c.req.param("slug") ?? "");
       if (event && (await worksDoor(c, event, now()))) return handler(c, event);
 
       if (event && !c.get("account") && c.req.method === "GET")
@@ -106,11 +107,13 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
       const parsed = parseRegistration(form, { ...event, questions: [] });
       if (!parsed.ok) return doorPage(c, event, parsed, null, 422);
 
-      const arrival = await walkIn(c.env.DB, event, parsed.value, iso());
+      const arrival = await walkIn(c.var.db, event, parsed.value, iso());
       if (arrival.kind === "created")
         await after(
           c,
-          notifyTickets(c.env, fetcher, "going", event, [arrival.ticket.token]),
+          notifyTickets(c.var.db, c.env, fetcher, "going", event, [
+            arrival.ticket.token,
+          ]),
         );
 
       return doorPage(c, event, emptyForm, arrival);
@@ -119,14 +122,12 @@ export function doorRoutes({ now, fetch: fetcher }: Deps) {
 
   // A scan opens the ticket page, whose Puerta panel posts here. The
   // registrants list posts here too, with `volver` naming it.
-  const checkInRoute = (
-    act: (db: D1Database, token: string) => Promise<void>,
-  ) =>
+  const checkInRoute = (act: (db: Db, token: string) => Promise<void>) =>
     withDoor(async (c, event) => {
-      const ticket = await findTicket(c.env.DB, c.req.param("token") ?? "");
+      const ticket = await findTicket(c.var.db, c.req.param("token") ?? "");
       if (ticket?.eventSlug !== event.slug) return notFound(c, "ticket");
 
-      await act(c.env.DB, ticket.token);
+      await act(c.var.db, ticket.token);
       const form = await c.req.formData();
       return c.redirect(
         form.get("volver") === "inscritos" && c.get("admin")

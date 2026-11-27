@@ -23,7 +23,7 @@ const blankEvent: Record<string, string> = {
   place_kind: "venue",
   place_name: "Facultad de Ciencias Físicas, UNMSM",
   place_address: "Av. Venezuela s/n, Cercado de Lima",
-  kind: "taller",
+  kind: "workshop",
   accent: "#2563eb",
   backdrop: "grid",
   font: "sans",
@@ -103,7 +103,7 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
       return editor(c, { form: parsed, registrations: 0 }, undefined, 422);
 
     const event = parsed.event;
-    if (await findEvent(c.env.DB, event.slug))
+    if (await findEvent(c.var.db, event.slug))
       return editor(
         c,
         {
@@ -115,7 +115,7 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
       );
 
     const cover = await placeCover(c.env.MEDIA, parsed, event.slug);
-    await saveEvent(c.env.DB, { ...event, coverKey: cover.key }, iso());
+    await saveEvent(c.var.db, { ...event, coverKey: cover.key }, iso());
     return c.redirect(`/admin/eventos/${event.slug}?creado`, 303);
   });
 
@@ -126,7 +126,7 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
         c,
         {
           form: { values: eventValues(event), errors: {} },
-          registrations: await registrationCount(c.env.DB, event.slug),
+          registrations: await registrationCount(c.var.db, event.slug),
           coverUrl: coverUrl(event),
           saved: c.req.query("guardado") !== undefined,
           calendarError: c.req.query("calendario") === "error",
@@ -139,7 +139,7 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
   routes.post(
     "/eventos/:slug/editar",
     withEvent(async (c, current) => {
-      const registrations = await registrationCount(c.env.DB, current.slug);
+      const registrations = await registrationCount(c.var.db, current.slug);
       const parsed = parseEventForm(
         await c.req.formData(),
         registrations ? current.slug : undefined,
@@ -150,7 +150,7 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
       const event = parsed.event;
       if (
         event.slug !== current.slug &&
-        (await findEvent(c.env.DB, event.slug))
+        (await findEvent(c.var.db, event.slug))
       )
         return editor(
           c,
@@ -170,16 +170,25 @@ export function editorRoutes({ now, fetch: fetcher }: Deps) {
         coverKey: cover.key,
         calendar: current.calendar,
       };
-      await saveEvent(c.env.DB, saved, iso(), current.slug);
+      await saveEvent(c.var.db, saved, iso(), current.slug);
       if (cover.stale) await c.env.MEDIA.delete(cover.stale);
 
       // A raised capacity seats the waitlist now, not at the next cancellation.
-      const seated = await fillSeats(c.env.DB, saved);
-      await after(c, notifyTickets(c.env, fetcher, "promoted", saved, seated));
+      const seated = await fillSeats(c.var.db, saved);
+      await after(
+        c,
+        notifyTickets(c.var.db, c.env, fetcher, "promoted", saved, seated),
+      );
 
       const synced =
         !saved.calendar ||
-        (await syncCalendar(c.env, fetcher, saved, eventUrl(site(c), saved)));
+        (await syncCalendar(
+          c.var.db,
+          c.env,
+          fetcher,
+          saved,
+          eventUrl(site(c), saved),
+        ));
       return c.redirect(
         `/admin/eventos/${event.slug}/editar?guardado${synced ? "" : "&calendario=error"}`,
         303,
