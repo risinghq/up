@@ -20,6 +20,7 @@ const reservedSlugs = new Set([
   "c",
   "door",
   "entrada",
+  "entrar",
   "media",
   "p",
   "privacidad",

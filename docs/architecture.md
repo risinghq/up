@@ -100,7 +100,7 @@ events where the person checked in, and the roles the person holds with
 
 `legacyRoutes` in
 [`src/worker/routes/legacy.ts`](../src/worker/routes/legacy.ts) answers the
-Spanish paths of links already sent with a 301: `/entrada/<token>`,
+Spanish paths of links already sent with a 301: `/entrada/<token>`, `/entrar`,
 `/privacidad` and `/<slug>/voy/<id>`.
 
 `checkIn` gives the registration a random `certificate_id` unless it has one,
